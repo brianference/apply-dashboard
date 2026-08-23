@@ -1,0 +1,27 @@
+{
+  "tool": "axe-core",
+  "engine": "chromium",
+  "measuredAt": "2026-08-22T23:59:54.424Z",
+  "runs": {
+    "light-375": {
+      "violations": 0,
+      "passes": 22,
+      "detail": []
+    },
+    "light-1280": {
+      "violations": 0,
+      "passes": 22,
+      "detail": []
+    },
+    "dark-375": {
+      "violations": 0,
+      "passes": 22,
+      "detail": []
+    },
+    "dark-1280": {
+      "violations": 0,
+      "passes": 22,
+      "detail": []
+    }
+  }
+}
