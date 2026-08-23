@@ -6,10 +6,11 @@
 <title>Applications</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
 <link rel="icon" href="01-light-32.png" type="image/png" media="(prefers-color-scheme: light)"/>
 <link rel="icon" href="01-dark-32.png" type="image/png" media="(prefers-color-scheme: dark)"/>
 <style>
+  /* Steel Mist (palette-04) - design-refs/palettes/palettes.json */
   :root {
     --bg: #eef1f4;
     --surface: #ffffff;
@@ -20,12 +21,16 @@
     --primary-contrast: #ffffff;
     --success: #1b5e48;
     --success-bg: rgba(27, 94, 72, 0.12);
-    --primary-soft: rgba(44, 82, 102, 0.12);
-    --shadow: 0 1px 2px rgba(26, 35, 43, .06), 0 4px 12px rgba(26, 35, 43, .04);
-    --radius: 12px;
+    --warn: #8a4b12;
+    --warn-bg: rgba(138, 75, 18, 0.12);
+    --primary-soft: rgba(44, 82, 102, 0.10);
+    --row-hover: rgba(44, 82, 102, 0.055);
+    --shadow: 0 1px 2px rgba(26,35,43,.06), 0 4px 12px rgba(26,35,43,.04);
+    --radius: 10px;
+    color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #0e1317;
       --surface: #171e24;
       --text: #e4eaee;
@@ -34,277 +39,698 @@
       --primary: #7aa0b4;
       --primary-contrast: #0e1317;
       --success: #6bcb9a;
-      --success-bg: rgba(107, 203, 154, 0.14);
-      --primary-soft: rgba(122, 160, 180, 0.16);
+      --success-bg: rgba(107,203,154,.14);
+      --warn: #e0a566;
+      --warn-bg: rgba(224,165,102,.14);
+      --primary-soft: rgba(122,160,180,.14);
+      --row-hover: rgba(122,160,180,.07);
       --shadow: 0 1px 2px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.25);
+      color-scheme: dark;
     }
-    .logo-light { display: none; }
-    .logo-dark { display: inline-block; }
   }
-  .logo-dark { display: none; }
+  :root[data-theme="dark"] {
+    --bg: #0e1317; --surface: #171e24; --text: #e4eaee; --muted: #90a0aa;
+    --border: #2a353c; --primary: #7aa0b4; --primary-contrast: #0e1317;
+    --success: #6bcb9a; --success-bg: rgba(107,203,154,.14);
+    --warn: #e0a566; --warn-bg: rgba(224,165,102,.14);
+    --primary-soft: rgba(122,160,180,.14); --row-hover: rgba(122,160,180,.07);
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+
   * { box-sizing: border-box; }
   html, body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 14px/1.45 "IBM Plex Sans", system-ui, sans-serif;
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.4 "IBM Plex Sans", system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
   }
   a { color: var(--primary); text-decoration: none; }
   a:hover { text-decoration: underline; }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 12px; }
+
+  /* ---- compact sticky header ---- */
   header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 18px 20px 16px;
-    position: sticky; top: 0; z-index: 10;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 20;
   }
-  .wrap { max-width: 1120px; margin: 0 auto; }
-  .brand {
-    display: flex; align-items: center; gap: 12px;
+  .bar { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+  .brand { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .brand img { width: 26px; height: 26px; display: block; }
+  h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
+  .tally {
+    display: flex; gap: 4px; align-items: baseline;
+    font: 500 12px/1 "IBM Plex Mono", ui-monospace, monospace; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
   }
-  .brand img.mark {
-    width: 40px; height: 40px; display: block;
+  .tally b { color: var(--text); font-weight: 600; }
+  .spacer { flex: 1 1 auto; }
+  .iconbtn {
+    appearance: none; background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; width: 30px; height: 30px; cursor: pointer; color: var(--muted);
+    font-size: 14px; line-height: 1; display: grid; place-items: center; flex: 0 0 auto;
   }
-  .brand img.favicon {
-    width: 32px; height: 32px; display: none;
-  }
-  @media (max-width: 480px) {
-    .brand img.mark { display: none; }
-    .brand img.favicon { display: block; }
-  }
-  h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-family: "IBM Plex Sans", sans-serif; }
-  .sub { color: var(--muted); margin-top: 8px; font-size: 13px; }
-  .stats { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
-  .stat {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
-    min-width: 112px; padding: 10px 14px;
-  }
-  .stat b { display: block; font-size: 22px; line-height: 1.1; color: var(--text); }
-  .stat span { color: var(--muted); font-size: 12px; }
-  .filters { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .iconbtn:hover { color: var(--text); border-color: var(--primary); }
+
+  .toolbar { display: flex; gap: 6px; align-items: center; padding: 0 0 8px; flex-wrap: wrap; }
   .search {
-    flex: 1 1 240px; min-width: 180px; max-width: 420px;
-    padding: 9px 12px; border: 1px solid var(--border); border-radius: 24px;
-    font: 13px inherit; background: var(--surface); color: var(--text);
+    flex: 1 1 200px; min-width: 150px; max-width: 380px; height: 30px;
+    padding: 0 10px; border: 1px solid var(--border); border-radius: 8px;
+    font: 13px inherit; background: var(--bg); color: var(--text);
   }
   .search:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; flex: 1 1 100%; }
+  @media (min-width: 861px) { .chips { flex: 0 1 auto; } }
   .chip {
-    appearance: none; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 24px; padding: 7px 14px; font: 13px/1 inherit; color: var(--text);
-    cursor: pointer;
+    appearance: none; background: transparent; border: 1px solid var(--border);
+    border-radius: 7px; padding: 0 9px; height: 30px; font: 500 12.5px/1 inherit;
+    color: var(--muted); cursor: pointer; white-space: nowrap;
   }
+  .chip:hover { color: var(--text); }
   .chip[aria-pressed="true"] {
-    border-color: var(--primary); color: var(--primary); background: var(--primary-soft);
-    font-weight: 600;
+    border-color: var(--primary); color: var(--primary);
+    background: var(--primary-soft); font-weight: 600;
   }
-  main { max-width: 1120px; margin: 18px auto 72px; padding: 0 16px; }
-  h2 { font-size: 18px; margin: 22px 0 10px; display: flex; gap: 8px; align-items: baseline; font-weight: 600; }
-  h2 .n { color: var(--muted); font-weight: 500; font-size: 14px; }
-  .empty {
-    background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius);
-    padding: 18px; color: var(--muted);
+  .sortsel {
+    height: 30px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--bg); color: var(--text); font: 500 12.5px inherit; padding: 0 6px; cursor: pointer;
   }
-  .err { color: #8b2e1a; margin: 8px 0 0; font-size: 13px; }
-  @media (prefers-color-scheme: dark) { .err { color: #e8a070; } }
-  .grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  @media (min-width: 760px) {
-    .lanes { display: grid; grid-template-columns: 1.15fr .85fr; gap: 20px; align-items: start; }
+  .err { color: #8b2e1a; margin: 0 0 8px; font-size: 12.5px; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .err { color: #e8a070; } }
+  :root[data-theme="dark"] .err { color: #e8a070; }
+
+  /* ---- sections ---- */
+  main { padding-bottom: 56px; }
+  section { margin-top: 12px; }
+  .sechead {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    appearance: none; background: transparent; border: 0; cursor: pointer;
+    padding: 4px 2px; color: var(--text); font: 600 13px/1 inherit;
+    text-transform: uppercase; letter-spacing: .05em;
   }
-  .card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    box-shadow: var(--shadow); padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 8px;
+  .sechead .n {
+    font: 600 11px/1 "IBM Plex Mono", monospace; color: var(--muted);
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 7px;
   }
-  .card-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-  .company { font-size: 13px; color: var(--text); }
-  .title { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
-  .loc { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 4px; }
-  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pill {
-    display: inline-flex; align-items: center; gap: 4px;
-    border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600;
-    background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+  .sechead .caret { color: var(--muted); font-size: 10px; transition: transform .12s; }
+  .sechead[aria-expanded="false"] .caret { transform: rotate(-90deg); }
+  .sechead .hint { font: 400 11px/1 inherit; color: var(--muted); text-transform: none; letter-spacing: 0; }
+
+  .rows {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    margin-top: 6px; overflow: hidden;
   }
-  .pill.match, .pill.submitted { background: var(--success-bg); color: var(--success); border-color: transparent; }
-  .pill.queued { background: var(--bg); color: var(--muted); }
-  .pill.source { font-weight: 500; color: var(--muted); }
-  .card-foot {
-    display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 2px;
+  .rows[hidden] { display: none; }
+
+  /* ---- the compact row ---- */
+  .row {
+    display: grid; align-items: center; gap: 10px;
+    grid-template-columns: 42px minmax(0,1fr) 96px 150px 82px;
+    padding: 0 10px; height: 40px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
   }
+  /* desktop: .meta dissolves so its two children become real grid columns */
+  .meta { display: contents; }
+  .conly { display: none; }
+  .row:first-child { border-top: 0; }
+  .row:hover { background: var(--row-hover); }
+  .pct {
+    font: 600 12px/1 "IBM Plex Mono", monospace; text-align: right;
+    color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .pct.hi { color: var(--success); }
+  .main { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+  .ttl {
+    font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--text); min-width: 0;
+  }
+  .co { color: var(--muted); font-size: 12.5px; white-space: nowrap; flex: 0 0 auto; max-width: 34%; overflow: hidden; text-overflow: ellipsis; }
+  .who { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ats {
+    font: 600 10.5px/1 "IBM Plex Mono", monospace; letter-spacing: .03em;
+    border-radius: 5px; padding: 4px 6px; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border: 1px solid transparent;
+  }
+  .ats.direct { color: var(--success); background: var(--success-bg); }
+  .ats.wall   { color: var(--warn);    background: var(--warn-bg); }
+  .ats.board  { color: var(--muted);   background: var(--bg); border-color: var(--border); }
+  .act { display: flex; justify-content: flex-end; gap: 4px; }
   .apply {
-    display: inline-flex; align-items: center; gap: 6px;
-    color: var(--primary); font-weight: 650; font-size: 13px;
+    appearance: none; cursor: pointer; border: 1px solid var(--primary);
+    background: var(--primary); color: var(--primary-contrast);
+    border-radius: 7px; height: 26px; padding: 0 10px;
+    font: 600 12px/1 inherit; white-space: nowrap;
   }
-  .when { color: var(--muted); font-size: 12px; }
-  .new { color: var(--success); font-size: 12px; font-weight: 700; }
+  .apply:hover { filter: brightness(1.08); }
+  .apply.ghost { background: transparent; color: var(--primary); }
+  .apply.done {
+    background: var(--success-bg); border: 1px solid transparent; color: var(--success);
+    cursor: default; font: 600 12px/26px inherit; padding: 0 10px; border-radius: 7px;
+    display: inline-block; height: 26px;
+  }
+  .apply[disabled] { opacity: .55; cursor: not-allowed; }
+  .confirm {
+    display: inline-flex; align-items: center; gap: 4px;
+    font: 600 11px/1 inherit; color: var(--muted); white-space: nowrap;
+  }
+  .confirm button {
+    appearance: none; cursor: pointer; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text);
+    border-radius: 6px; height: 24px; padding: 0 7px; font: 600 11.5px/1 inherit;
+  }
+  .confirm .yes { border-color: var(--success); color: var(--success); background: var(--success-bg); }
+  .confirm .no:hover { border-color: var(--muted); }
+  .empty { padding: 14px; color: var(--muted); font-size: 13px; }
+
+  /* ---- mobile: two-line row, still compact ---- */
+  @media (max-width: 860px) {
+    .row {
+      grid-template-columns: 40px minmax(0,1fr) auto;
+      grid-template-areas: "pct main act" "pct meta act";
+      height: auto; row-gap: 1px; padding: 7px 10px; column-gap: 8px;
+    }
+    .pct { grid-area: pct; align-self: center; }
+    .main { grid-area: main; display: block; min-width: 0; }
+    .ttl { display: block; max-width: 100%; }
+    .co { display: none; }
+    .meta {
+      grid-area: meta; display: flex; gap: 6px; align-items: center;
+      min-width: 0; font-size: 11.5px; color: var(--muted);
+    }
+    .conly { display: inline; }
+    .act { grid-area: act; align-self: center; }
+    .ats { padding: 2px 5px; font-size: 10px; flex: 0 0 auto; }
+  }
+  @media (max-width: 560px) {
+    .tally { display: none; }
+  }
+  @media (max-width: 400px) {
+    h1 { font-size: 15px; }
+    .row { grid-template-columns: 34px minmax(0,1fr) auto; }
+  }
+
+  .legend {
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+    margin: 14px 2px 0; font-size: 11.5px; color: var(--muted);
+  }
+  .legend span.pair { display: inline-flex; align-items: center; gap: 5px; }
+  .legend .ats { display: inline-block; }
+  .toast {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 9px 15px;
+    border-radius: 8px; font-size: 13px; font-weight: 500; z-index: 60;
+    box-shadow: 0 6px 20px rgba(0,0,0,.28); max-width: 92vw;
+  }
+  .toast[hidden] { display: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
 <body>
 <header>
   <div class="wrap">
-    <div class="brand">
-      <img class="mark" src="mark-01.png" alt="" width="40" height="40"/>
-      <img class="favicon logo-light" src="01-light-32.png" alt="" width="32" height="32"/>
-      <img class="favicon logo-dark" src="01-dark-32.png" alt="" width="32" height="32"/>
-      <h1>Applications</h1>
+    <div class="bar">
+      <div class="brand">
+        <img src="mark-01.png" alt="" width="26" height="26"/>
+        <h1>Applications</h1>
+      </div>
+      <div class="tally" id="tally">loading&#8230;</div>
+      <div class="spacer"></div>
+      <button type="button" class="iconbtn" id="token" title="Set the write token so Apply records to D1" aria-label="Set write token">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
+          <circle cx="5.4" cy="10.6" r="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M7.6 8.4 13 3M11 5l1.6 1.6M9.6 6.4l1.6 1.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button type="button" class="iconbtn" id="theme" title="Toggle light / dark" aria-label="Toggle light or dark theme">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
+          <circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/>
+        </svg>
+      </button>
     </div>
-    <div class="sub" id="meta">Live queue from D1 · rows render only after /api/jobs</div>
-    <div class="stats">
-      <div class="stat"><b id="stat-sub">—</b><span>Submitted</span></div>
-      <div class="stat"><b id="stat-ft">—</b><span>Full-time</span></div>
-      <div class="stat"><b id="stat-pt">—</b><span>PT/C2C</span></div>
-    </div>
-    <div class="filters">
-      <input class="search" id="q" type="search" placeholder="Search company, title, URL, source, status" autocomplete="off"/>
-      <div class="chips" role="group" aria-label="Lane filters">
+    <div class="toolbar">
+      <input class="search" id="q" type="search" placeholder="Search title, company, source" autocomplete="off" aria-label="Search jobs"/>
+      <select class="sortsel" id="sort" aria-label="Sort order">
+        <option value="applyable">Easiest to apply</option>
+        <option value="match">Match %</option>
+        <option value="company">Company</option>
+        <option value="recent">Newest</option>
+      </select>
+      <div class="chips" role="group" aria-label="Filters">
         <button type="button" class="chip" data-kind="all" aria-pressed="true">All</button>
-        <button type="button" class="chip" data-kind="submitted" aria-pressed="false">Submitted</button>
         <button type="button" class="chip" data-kind="ft" aria-pressed="false">Full-time</button>
         <button type="button" class="chip" data-kind="ptc2c" aria-pressed="false">PT/C2C</button>
+        <button type="button" class="chip" data-kind="submitted" aria-pressed="false">Applied</button>
+        <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="Postings on a real ATS - no login wall, no captcha">Direct ATS <span id="ndirect"></span></button>
       </div>
     </div>
     <p class="err" id="err" hidden></p>
   </div>
 </header>
-<main>
-  <h2>Submitted <span class="n" id="count-sub">0</span></h2>
-  <div class="grid" id="sub-box"><div class="empty">Loading…</div></div>
-  <div class="lanes">
-    <section>
-      <h2>Full-time <span class="n" id="count-ft">0</span></h2>
-      <div class="grid" id="ft-box"><div class="empty">Loading…</div></div>
-    </section>
-    <section>
-      <h2>PT/C2C <span class="n" id="count-pt">0</span></h2>
-      <div class="grid" id="pt-box"><div class="empty">Loading…</div></div>
-    </section>
-  </div>
+
+<main class="wrap" id="main">
+  <div class="empty" id="boot">Loading queue&#8230;</div>
 </main>
+
+<div class="wrap">
+  <p class="legend" id="legend" hidden>
+    <span class="pair"><span class="ats direct">GREENHOUSE</span> direct ATS &#8212; the real form, no wall</span>
+    <span class="pair"><span class="ats wall">INDEED</span> login or captcha wall likely</span>
+    <span class="pair"><span class="ats board">NOMADS</span> aggregator &#8212; redirects to the real form</span>
+  </p>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<span class="sr" id="live" role="status" aria-live="polite"></span>
+
 <script>
 (function () {
-  const API_CANDIDATES = (function () {
-    const here = location.origin;
-    const list = [];
-    if (here && here !== "null" && here.indexOf("file:") !== 0) list.push(here + "/api/jobs");
-    list.push("https://apply-dashboard.pages.dev/api/jobs");
-    return list;
-  })();
+  "use strict";
 
-  let all = [];
-  let kind = "all";
+  /* ---------- theme ---------- */
+  var root = document.documentElement;
+  try {
+    var saved = localStorage.getItem("apply-theme");
+    if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
+  } catch (e) {}
+  document.getElementById("theme").addEventListener("click", function () {
+    var cur = root.getAttribute("data-theme");
+    if (!cur) cur = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    var next = cur === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("apply-theme", next); } catch (e) {}
+  });
 
-  function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  /* ---------- applyability, derived from the posting host ----------
+     direct = a real ATS form opens. board = aggregator that redirects.
+     wall   = a login or captcha gate is likely before the form.        */
+  var ATS = [
+    [/(^|\.)ashbyhq\.com$/,                     "ASHBY",        "direct"],
+    [/(^|\.)greenhouse\.io$/,                   "GREENHOUSE",   "direct"],
+    [/(^|\.)lever\.co$/,                        "LEVER",        "direct"],
+    [/(^|\.)workable\.com$/,                    "WORKABLE",     "direct"],
+    [/(^|\.)smartrecruiters\.com$/,             "SMARTREC",     "direct"],
+    [/(^|\.)breezy\.hr$/,                       "BREEZY",       "direct"],
+    [/(^|\.)recruitee\.com$/,                   "RECRUITEE",    "direct"],
+    [/(^|\.)applytojob\.com$/,                  "JAZZHR",       "direct"],
+    [/(^|\.)teamtailor\.com$/,                  "TEAMTAILOR",   "direct"],
+    [/(^|\.)rippling\.com$/,                    "RIPPLING",     "direct"],
+    [/myworkdayjobs\.com$|(^|\.)workday\.com$/, "WORKDAY",      "direct"],
+    [/(^|\.)icims\.com$/,                       "ICIMS",        "direct"],
+    /* wall = verified in a real Chromium page load on 2026-08-22 to gate the
+       posting behind a sign-in or a bot-protection interstitial.
+       evidence: evidence/link-check.json */
+    [/(^|\.)indeed\.com$/,                      "INDEED",       "wall"],
+    [/(^|\.)linkedin\.com$/,                    "LINKEDIN",     "wall"],
+    [/(^|\.)glassdoor\.com$/,                   "GLASSDOOR",    "wall"],
+    [/(^|\.)ziprecruiter\.com$/,                "ZIPRECRUITER", "wall"],
+    [/(^|\.)monster\.com$/,                     "MONSTER",      "wall"],
+    [/(^|\.)dice\.com$/,                        "DICE",         "wall"],
+    [/(^|\.)gusto\.com$/,                       "GUSTO",        "wall"],
+    [/(^|\.)startup\.jobs$/,                    "STARTUP.JOBS", "wall"],
+    [/(^|\.)workingnomads\.com$/,               "NOMADS",       "board"],
+    [/(^|\.)wellfound\.com$|(^|\.)angel\.co$/,  "WELLFOUND",    "board"],
+    [/(^|\.)builtin\.com$/,                     "BUILTIN",      "board"],
+    [/(^|\.)trueup\.io$/,                       "TRUEUP",       "board"],
+    [/(^|\.)remotive\.com$/,                    "REMOTIVE",     "board"],
+    [/(^|\.)arbeitnow\.com$/,                   "ARBEITNOW",    "board"],
+    [/(^|\.)fractionaljobs\.io$/,               "FRACTIONAL",   "board"],
+    [/(^|\.)datafirstjobs\.com$/,               "DATAFIRST",    "board"],
+    [/(^|\.)totalh\.net$|(^|\.)liveblog365\.com$|(^|\.)66ghz\.com$|(^|\.)zya\.me$/,
+                                                "SCRAPED",      "board"]
+  ];
+  var RANK = { direct: 0, board: 1, wall: 2, dead: 4 };
+  /* subdomains that say nothing about who the employer is */
+  var GENERIC = /^(jobs?|careers?|apply|boards?|job-boards?|recruiting|hire|talent|work|www)$/;
+  function hostOf(u) {
+    try { return new URL(u).hostname.toLowerCase().replace(/^www\./, ""); } catch (e) { return ""; }
   }
+  function atsOf(job) {
+    var h = hostOf(job.url);
+    if (!h) return { label: "NO URL", cls: "board", rank: 3 };
+    /* a link-check that actually loaded the page beats any host guess */
+    if (job.link_status === "dead" || job.link_status === "gone") {
+      return { label: "DEAD", cls: "wall", rank: RANK.dead, dead: true };
+    }
+    for (var i = 0; i < ATS.length; i++) {
+      if (ATS[i][0].test(h)) return { label: ATS[i][1], cls: ATS[i][2], rank: RANK[ATS[i][2]] };
+    }
+    /* an unrecognised host is nearly always the employer's own careers page,
+       which is a real form. Label it by the meaningful part of the domain,
+       not by a generic "jobs." / "careers." subdomain. */
+    var parts = h.split(".");
+    var i2 = 0;
+    while (i2 < parts.length - 2 && GENERIC.test(parts[i2])) i2++;
+    return { label: parts[i2].slice(0, 11).toUpperCase(), cls: "direct", rank: 0 };
+  }
+
+  /* ---------- repair mojibake (UTF-8 bytes that were read as cp1252 upstream) ---------- */
+  var MOJI = [
+    ["â€“", "–"],
+    ["â€”", "—"],
+    ["â€™", "’"],
+    ["â€˜", "‘"],
+    ["â€œ", "“"],
+    ["â€", "”"],
+    ["â€¢", "•"],
+    ["Â ", " "]
+  ];
+  function clean(s) {
+    if (s == null) return "";
+    s = String(s);
+    for (var i = 0; i < MOJI.length; i++) s = s.split(MOJI[i][0]).join(MOJI[i][1]);
+    return s;
+  }
+  function esc(s) {
+    return clean(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function shortLoc(s) {
+    var t = clean(s).replace(/\s+/g, " ").trim();
+    if (!t) return "";
+    t = t.replace(/^fully\s+remote\b/i, "Remote");
+    /* "Remote USA" -> "Remote · USA", but never touch "Remote-Friendly",
+       and never produce a doubled separator out of "Remote - USA" / "Remote, US". */
+    t = t.replace(/^remote\s*[,|/-]?\s+(?=\S)/i, "Remote · ");
+    t = t.replace(/·\s*[-,|/]\s*/, "· ");
+    if (t.length > 32) t = t.slice(0, 31) + "…";
+    return t;
+  }
+  function shortDate(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso).slice(0, 10);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  /* ---------- state ---------- */
+  var all = [], kind = "all", sortBy = "applyable";
+  var localApplied = {};
+  try { localApplied = JSON.parse(localStorage.getItem("apply-applied") || "{}") || {}; } catch (e) {}
+  /* rows whose posting has been opened but whose outcome is not yet confirmed */
+  var pending = {};
+  try { pending = JSON.parse(sessionStorage.getItem("apply-pending") || "{}") || {}; } catch (e) {}
+  function savePending() {
+    try { sessionStorage.setItem("apply-pending", JSON.stringify(pending)); } catch (e) {}
+  }
+
   function laneOf(j) {
-    const l = (j.lane || "").toLowerCase();
+    var l = String(j.lane || "").toLowerCase();
     if (l === "submitted") return "submitted";
     if (l === "ptc2c" || l === "pt" || l === "c2c") return "ptc2c";
     return "ft";
   }
-  function salaryText(j) {
-    const s = j.salary || j.pay || j.comp || "";
-    return s ? String(s) : "";
+  function keyOf(j) { return String(j.dedupe_key || j.url || j.title || ""); }
+  function isApplied(j) {
+    return !!j.submitted_at || String(j.status || "").toLowerCase() === "submitted"
+      || laneOf(j) === "submitted" || !!localApplied[keyOf(j)];
   }
-  function cardHtml(j) {
-    const url = j.url || "";
-    const pct = j.match_pct;
-    const loc = j.work_type || "";
-    const salary = salaryText(j);
-    const status = (j.status || "").toLowerCase();
-    const submitted = !!j.submitted_at || status === "submitted" || laneOf(j) === "submitted";
-    const matchGood = pct != null && Number(pct) >= 50;
-    const pills = [];
-    if (salary) pills.push('<span class="pill' + (matchGood ? ' match' : '') + '">' + esc(salary) + '</span>');
-    if (pct != null && pct !== "") {
-      pills.push('<span class="pill' + (matchGood ? ' match' : '') + '">' + esc(pct) + '% match' + (matchGood ? ' ✓' : '') + '</span>');
-    }
-    if (submitted) pills.push('<span class="pill submitted">Submitted</span>');
-    else if (status) pills.push('<span class="pill queued">' + esc(j.status) + '</span>');
-    if (j.source) pills.push('<span class="pill source">' + esc(j.source) + '</span>');
-    const when = j.submitted_at
-      ? '<span class="when">Submitted ' + esc(j.submitted_at) + '</span>'
-      : (j.posted ? '<span class="when">' + esc(j.posted) + '</span>' : '<span class="when"></span>');
-    const cta = url
-      ? '<a class="apply" href="' + esc(url) + '" target="_blank" rel="noopener">View posting →</a>'
-      : '<span class="apply" style="color:var(--muted)">No posting URL</span>';
-    return '<article class="card">' +
-      '<div class="card-top"><div>' +
-        (submitted ? '<div class="new">Applied</div>' : '') +
-        '<h3 class="title">' + esc(j.title || "Untitled") + '</h3>' +
-        '<div class="company">' + esc(j.company || "") + '</div>' +
-        (loc ? '<div class="loc">📍 ' + esc(loc) + '</div>' : '') +
-      '</div></div>' +
-      '<div class="pills">' + pills.join("") + '</div>' +
-      '<div class="card-foot">' + cta + when + '</div>' +
-    '</article>';
-  }
-  function listHtml(jobs, emptyMsg) {
-    if (!jobs.length) return '<div class="empty">' + emptyMsg + '</div>';
-    return jobs.map(cardHtml).join("");
-  }
-  function render() {
-    const s = (document.getElementById("q").value || "").trim().toLowerCase();
-    const vis = all.filter(j => {
-      const lane = laneOf(j);
-      if (kind !== "all" && kind !== lane) return false;
-      if (!s) return true;
-      const hay = [j.company, j.title, j.url, j.source, j.status, j.lane, j.work_type, j.salary].join(" ").toLowerCase();
-      return hay.indexOf(s) !== -1;
-    });
-    const sub = vis.filter(j => laneOf(j) === "submitted");
-    const ft = vis.filter(j => laneOf(j) === "ft");
-    const pt = vis.filter(j => laneOf(j) === "ptc2c");
-    document.getElementById("stat-sub").textContent = all.filter(j => laneOf(j)==="submitted").length;
-    document.getElementById("stat-ft").textContent = all.filter(j => laneOf(j)==="ft").length;
-    document.getElementById("stat-pt").textContent = all.filter(j => laneOf(j)==="ptc2c").length;
-    document.getElementById("count-sub").textContent = sub.length;
-    document.getElementById("count-ft").textContent = ft.length;
-    document.getElementById("count-pt").textContent = pt.length;
-    document.getElementById("sub-box").innerHTML = listHtml(sub, "None — no submitted jobs in D1.");
-    document.getElementById("ft-box").innerHTML = listHtml(ft, "No full-time rows.");
-    document.getElementById("pt-box").innerHTML = listHtml(pt, "No PT/C2C rows.");
+  function bucketOf(j) { return isApplied(j) ? "submitted" : laneOf(j); }
+
+  function toast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.hidden = true; }, 3400);
   }
 
-  async function load() {
-    const err = document.getElementById("err");
-    let last = null;
-    for (const endpoint of API_CANDIDATES) {
-      try {
-        const res = await fetch(endpoint, { cache: "no-store" });
-        if (!res.ok) { last = "HTTP " + res.status + " " + endpoint; continue; }
-        const data = await res.json();
-        all = Array.isArray(data.jobs) ? data.jobs : [];
-        document.getElementById("meta").textContent =
-          "Live · " + all.length + " D1 rows";
-        err.hidden = true;
-        render();
-        return;
-      } catch (e) {
-        last = String(e && e.message ? e.message : e);
-      }
+  /* ---------- the apply packet put on the clipboard ---------- */
+  function packet(j) {
+    return [
+      clean(j.title) + " — " + clean(j.company),
+      j.url || "",
+      j.work_type ? "Location: " + clean(j.work_type) : "",
+      "Brian Ference · brianference@protonmail.com",
+      "Source: " + clean(j.source || "") + (j.match_pct != null ? " · match " + j.match_pct + "%" : "")
+    ].filter(Boolean).join("\n");
+  }
+  function copy(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return new Promise(function (res, rej) {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+      ok ? res() : rej(new Error("clipboard blocked"));
+    });
+  }
+
+  /* ---------- one compact row ---------- */
+  function rowHtml(j) {
+    var a = atsOf(j), applied = isApplied(j);
+    var pct = (j.match_pct == null || j.match_pct === "") ? "" : j.match_pct + "%";
+    var hi = j.match_pct != null && Number(j.match_pct) >= 70;
+    var loc = shortLoc(j.work_type);
+    var k = esc(keyOf(j));
+    var btn;
+    if (applied) {
+      btn = '<span class="apply done">Applied'
+        + (shortDate(j.submitted_at) ? " " + esc(shortDate(j.submitted_at)) : "") + "</span>";
+    } else if (pending[k]) {
+      /* opened, not yet confirmed. Opening a form is not applying, so the row
+         waits for the owner to say whether they actually submitted it. */
+      btn = '<span class="confirm">Sent?'
+        + '<button type="button" class="yes" data-yes="' + k + '" title="Yes - record it as submitted">Yes</button>'
+        + '<button type="button" class="no" data-no="' + k + '" title="No - put it back in the queue">No</button>'
+        + "</span>";
+    } else {
+      btn = '<button type="button" class="apply' + (a.cls === "direct" ? "" : " ghost") + '" data-k="' + k + '"'
+        + (j.url ? "" : " disabled") + ' title="' + (a.cls === "wall"
+            ? "Opens " + esc(a.label) + " - expect a sign-in or bot-check first"
+            : "Opens the " + esc(a.label) + " posting and copies your details")
+        + '">' + (a.cls === "direct" ? "Apply" : "Open") + "</button>";
     }
-    err.hidden = false;
-    err.textContent = "Could not load /api/jobs. Empty state — no invented rows. " + (last || "");
-    all = [];
-    document.getElementById("stat-sub").textContent = "0";
-    document.getElementById("stat-ft").textContent = "0";
-    document.getElementById("stat-pt").textContent = "0";
-    const empty = "<div class=\"empty\">Empty — API unavailable. No placeholder jobs.</div>";
-    document.getElementById("sub-box").innerHTML = empty;
-    document.getElementById("ft-box").innerHTML = empty;
-    document.getElementById("pt-box").innerHTML = empty;
+    /* One .ats element only. On desktop .meta is `display: contents`, so .who and
+       .ats become grid items in their own columns; on mobile .meta is a flex line. */
+    return '<div class="row" data-k="' + k + '">'
+      + '<span class="pct' + (hi ? " hi" : "") + '">' + esc(pct) + "</span>"
+      + '<span class="main"><span class="ttl">' + esc(j.title || "Untitled")
+        + '</span><span class="co">' + esc(j.company || "") + "</span></span>"
+      + '<span class="meta">'
+        + '<span class="ats ' + a.cls + '">' + esc(a.label) + "</span>"
+        + '<span class="who"><span class="conly">' + esc(j.company || "") + (loc ? " · " : "")
+          + "</span>" + esc(loc) + "</span>"
+      + "</span>"
+      + '<span class="act">' + btn + "</span>"
+      + "</div>";
+  }
+
+  function sortJobs(list) {
+    var c = list.slice();
+    if (sortBy === "match") {
+      c.sort(function (x, y) { return (y.match_pct || 0) - (x.match_pct || 0); });
+    } else if (sortBy === "company") {
+      c.sort(function (x, y) { return clean(x.company).localeCompare(clean(y.company)); });
+    } else if (sortBy === "recent") {
+      c.sort(function (x, y) { return String(y.updated_at || "").localeCompare(String(x.updated_at || "")); });
+    } else {
+      c.sort(function (x, y) {
+        var d = atsOf(x).rank - atsOf(y).rank;
+        return d ? d : (y.match_pct || 0) - (x.match_pct || 0);
+      });
+    }
+    return c;
+  }
+
+  var SECTIONS = [
+    { id: "ft",        label: "Full-time", hint: "" },
+    { id: "ptc2c",     label: "PT / C2C",  hint: "" },
+    { id: "submitted", label: "Applied",   hint: "already submitted", defaultCollapsed: true }
+  ];
+  var collapsed = {};
+  try { collapsed = JSON.parse(localStorage.getItem("apply-collapsed") || "{}") || {}; } catch (e) {}
+  SECTIONS.forEach(function (s) {
+    if (collapsed[s.id] === undefined) collapsed[s.id] = !!s.defaultCollapsed;
+  });
+
+  function render() {
+    var s = (document.getElementById("q").value || "").trim().toLowerCase();
+    var vis = all.filter(function (j) {
+      if (kind === "direct") { if (atsOf(j).cls !== "direct") return false; }
+      else if (kind !== "all" && kind !== bucketOf(j)) return false;
+      if (!s) return true;
+      return [j.company, j.title, j.url, j.source, j.status, j.work_type]
+        .map(clean).join(" ").toLowerCase().indexOf(s) !== -1;
+    });
+
+    var nSub = all.filter(isApplied).length;
+    var nFt = all.filter(function (j) { return bucketOf(j) === "ft"; }).length;
+    var nPt = all.filter(function (j) { return bucketOf(j) === "ptc2c"; }).length;
+    var nDirect = all.filter(function (j) { return !isApplied(j) && atsOf(j).cls === "direct"; }).length;
+    document.getElementById("tally").innerHTML =
+      "<b>" + nFt + "</b>&nbsp;FT · <b>" + nPt + "</b>&nbsp;PT/C2C · <b>"
+      + nSub + "</b>&nbsp;applied · <b>" + nDirect + "</b>&nbsp;direct";
+    document.getElementById("ndirect").textContent = nDirect ? String(nDirect) : "";
+
+    document.getElementById("main").innerHTML = SECTIONS.map(function (sec) {
+      var jobs = sortJobs(vis.filter(function (j) { return bucketOf(j) === sec.id; }));
+      var open = !collapsed[sec.id];
+      return '<section><button type="button" class="sechead" data-sec="' + sec.id + '" aria-expanded="' + open + '">'
+        + '<span class="caret" aria-hidden="true">▼</span>' + sec.label
+        + '<span class="n">' + jobs.length + "</span>"
+        + (sec.hint ? '<span class="hint">' + sec.hint + "</span>" : "")
+        + "</button>"
+        + '<div class="rows" id="rows-' + sec.id + '"' + (open ? "" : " hidden") + ">"
+        + (jobs.length ? jobs.map(rowHtml).join("") : '<div class="empty">Nothing here.</div>')
+        + "</div></section>";
+    }).join("");
+    document.getElementById("legend").hidden = false;
+  }
+
+  /* ---------- write token ----------
+     Never baked into this file. The owner pastes it once; it lives only in
+     this browser's localStorage and is sent as x-apply-token. */
+  function writeToken() {
+    try { return localStorage.getItem("apply-token") || ""; } catch (e) { return ""; }
+  }
+  function askToken() {
+    var cur = writeToken();
+    var next = window.prompt(
+      "Write token for /api/apply.\n\nWithout it, Apply still opens the posting and remembers your click in this browser, but cannot record the status in D1.\n\nLeave blank to clear.",
+      cur);
+    if (next === null) return;
+    next = next.trim();
+    try {
+      if (next) { localStorage.setItem("apply-token", next); toast("Write token saved in this browser."); }
+      else { localStorage.removeItem("apply-token"); toast("Write token cleared — Apply will only record locally."); }
+    } catch (e) { toast("Could not save the token: " + e.message); }
+    markTokenState();
+  }
+  function markTokenState() {
+    var b = document.getElementById("token");
+    var on = !!writeToken();
+    b.style.color = on ? "var(--success)" : "";
+    b.title = on ? "Write token set — Apply records to D1" : "No write token — Apply records locally only";
+  }
+  document.getElementById("token").addEventListener("click", askToken);
+
+  /* ---------- apply ---------- */
+  function markApplied(job) {
+    localApplied[keyOf(job)] = new Date().toISOString();
+    try { localStorage.setItem("apply-applied", JSON.stringify(localApplied)); } catch (e) {}
+    render();
+
+    var tok = writeToken();
+    if (!tok) {
+      document.getElementById("live").textContent = "Recorded in this browser only.";
+      return;
+    }
+    var headers = { "content-type": "application/json", "x-apply-token": tok };
+    fetch("/api/apply", {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({ dedupe_key: job.dedupe_key, status: "submitted" })
+    }).then(function (r) {
+      if (r.status === 401) throw new Error("token rejected — set it again with the key button");
+      if (r.status === 503) throw new Error("writes disabled on this deployment");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function () {
+      document.getElementById("live").textContent = "Recorded in D1.";
+    }).catch(function (e) {
+      toast("Recorded locally only — " + e.message);
+    });
+  }
+
+  document.addEventListener("click", function (ev) {
+    var sec = ev.target.closest(".sechead");
+    if (sec) {
+      var id = sec.getAttribute("data-sec");
+      collapsed[id] = !collapsed[id];
+      try { localStorage.setItem("apply-collapsed", JSON.stringify(collapsed)); } catch (e) {}
+      render();
+      return;
+    }
+    /* confirmed submitted */
+    var yes = ev.target.closest("button.yes");
+    if (yes) {
+      var yk = yes.getAttribute("data-yes");
+      delete pending[yk]; savePending();
+      var yj = jobByKey(yk);
+      if (yj) markApplied(yj);
+      else render();
+      return;
+    }
+    /* not submitted after all - back in the queue */
+    var no = ev.target.closest("button.no");
+    if (no) {
+      delete pending[no.getAttribute("data-no")];
+      savePending(); render();
+      toast("Left in the queue.");
+      return;
+    }
+
+    var btn = ev.target.closest("button.apply");
+    if (!btn || btn.disabled) return;
+    var key = btn.getAttribute("data-k");
+    var job = jobByKey(key);
+    if (!job || !job.url) return;
+    var a = atsOf(job);
+
+    /* Opening a posting is not applying to it. The row goes to "Sent?" and the
+       owner confirms; nothing is written to D1 until they do. */
+    window.open(job.url, "_blank", "noopener");
+    pending[key] = Date.now();
+    savePending();
+    render();
+    copy(packet(job)).then(function () {
+      toast(a.cls === "wall"
+        ? "Opened " + a.label + " — expect a sign-in or bot check. Details copied."
+        : "Opened " + a.label + " — details copied. Confirm on the row when you have submitted.");
+    }).catch(function () {
+      toast("Opened " + a.label + " — the clipboard was blocked.");
+    });
+  });
+
+  /**
+   * @param {string} key dedupe key
+   * @returns {object|null} the job row, or null when nothing matches
+   */
+  function jobByKey(key) {
+    for (var i = 0; i < all.length; i++) { if (keyOf(all[i]) === key) return all[i]; }
+    return null;
   }
 
   document.getElementById("q").addEventListener("input", render);
-  document.querySelectorAll(".chip").forEach(btn => {
-    btn.addEventListener("click", () => {
-      kind = btn.getAttribute("data-kind") || "all";
-      document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", b === btn ? "true" : "false"));
+  document.getElementById("sort").addEventListener("change", function () { sortBy = this.value; render(); });
+  document.querySelectorAll(".chip").forEach(function (b) {
+    b.addEventListener("click", function () {
+      kind = b.getAttribute("data-kind") || "all";
+      document.querySelectorAll(".chip").forEach(function (o) {
+        o.setAttribute("aria-pressed", o === b ? "true" : "false");
+      });
+      /* filtering to a section that happens to be collapsed must not look empty */
+      if (kind !== "all" && kind !== "direct" && collapsed[kind]) {
+        collapsed[kind] = false;
+        try { localStorage.setItem("apply-collapsed", JSON.stringify(collapsed)); } catch (e) {}
+      }
       render();
     });
   });
-  load();
+
+  /* ---------- load ---------- */
+  fetch("/api/jobs", { cache: "no-store" }).then(function (r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }).then(function (d) {
+    all = Array.isArray(d.jobs) ? d.jobs : [];
+    document.getElementById("err").hidden = true;
+    markTokenState();
+    render();
+  }).catch(function (e) {
+    var err = document.getElementById("err");
+    err.hidden = false;
+    err.textContent = "Could not load /api/jobs — showing nothing rather than invented rows. " + e.message;
+    all = [];
+    document.getElementById("tally").textContent = "0 rows";
+    document.getElementById("main").innerHTML = '<div class="empty">Empty — the API is unavailable.</div>';
+  });
 })();
 </script>
 </body>

@@ -1,0 +1,8 @@
+name = "apply-dashboard"
+pages_build_output_dir = "."
+compatibility_date = "2026-08-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "apply-dashboard"
+database_id = "10e8a6c0-1fa7-4c33-a007-2044876ce6a7"

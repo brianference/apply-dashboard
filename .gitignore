@@ -1,0 +1,6 @@
+node_modules/
+.wrangler/
+.dev.vars
+*.local
+evidence/*.tmp.json
+APPLY_TOKEN.local.txt
