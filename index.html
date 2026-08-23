@@ -487,12 +487,15 @@
     var pct = (j.match_pct == null || j.match_pct === "") ? "" : j.match_pct + "%";
     var hi = j.match_pct != null && Number(j.match_pct) >= 70;
     var loc = shortLoc(j.work_type);
-    var k = esc(keyOf(j));
+    /* pending is keyed on the raw dedupe_key. esc() is only for HTML attributes —
+       looking up pending[esc(key)] misses any key that contains & < > ". */
+    var rawK = keyOf(j);
+    var k = esc(rawK);
     var btn;
     if (applied) {
       btn = '<span class="apply done">Applied'
         + (shortDate(j.submitted_at) ? " " + esc(shortDate(j.submitted_at)) : "") + "</span>";
-    } else if (pending[k]) {
+    } else if (pending[rawK]) {
       /* opened, not yet confirmed. Opening a form is not applying, so the row
          waits for the owner to say whether they actually submitted it. */
       btn = '<span class="confirm">Sent?'
