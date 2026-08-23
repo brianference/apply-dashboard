@@ -18,7 +18,12 @@ const PM_TITLE = /\b(product manager|product management|product owner|principal 
 const NOT_PM = /\b(product marketing|product design|product designer|product support|product operations|product ops|engineering manager|software engineer|data scientist|product analyst|product specialist|sales|recruiter|customer success|solutions (architect|engineer)|technical writer|program manager|project manager)\b/i;
 
 /** Industries Brian skips outright. */
-const SKIP_INDUSTRY = /\b(healthcare|health system|hospital|clinical|patient care|construction|architecture firm|architectural)\b/i;
+const SKIP_INDUSTRY = /\b(healthcare|health ?care|health system|health plan|hospital|clinical|patient|payer|medicaid|medicare|telehealth|construction|architecture firm|architectural)\b/i;
+
+/* Healthcare employers whose name never contains the word "healthcare". Matched
+   against the company field only, so a generic word cannot knock out a fintech.
+   Two SCAN Health rows reached the live queue before this existed. */
+const SKIP_COMPANY = /\b(scan health|parsley health|oscar health|devoted health|included health|carbon health|cityblock|privia|athenahealth|teladoc|honest medical|medely)\b/i;
 
 /** Seniority he is targeting. Junior/associate rungs are below his level. */
 const TOO_JUNIOR = /\b(associate product manager|junior|intern|apprentice|entry[- ]level|apm\b|graduate)\b/i;
@@ -60,6 +65,7 @@ export function judge(row) {
   if (!PM_TITLE.test(title)) return { keep: false, reason: 'title is not a PM role', lane: 'ft' };
   if (TOO_JUNIOR.test(title)) return { keep: false, reason: 'below target seniority', lane: 'ft' };
   if (SKIP_INDUSTRY.test(hay)) return { keep: false, reason: 'skipped industry', lane: 'ft' };
+  if (SKIP_COMPANY.test(company)) return { keep: false, reason: 'skipped industry (company name)', lane: 'ft' };
   if (!row.url) return { keep: false, reason: 'no posting URL', lane: 'ft' };
 
   const remote = REMOTE_OK.test(work) || REMOTE_OK.test(title);
