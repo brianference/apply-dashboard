@@ -1,0 +1,63 @@
+{
+  "checkedAt": "2026-08-23T00:21:53.694Z",
+  "engine": "playwright-chromium",
+  "playwrightPath": "C:\\Users\\brian\\RedAnvil\\node_modules\\playwright",
+  "results": [
+    {
+      "url": "https://flexgen.zya.me/job/remote-sr-product-manager-platform-growth-scaling",
+      "dedupe_key": "centific|sr. product manager - platform growth & scaling",
+      "state": "dead",
+      "httpStatus": 200,
+      "finalUrl": "https://suspended-domain.net/index.php?host=flexgen.zya.me",
+      "note": "redirects to suspended-domain.net"
+    },
+    {
+      "url": "https://www.dice.com/job-detail/fb5e78e0-9b5a-462b-9236-3c79de7f0dbd",
+      "dedupe_key": "omg technologies / advance auto parts (client)|ai/ml product manager – loyalty & personalization",
+      "state": "dead",
+      "httpStatus": 410,
+      "finalUrl": "https://www.dice.com/job-detail/fb5e78e0-9b5a-462b-9236-3c79de7f0dbd",
+      "note": "HTTP 410"
+    },
+    {
+      "url": "https://jobs.gusto.com/postings/get-gauge-inc-contract-product-manager-4c869291-9f5e-4e69-918a-ae50ba0a4739",
+      "dedupe_key": "get gauge inc. (gauge.ai)|contract product manager",
+      "state": "dead",
+      "httpStatus": 410,
+      "finalUrl": "https://jobs.gusto.com/postings/get-gauge-inc-contract-product-manager-4c869291-9f5e-4e69-918a-ae50ba0a4739",
+      "note": "HTTP 410"
+    },
+    {
+      "url": "https://startup.jobs/senior-product-manager-new-products-group-1001-resources-llc-8916312",
+      "dedupe_key": "group 1001|senior product manager, new products",
+      "state": "wall",
+      "httpStatus": 200,
+      "finalUrl": "https://startup.jobs/apply/86519b79-bb6c-45de-bde5-678f282ee3bc?__cf_chl_rt_tk=aMzvrdpBbvhrAuRhdL7.c1uYj_ErxBd3BuwiRpTQs84-1787444506-1.0.1.1-vEUVla2goHLR1HTssheA0ncEv2LkAWKoBhJGr_ReMJ4",
+      "note": "apply flow is a security verification wall"
+    },
+    {
+      "url": "https://www.linkedin.com/jobs/view/product-manager-at-1mind-4456171288",
+      "dedupe_key": "1mind|product manager",
+      "state": "wall",
+      "httpStatus": 200,
+      "finalUrl": "https://www.linkedin.com/jobs/view/product-manager-at-1mind-4456171288",
+      "note": "sign-in or bot-protection interstitial"
+    },
+    {
+      "url": "https://job-boards.greenhouse.io/gitlab/jobs/8684348002",
+      "dedupe_key": "gitlab|senior product manager, growth",
+      "state": "live",
+      "httpStatus": 200,
+      "finalUrl": "https://job-boards.greenhouse.io/gitlab/jobs/8684348002",
+      "note": "apply control present"
+    },
+    {
+      "url": "https://jobs.ashbyhq.com/tremendous/9be1cf09-1eb7-4aa7-8bc4-4848cc124fb8",
+      "dedupe_key": "tremendous|senior product manager - special projects",
+      "state": "live",
+      "httpStatus": 200,
+      "finalUrl": "https://jobs.ashbyhq.com/tremendous/9be1cf09-1eb7-4aa7-8bc4-4848cc124fb8",
+      "note": "apply control present"
+    }
+  ]
+}

@@ -7,3 +7,8 @@ APPLY_TOKEN.local.txt
 .deploy/
 .seed/
 .wrangler-test/
+apply-profile.local.json
+*.local.*
+.apply-session/
+evidence/apply/
+.apply-session*
