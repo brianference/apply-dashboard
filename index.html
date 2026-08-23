@@ -163,27 +163,54 @@
     padding: 6px 10px; background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
-  .colhead .sortbtn {
-    appearance: none; background: transparent; border: 0; cursor: pointer; padding: 0;
+  /* Excel-style: each header is a button that opens a checkbox list of the
+     distinct values in that column. Not a second search box. */
+  .colbtn {
+    appearance: none; background: transparent; border: 1px solid transparent;
+    border-radius: 6px; cursor: pointer; width: 100%; min-width: 0;
+    display: flex; align-items: center; gap: 5px; padding: 4px 6px;
     font: 600 10.5px/1 "IBM Plex Mono", monospace; letter-spacing: .05em;
-    color: var(--muted); text-transform: uppercase; text-align: right; width: 100%;
+    color: var(--muted); text-transform: uppercase; text-align: left;
   }
-  .colhead .sortbtn:hover { color: var(--primary); }
-  .colhead .sortbtn[data-active="true"] { color: var(--primary); }
-  .colf {
-    width: 100%; min-width: 0; height: 25px; padding: 0 7px;
-    border: 1px solid var(--border); border-radius: 6px;
-    background: var(--surface); color: var(--text);
-    font: 500 11.5px/1 "IBM Plex Sans", system-ui, sans-serif;
+  .colbtn:hover { color: var(--text); border-color: var(--border); background: var(--surface); }
+  .colbtn .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .colbtn .fun { margin-left: auto; opacity: .5; flex: 0 0 auto; }
+  .colbtn[data-on="true"] { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+  .colbtn[data-on="true"] .fun { opacity: 1; }
+  .colbtn.right { justify-content: flex-end; }
+  .colbtn.right .fun { margin-left: 4px; }
+
+  .fmenu {
+    position: absolute; z-index: 40; min-width: 232px; max-width: 320px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.22);
+    padding: 8px; display: flex; flex-direction: column; gap: 6px;
   }
-  .colf:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
-  .colf.on { border-color: var(--primary); color: var(--primary); font-weight: 600; }
-  .colhead .clearf {
-    appearance: none; border: 1px solid var(--border); background: transparent;
-    color: var(--muted); border-radius: 6px; height: 25px; padding: 0 8px; cursor: pointer;
-    font: 600 11px/1 inherit; white-space: nowrap;
+  .fmenu input.fsearch {
+    height: 28px; padding: 0 8px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--text); font: 13px inherit;
   }
-  .colhead .clearf:hover { color: var(--text); border-color: var(--primary); }
+  .fmenu .flist {
+    max-height: 268px; overflow-y: auto; display: flex; flex-direction: column;
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px;
+  }
+  .fmenu label {
+    display: flex; align-items: center; gap: 7px; padding: 4px 5px;
+    font: 13px/1.25 inherit; cursor: pointer; border-radius: 5px; min-width: 0;
+  }
+  .fmenu label:hover { background: var(--row-hover); }
+  .fmenu label span.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+  .fmenu label span.c { color: var(--muted); font: 500 11px "IBM Plex Mono", monospace; flex: 0 0 auto; }
+  .fmenu input[type=checkbox] { accent-color: var(--primary); width: 14px; height: 14px; flex: 0 0 auto; }
+  .fmenu .fall { border-bottom: 1px solid var(--border); margin-bottom: 3px; padding-bottom: 6px; font-weight: 600; }
+  .fmenu .frow { display: flex; gap: 6px; }
+  .fmenu button {
+    flex: 1 1 auto; appearance: none; cursor: pointer; height: 28px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font: 600 12px/1 inherit;
+  }
+  .fmenu button.pri { background: var(--primary); color: var(--primary-contrast); border-color: var(--primary); }
+  .fmenu button:hover { filter: brightness(1.06); }
   @media (max-width: 860px) { .colhead { display: none; } }
 
   /* ---- the compact row ---- */
@@ -609,52 +636,87 @@
     if (collapsed[s.id] === undefined) collapsed[s.id] = !!s.defaultCollapsed;
   });
 
-  /* ---------- per-column filters ---------- */
-  var colf = { role: "", ats: "", loc: "", minPct: "" };
+  /* ---------- Excel-style column filters ----------
+     Each column keeps a Set of the values the owner has ticked. null means
+     "no filter on this column" — deliberately distinct from an empty Set,
+     which would mean "everything is unticked, show nothing". */
+  var COLS = [
+    { id: "match",   label: "%",              value: function (j) { return matchBucket(j.match_pct); }, align: "right" },
+    { id: "company", label: "Role / Company", value: function (j) { return clean(j.company) || "(none)"; } },
+    { id: "ats",     label: "ATS",            value: function (j) { return atsOf(j).label; } },
+    { id: "loc",     label: "Location",       value: function (j) { return shortLoc(j.work_type) || "(none)"; } }
+  ];
+  var colSel = { match: null, company: null, ats: null, loc: null };
 
   /**
-   * Distinct ATS labels present in the data, for the column dropdown.
-   * @returns {string[]}
+   * @param {number|null} pct
+   * @returns {string} a bucket label, because 60 distinct percentages is not a usable list
    */
-  function atsOptions() {
-    var seen = {};
-    all.forEach(function (j) { seen[atsOf(j).label] = 1; });
-    return Object.keys(seen).sort();
+  function matchBucket(pct) {
+    if (pct == null || pct === "") return "(none)";
+    var n = Number(pct);
+    if (n >= 90) return "90%+";
+    if (n >= 80) return "80-89%";
+    if (n >= 70) return "70-79%";
+    if (n >= 60) return "60-69%";
+    if (n >= 50) return "50-59%";
+    return "under 50%";
+  }
+  var BUCKET_ORDER = ["90%+", "80-89%", "70-79%", "60-69%", "50-59%", "under 50%", "(none)"];
+
+  /**
+   * Distinct values in one column, with counts, over the rows in one lane.
+   * @param {string} colId
+   * @param {object[]} rows
+   * @returns {{value:string,count:number}[]}
+   */
+  function distinct(colId, rows) {
+    var col = COLS.filter(function (c) { return c.id === colId; })[0];
+    var counts = {};
+    rows.forEach(function (j) {
+      var v = col.value(j);
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    var out = Object.keys(counts).map(function (v) { return { value: v, count: counts[v] }; });
+    if (colId === "match") {
+      out.sort(function (a, b) { return BUCKET_ORDER.indexOf(a.value) - BUCKET_ORDER.indexOf(b.value); });
+    } else {
+      out.sort(function (a, b) { return a.value.localeCompare(b.value); });
+    }
+    return out;
   }
 
   /**
    * @param {object} j job row
-   * @returns {boolean} true when the row survives every column filter
+   * @returns {boolean} true when the row survives every ticked-value filter
    */
   function passesColumns(j) {
-    if (colf.role) {
-      var hay = (clean(j.title) + " " + clean(j.company)).toLowerCase();
-      if (hay.indexOf(colf.role.toLowerCase()) === -1) return false;
+    for (var i = 0; i < COLS.length; i++) {
+      var sel = colSel[COLS[i].id];
+      if (!sel) continue;
+      if (!sel.has(COLS[i].value(j))) return false;
     }
-    if (colf.ats && atsOf(j).label !== colf.ats) return false;
-    if (colf.loc) {
-      if (clean(j.work_type).toLowerCase().indexOf(colf.loc.toLowerCase()) === -1) return false;
-    }
-    if (colf.minPct !== "" && Number(j.match_pct || 0) < Number(colf.minPct)) return false;
     return true;
   }
 
-  function colheadHtml() {
-    var opts = ['<option value="">ATS: all</option>'].concat(
-      atsOptions().map(function (o) {
-        return '<option value="' + esc(o) + '"' + (colf.ats === o ? " selected" : "") + ">" + esc(o) + "</option>";
-      })).join("");
-    var anyOn = colf.role || colf.ats || colf.loc || colf.minPct !== "";
-    return '<div class="colhead">'
-      + '<button type="button" class="sortbtn" id="cf-pct" data-active="' + (sortBy === "match") + '"'
-        + ' title="Sort by match, or type a minimum below">' + (colf.minPct !== "" ? "&ge;" + esc(colf.minPct) + "%" : "MATCH") + "</button>"
-      + '<input class="colf' + (colf.role ? " on" : "") + '" id="cf-role" type="search"'
-        + ' placeholder="Filter role or company" aria-label="Filter by role or company" value="' + esc(colf.role) + '"/>'
-      + '<select class="colf' + (colf.ats ? " on" : "") + '" id="cf-ats" aria-label="Filter by ATS">' + opts + "</select>"
-      + '<input class="colf' + (colf.loc ? " on" : "") + '" id="cf-loc" type="search"'
-        + ' placeholder="Filter location" aria-label="Filter by location" value="' + esc(colf.loc) + '"/>'
-      + (anyOn ? '<button type="button" class="clearf" id="cf-clear">Clear</button>' : "<span></span>")
-      + "</div>";
+  /**
+   * @param {string} secId lane id, so each lane's header reflects its own rows
+   * @returns {string}
+   */
+  function colheadHtml(secId) {
+    var cells = COLS.map(function (c) {
+      var on = !!colSel[c.id];
+      var n = on ? colSel[c.id].size : 0;
+      return '<button type="button" class="colbtn' + (c.align === "right" ? " right" : "")
+        + '" data-col="' + c.id + '" data-sec="' + esc(secId) + '" data-on="' + on + '"'
+        + ' aria-haspopup="true" aria-expanded="false"'
+        + ' title="Filter by ' + esc(c.id === "match" ? "match percentage" : c.label) + '"'
+        + ' aria-label="Filter by ' + esc(c.id === "match" ? "match percentage" : c.label) + '">'
+        + '<span class="lbl">' + esc(c.label) + (on ? " (" + n + ")" : "") + "</span>"
+        + '<span class="fun" aria-hidden="true">' + (on ? "&#9660;&#9679;" : "&#9660;") + "</span>"
+        + "</button>";
+    }).join("");
+    return '<div class="colhead">' + cells + "<span></span></div>";
   }
 
   function render() {
@@ -687,7 +749,7 @@
         + (sec.hint ? '<span class="hint">' + sec.hint + "</span>" : "")
         + "</button>"
         + '<div class="rows" id="rows-' + sec.id + '"' + (open ? "" : " hidden") + ">"
-        + colheadHtml()
+        + colheadHtml(sec.id)
         + (jobs.length ? jobs.map(rowHtml).join("") : '<div class="empty">Nothing here.</div>')
         + "</div></section>";
     }).join("");
@@ -695,49 +757,107 @@
     wireColumnFilters();
   }
 
-  /** Re-attach the column-filter handlers after each innerHTML rebuild. */
+  /* ---------- the filter popup ---------- */
+  var openMenu = null;
+
+  function closeMenu() {
+    if (openMenu) { openMenu.remove(); openMenu = null; }
+    document.querySelectorAll('.colbtn[aria-expanded="true"]')
+      .forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+  }
+
+  /**
+   * Build and show the checkbox list for one column.
+   * @param {HTMLElement} btn the header button that was clicked
+   */
+  function openFilterMenu(btn) {
+    closeMenu();
+    var colId = btn.getAttribute("data-col");
+    var secId = btn.getAttribute("data-sec");
+    var col = COLS.filter(function (c) { return c.id === colId; })[0];
+
+    /* Offer the values present in THIS lane, ignoring this column's own filter
+       so unticking everything does not leave an empty, unrecoverable list. */
+    var rowsForLane = all.filter(function (j) {
+      if (bucketOf(j) !== secId) return false;
+      for (var i = 0; i < COLS.length; i++) {
+        if (COLS[i].id === colId) continue;
+        var sel = colSel[COLS[i].id];
+        if (sel && !sel.has(COLS[i].value(j))) return false;
+      }
+      return true;
+    });
+    var values = distinct(colId, rowsForLane);
+    var chosen = colSel[colId] ? new Set(colSel[colId]) : new Set(values.map(function (v) { return v.value; }));
+
+    var menu = document.createElement("div");
+    menu.className = "fmenu";
+    menu.setAttribute("role", "dialog");
+    menu.setAttribute("aria-label", "Filter by " + col.label);
+    menu.innerHTML =
+      '<input class="fsearch" type="search" placeholder="Search ' + esc(col.label.toLowerCase()) + '" aria-label="Search values"/>'
+      + '<div class="flist"></div>'
+      + '<div class="frow"><button type="button" class="clr">Clear filter</button>'
+      + '<button type="button" class="pri ok">Apply</button></div>';
+    document.body.appendChild(menu);
+
+    var list = menu.querySelector(".flist");
+    function paint(term) {
+      var t = (term || "").toLowerCase();
+      var shown = values.filter(function (v) { return !t || v.value.toLowerCase().indexOf(t) !== -1; });
+      var allTicked = shown.length > 0 && shown.every(function (v) { return chosen.has(v.value); });
+      list.innerHTML =
+        '<label class="fall"><input type="checkbox" class="selall"' + (allTicked ? " checked" : "")
+        + '/><span class="t">(Select all)</span><span class="c">' + shown.length + "</span></label>"
+        + shown.map(function (v) {
+          return '<label><input type="checkbox" value="' + esc(v.value) + '"'
+            + (chosen.has(v.value) ? " checked" : "") + '/><span class="t">' + esc(v.value)
+            + '</span><span class="c">' + v.count + "</span></label>";
+        }).join("");
+      list.querySelector(".selall").addEventListener("change", function () {
+        shown.forEach(function (v) { this.checked ? chosen.add(v.value) : chosen.delete(v.value); }, this);
+        paint(term);
+      });
+      list.querySelectorAll('input[type=checkbox]:not(.selall)').forEach(function (cb) {
+        cb.addEventListener("change", function () {
+          cb.checked ? chosen.add(cb.value) : chosen.delete(cb.value);
+          var sa = list.querySelector(".selall");
+          sa.checked = shown.every(function (v) { return chosen.has(v.value); });
+        });
+      });
+    }
+    paint("");
+
+    menu.querySelector(".fsearch").addEventListener("input", function () { paint(this.value); });
+    menu.querySelector(".clr").addEventListener("click", function () {
+      colSel[colId] = null; closeMenu(); render();
+    });
+    menu.querySelector(".ok").addEventListener("click", function () {
+      var everything = values.length > 0 && values.every(function (v) { return chosen.has(v.value); });
+      colSel[colId] = everything ? null : chosen;   // all ticked === no filter
+      closeMenu(); render();
+    });
+
+    var r = btn.getBoundingClientRect();
+    menu.style.top = (r.bottom + window.scrollY + 4) + "px";
+    var left = r.left + window.scrollX;
+    menu.style.left = Math.min(left, window.scrollX + document.documentElement.clientWidth - menu.offsetWidth - 12) + "px";
+    btn.setAttribute("aria-expanded", "true");
+    openMenu = menu;
+    menu.querySelector(".fsearch").focus();
+  }
+
+  /** Re-attach the header handlers after each innerHTML rebuild. */
   function wireColumnFilters() {
-    document.querySelectorAll("#cf-role, .colhead #cf-role").forEach(function () {});
-    document.querySelectorAll(".colhead").forEach(function (head) {
-      var role = head.querySelector("#cf-role, .colf[aria-label^='Filter by role']");
-      var ats = head.querySelector("select.colf");
-      var loc = head.querySelector(".colf[aria-label^='Filter by location']");
-      var pct = head.querySelector(".sortbtn");
-      var clr = head.querySelector(".clearf");
-      if (role) role.addEventListener("input", debounce(function () { colf.role = role.value; render(); focusBack("role"); }));
-      if (ats) ats.addEventListener("change", function () { colf.ats = ats.value; render(); });
-      if (loc) loc.addEventListener("input", debounce(function () { colf.loc = loc.value; render(); focusBack("loc"); }));
-      if (pct) pct.addEventListener("click", function () {
-        var v = window.prompt("Minimum match %? Leave blank to clear, or type a number.", colf.minPct);
-        if (v === null) return;
-        v = String(v).trim();
-        colf.minPct = v === "" ? "" : (isNaN(Number(v)) ? "" : String(Number(v)));
-        render();
-      });
-      if (clr) clr.addEventListener("click", function () {
-        colf = { role: "", ats: "", loc: "", minPct: "" };
-        render();
-      });
+    document.querySelectorAll(".colbtn").forEach(function (b) {
+      b.addEventListener("click", function (ev) { ev.stopPropagation(); openFilterMenu(b); });
     });
   }
 
-  var debounceTimer = null;
-  /**
-   * @param {Function} fn
-   * @returns {Function} fn, delayed so a rebuild does not fire on every keystroke
-   */
-  function debounce(fn) {
-    return function () { clearTimeout(debounceTimer); debounceTimer = setTimeout(fn, 160); };
-  }
-  /**
-   * render() rebuilds the header, so the caret has to be put back.
-   * @param {string} which "role" or "loc"
-   */
-  function focusBack(which) {
-    var sel = which === "role" ? "#cf-role" : ".colf[aria-label^='Filter by location']";
-    var el = document.querySelector(".colhead " + sel);
-    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-  }
+  document.addEventListener("click", function (ev) {
+    if (openMenu && !ev.target.closest(".fmenu") && !ev.target.closest(".colbtn")) closeMenu();
+  });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") closeMenu(); });
 
   /* ---------- write token ----------
      Never baked into this file. The owner pastes it once; it lives only in

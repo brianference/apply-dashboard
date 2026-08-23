@@ -1,7 +1,7 @@
 {
   "tool": "axe-core",
   "engine": "chromium",
-  "measuredAt": "2026-08-23T00:17:55.950Z",
+  "measuredAt": "2026-08-23T01:08:51.924Z",
   "runs": {
     "light-375": {
       "violations": 0,
