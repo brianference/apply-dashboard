@@ -4,3 +4,6 @@ node_modules/
 *.local
 evidence/*.tmp.json
 APPLY_TOKEN.local.txt
+.deploy/
+.seed/
+.wrangler-test/
