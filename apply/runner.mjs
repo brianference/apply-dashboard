@@ -1460,16 +1460,92 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
   }
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
   const confirmed = SUCCESS.test(after) && !FAILURE.test(after) && !EMAIL_CODE.test(after);
-  if (!confirmed && EMAIL_CODE.test(after)) {
+  /* Greenhouse answers the form POST with 428 when it wants the emailed code,
+     and the page sometimes re-renders to the plain job description with no code
+     UI in the text at all -- Anthropic did exactly that, yet still sent Brian a
+     code. So a 428 is the same gate as the visible prompt, not a separate wall.
+     Treat either signal as "a code is required". */
+  const codeWanted = EMAIL_CODE.test(after)
+    || submitRejections.some(x => x.status === 428);
+  if (!confirmed && codeWanted) {
     console.log('');
     console.log('SUBMIT PENDING: the board emailed a one-time verification code.');
-    console.log('The application is NOT sent until that code is typed in. A human has to finish it.');
     await shot(page, 'stop-email-code');
+
+    /* --wait-for-code holds the filled form open and watches CODE_FILE. Brian
+       reads the code out of his own email and it gets written there; the run
+       then types it and finishes the submit. The alternative -- exiting and
+       coming back -- loses the session the code belongs to, and the board
+       issues a fresh code on every reload. */
+    if (args['wait-for-code']) {
+      const codeFile = args['code-file'] || path.join(ROOT, 'apply', 'CODE.local.txt');
+      try { fs.unlinkSync(codeFile); } catch { /* nothing to clear */ }
+      const waitMs = Number(args['code-timeout'] || 900000);
+      const deadline = Date.now() + waitMs;
+      console.log(`WAITING for the code. Write it to ${codeFile} (up to ${Math.round(waitMs / 60000)} min).`);
+
+      /* Up to three codes per session. A stale code -- one issued by an earlier
+         run of the same posting -- is rejected, and burning the whole session on
+         it means re-submitting, which just emails yet another code. Clear the
+         file and keep waiting instead, so the right code can still land. */
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        let code = '';
+        while (Date.now() < deadline) {
+          try {
+            const raw = fs.readFileSync(codeFile, 'utf8').trim().replace(/[^A-Za-z0-9]/g, '');
+            if (raw.length >= 6) { code = raw; break; }
+          } catch { /* not written yet */ }
+          await page.waitForTimeout(2000);
+        }
+        if (!code) {
+          console.log('No code arrived before the timeout. Not submitted.');
+          return await finish(ctx, !!args.batch, { state: 'needs-email-code', log });
+        }
+        console.log(`Got a ${code.length}-character code (attempt ${attempt}). Entering it.`);
+
+        /* The widget is a row of single-character inputs that advance on
+           keypress, so focus the first and type -- setting .value box by box
+           does not fire the advance and leaves the field half filled. */
+        const boxes = target.locator('input[autocomplete="one-time-code"], input[name*="code" i], input[maxlength="1"]');
+        const n = await boxes.count().catch(() => 0);
+        if (n) {
+          for (let b = 0; b < n; b++) await boxes.nth(b).fill('').catch(() => {});
+          await boxes.first().click().catch(() => {});
+          await page.keyboard.type(code, { delay: 120 });
+        } else {
+          const single = target.locator('input[type="text"]:visible').last();
+          await single.click().catch(() => {});
+          await single.fill('').catch(() => {});
+          await single.type(code, { delay: 120 }).catch(() => {});
+        }
+        await page.waitForTimeout(1200);
+        await shot(page, `5-code-entered-${attempt}`);
+
+        const finalBtn = target.getByRole('button', { name: /submit application|^submit$|verify|confirm/i }).first();
+        await finalBtn.click().catch(() => {});
+        await page.waitForTimeout(7000);
+        const after2 = await target.evaluate(() => (document.body ? document.body.innerText : '')
+          .replace(/\s+/g, ' ')).catch(() => '');
+        const ok2 = SUCCESS.test(after2) && !FAILURE.test(after2) && !EMAIL_CODE.test(after2);
+        await shot(page, ok2 ? '6-submitted' : `6-code-rejected-${attempt}`);
+        console.log(`after code: ${JSON.stringify(after2.slice(0, 220))}`);
+        if (ok2) {
+          console.log('SUBMITTED after the code.');
+          return await finish(ctx, !!args.batch, { state: 'submitted', log });
+        }
+        console.log(`Code ${attempt} was not accepted. Clearing it and waiting for another.`);
+        try { fs.unlinkSync(codeFile); } catch { /* already gone */ }
+      }
+      console.log('Three codes were rejected. Not submitted.');
+      return await finish(ctx, !!args.batch, { state: 'code-unconfirmed', log });
+    }
+
+    console.log('The application is NOT sent until that code is typed in. A human has to finish it.');
     return await finish(ctx, !!args.batch, { state: 'needs-email-code', log });
   }
   /* A 428/403 on the form POST is a bot wall, not a fillable-field problem. Say
      so distinctly so the batch can route it to a human instead of retrying. */
-  const wall = submitRejections.find(x => x.status === 428 || x.status === 403 || x.status === 429);
+  const wall = submitRejections.find(x => x.status === 403 || x.status === 429);
   if (!confirmed && wall) {
     console.log(`
 SUBMIT BLOCKED: the form POST returned HTTP ${wall.status} (${wall.url}).`);

@@ -1,0 +1,1345 @@
+{
+ "priced": [],
+ "unpriced": [
+  {
+   "company": "Temporal Technologies",
+   "title": "Staff Product Manager, Cloud Namespace & Capacity"
+  },
+  {
+   "company": "Temporal Technologies",
+   "title": "Staff Product Manager, Core Primitives"
+  },
+  {
+   "company": "OpenAI",
+   "title": "Product Manager, Codex Security Controls & Partner Interfaces"
+  },
+  {
+   "company": "OpenAI",
+   "title": "Product Manager, Sensitive Deployments"
+  },
+  {
+   "company": "OpenAI",
+   "title": "Product Manager, API Infrastructure"
+  },
+  {
+   "company": "OpenAI",
+   "title": "Product Manager, Financial Engineering"
+  },
+  {
+   "company": "OpenAI",
+   "title": "Product Manager, Shopping"
+  },
+  {
+   "company": "OpenAI",
+   "title": "Product Manager, Core Models"
+  },
+  {
+   "company": "OpenAI",
+   "title": "Product Manager, Legal"
+  },
+  {
+   "company": "OpenAI",
+   "title": "Product Manager, ChatGPT and Codex App Ecosystem"
+  },
+  {
+   "company": "OpenAI",
+   "title": "Product Manager, Youth"
+  },
+  {
+   "company": "Delinea",
+   "title": "Senior Product Manager - AI Gateway"
+  },
+  {
+   "company": "Delinea",
+   "title": "Senior Product Manager - Platform"
+  },
+  {
+   "company": "Delinea",
+   "title": "Senior Product Manager - Workforce"
+  },
+  {
+   "company": "Delinea",
+   "title": "Senior Product Manager - Delinea Desktop Client"
+  },
+  {
+   "company": "Delinea",
+   "title": "Senior Product Manager - Vault & Secrets"
+  },
+  {
+   "company": "Delinea",
+   "title": "Senior Product Manager - Vault & Secrets - Mexico City"
+  },
+  {
+   "company": "Delinea",
+   "title": "Senior Product Manager - Non-Human Identity (NHI)"
+  },
+  {
+   "company": "Delinea",
+   "title": "Product Manager, Identity Discovery and Ingress"
+  },
+  {
+   "company": "Elastic",
+   "title": "Principal Product Manager II, AI/Vectors"
+  },
+  {
+   "company": "Elastic",
+   "title": "Principal Product Manager Agents and Context - Elasticsearch"
+  },
+  {
+   "company": "Elastic",
+   "title": "Senior Product Manager, Logs - Observability"
+  },
+  {
+   "company": "Twilio",
+   "title": "Staff Product Manager - Enterprise AI"
+  },
+  {
+   "company": "Twilio",
+   "title": "Principal Product Manager, Enterprise Commerce Platform"
+  },
+  {
+   "company": "Twilio",
+   "title": "Sr. Principal Product Manager"
+  },
+  {
+   "company": "Twilio",
+   "title": "Staff, Data Product Manager"
+  },
+  {
+   "company": "Twilio",
+   "title": "Staff Product Manager - Enterprise AI - Twilio"
+  },
+  {
+   "company": "Stripe",
+   "title": "Staff Product Manager, ML Foundations and GenAI"
+  },
+  {
+   "company": "Stripe",
+   "title": "Staff Product Manager, Billing"
+  },
+  {
+   "company": "Stripe",
+   "title": "Product Manager, Link - Consumer"
+  },
+  {
+   "company": "Stripe",
+   "title": "Product Manager, Payments"
+  },
+  {
+   "company": "Stripe",
+   "title": "Product Manager - Compliance, Bridge"
+  },
+  {
+   "company": "Stripe",
+   "title": "Staff Product Manager, Payments"
+  },
+  {
+   "company": "Stripe",
+   "title": "Staff Product Manager, Dashboard"
+  },
+  {
+   "company": "Stripe",
+   "title": "Product Manager, Link - Local Payment Methods"
+  },
+  {
+   "company": "Stripe",
+   "title": "Staff Product Manager, Enterprise"
+  },
+  {
+   "company": "GitLab",
+   "title": "Staff Product Manager,  RevOps & Finance Systems"
+  },
+  {
+   "company": "GitLab",
+   "title": "Senior Product Manager, Secret Detection and Vulnerability Research"
+  },
+  {
+   "company": "GitLab",
+   "title": "Senior Product Manager, Tenant Scale"
+  },
+  {
+   "company": "GitLab",
+   "title": "Principal Product Manager, AI Software Factory - GitLab"
+  },
+  {
+   "company": "Jerry.ai",
+   "title": "Senior Product Manager, Agentic AI"
+  },
+  {
+   "company": "Jerry.ai",
+   "title": "Senior Technical Product Manager, AI Engineering & Systems"
+  },
+  {
+   "company": "Jerry.ai",
+   "title": "Technical Product Manager, AI Engineering & Systems"
+  },
+  {
+   "company": "Coinbase",
+   "title": "Group Product Manager, Compliance Agent Experience"
+  },
+  {
+   "company": "Coinbase",
+   "title": "Product Manager II, Workspace and Multi-User"
+  },
+  {
+   "company": "Coinbase",
+   "title": "Group Product Manager, Compliance Automation"
+  },
+  {
+   "company": "Coinbase",
+   "title": "Group Product Manager, Core Infrastructure & Reliability"
+  },
+  {
+   "company": "Coinbase",
+   "title": "Group Product Manager, Developer Infrastructure"
+  },
+  {
+   "company": "Coinbase",
+   "title": "Group Product Manager, Financial Engineering"
+  },
+  {
+   "company": "Instacart",
+   "title": "Senior Product Manager, Carrot Ads"
+  },
+  {
+   "company": "Instacart",
+   "title": "Senior Product Manager, In-Store Tasks"
+  },
+  {
+   "company": "Instacart",
+   "title": "Senior Product Manager, Catalog"
+  },
+  {
+   "company": "Instacart",
+   "title": "Senior Product Manager, Retailer Platform"
+  },
+  {
+   "company": "Kraken",
+   "title": "Senior Product Manager - Consumer"
+  },
+  {
+   "company": "Kraken",
+   "title": "Product Manager II - US Derivatives"
+  },
+  {
+   "company": "Kraken",
+   "title": "Product Manager II - Fraud"
+  },
+  {
+   "company": "Kraken",
+   "title": "Sr Product Manager - Hybridisation"
+  },
+  {
+   "company": "Kraken",
+   "title": "Product Manager - CRM"
+  },
+  {
+   "company": "Pinterest",
+   "title": "Staff Product Manager, Applied Science"
+  },
+  {
+   "company": "Pinterest",
+   "title": "Sr. Product Manager, Core Saving Experience"
+  },
+  {
+   "company": "Pinterest",
+   "title": "Staff Product Manager, Connections"
+  },
+  {
+   "company": "Pinterest",
+   "title": "Sr. Product Manager, Search Personalization"
+  },
+  {
+   "company": "Pinterest",
+   "title": "Staff Product Manager, AI Safety"
+  },
+  {
+   "company": "Pinterest",
+   "title": "Staff Product Manager, Model Lifecycle & Management"
+  },
+  {
+   "company": "Pinterest",
+   "title": "Sr. Product Manager, TwoTwenty"
+  },
+  {
+   "company": "ServiceNow",
+   "title": "Principal Product Manager, Voice AI"
+  },
+  {
+   "company": "ServiceNow",
+   "title": "Senior Staff Outbound Product Manager"
+  },
+  {
+   "company": "ServiceNow",
+   "title": "Sr Staff Outbound Product Manager"
+  },
+  {
+   "company": "Ethos Life",
+   "title": "Staff / Principal Product Manager"
+  },
+  {
+   "company": "Great Minds",
+   "title": "Principal Product Manager (Content Authoring, Delivery & CMS)"
+  },
+  {
+   "company": "Monarch Money",
+   "title": "Product Manager (Senior/Staff/Principal)"
+  },
+  {
+   "company": "Spotify",
+   "title": "Principal Product Manager, Engagement Journeys"
+  },
+  {
+   "company": "Spotify",
+   "title": "Senior Product Manager - Design Systems"
+  },
+  {
+   "company": "Spotify",
+   "title": "Senior Product Manager - Advertising"
+  },
+  {
+   "company": "Chili Piper",
+   "title": "Product Manager, Orchestrator"
+  },
+  {
+   "company": "airSlate",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "airSlate",
+   "title": "AI Product Manager - airSlate"
+  },
+  {
+   "company": "Nucs Ai",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Toggl",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Autodesk",
+   "title": "Principal Product Manager, Applied AI & Data Science"
+  },
+  {
+   "company": "Applied Systems",
+   "title": "Sr. Product Manager: AI Automation"
+  },
+  {
+   "company": "Applied Systems",
+   "title": "Sr. AI Product Manager"
+  },
+  {
+   "company": "Applied Systems",
+   "title": "Sr. Product Manager: AI Automation - Applied Systems"
+  },
+  {
+   "company": "Applied Systems",
+   "title": "AI Product Manager - Applied Systems"
+  },
+  {
+   "company": "Applied Systems",
+   "title": "Sr. AI Product Manager - Applied Systems"
+  },
+  {
+   "company": "Anthropic",
+   "title": "Product Manager, Business Technology"
+  },
+  {
+   "company": "Anthropic",
+   "title": "Product Manager, Public Sector"
+  },
+  {
+   "company": "Centific",
+   "title": "Sr. PRODUCT MANAGER - PLATFORM GROWTH & SCALING"
+  },
+  {
+   "company": "Fivetran",
+   "title": "Product Manager - Fusion"
+  },
+  {
+   "company": "Reddit",
+   "title": "Staff Product Manager, Growth"
+  },
+  {
+   "company": "Reddit",
+   "title": "Group Product Manager, Finance Technology"
+  },
+  {
+   "company": "Reddit",
+   "title": "Senior Director of Product, Ads Platform"
+  },
+  {
+   "company": "Reddit",
+   "title": "Senior Director, Product & Finance Technology"
+  },
+  {
+   "company": "Reddit",
+   "title": "Staff Product Manager, Ads Safety (Ads Review)"
+  },
+  {
+   "company": "Reddit",
+   "title": "Staff Technical Product Manager, Ads ML Platform"
+  },
+  {
+   "company": "Automattic Careers",
+   "title": "Senior Product Manager - Payments"
+  },
+  {
+   "company": "OMG Technologies / Advance Auto Parts (client)",
+   "title": "AI/ML Product Manager – Loyalty & Personalization"
+  },
+  {
+   "company": "Ava Labs",
+   "title": "Senior Product Manager, Fortary - Remote"
+  },
+  {
+   "company": "Circle",
+   "title": "Lead Product Manager - Token"
+  },
+  {
+   "company": "Kit",
+   "title": "Senior Product Manager - Publishing"
+  },
+  {
+   "company": "Kit",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Litify",
+   "title": "Senior Product Manager (ELM Practice Management)"
+  },
+  {
+   "company": "Apollo.io",
+   "title": "Senior Product Manager – Product-Led Growth – Remote US"
+  },
+  {
+   "company": "Arpio Inc",
+   "title": "Senior Product Manager - Microsoft Azure"
+  },
+  {
+   "company": "GLOBAL VISSE INC (client AI platform)",
+   "title": "Senior Product Manager – AI"
+  },
+  {
+   "company": "Samsara",
+   "title": "Sr. Product Manager, Driver Management"
+  },
+  {
+   "company": "Samsara",
+   "title": "Senior Hardware Product Manager"
+  },
+  {
+   "company": "Samsara",
+   "title": "Senior Business Technology Product Manager- Supply Chain Planning"
+  },
+  {
+   "company": "Samsara",
+   "title": "Product Manager - Revenue Tools"
+  },
+  {
+   "company": "Samsara",
+   "title": "Sr. Support Product Manager, Tooling and Ops"
+  },
+  {
+   "company": "Samsara",
+   "title": "Principal Business Technology Product Manager"
+  },
+  {
+   "company": "Samsara",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Coursera",
+   "title": "Principal Product Manager, Mobile"
+  },
+  {
+   "company": "EBANX",
+   "title": "Product Manager | South Cone"
+  },
+  {
+   "company": "EBANX",
+   "title": "Group Product Manager | Argentina"
+  },
+  {
+   "company": "Jobot",
+   "title": "Senior Product Manager - Payment Gateways!"
+  },
+  {
+   "company": "Linear",
+   "title": "Product Manager"
+  },
+  {
+   "company": "MailerLite",
+   "title": "Technical Product Manager"
+  },
+  {
+   "company": "Medisca",
+   "title": "Upstream Product Manager"
+  },
+  {
+   "company": "Occupier",
+   "title": "Product Manager, AI Workflow"
+  },
+  {
+   "company": "Ramp",
+   "title": "Product Manager | Vendor Intelligence & Marketplace"
+  },
+  {
+   "company": "Ramp",
+   "title": "Product Manager | Tax"
+  },
+  {
+   "company": "Ramp",
+   "title": "Product Manager | International"
+  },
+  {
+   "company": "Supabase",
+   "title": "Product Manager - Security & Trust (EMEA/AMER)"
+  },
+  {
+   "company": "Supabase",
+   "title": "Product Manager - Strategic Partner Integrations (Bay Area based)"
+  },
+  {
+   "company": "The Zebra",
+   "title": "Senior Technical Product Manager"
+  },
+  {
+   "company": "Wikimedia Foundation",
+   "title": "Lead Product Manager - Security"
+  },
+  {
+   "company": "Blackbaud",
+   "title": "AI Product Owner - Implement to Renew"
+  },
+  {
+   "company": "Blackbaud",
+   "title": "TBM Product Owner"
+  },
+  {
+   "company": "Blackbaud",
+   "title": "Principal Product Manager, Data and AI Products - Blackbaud"
+  },
+  {
+   "company": "Medallia, Inc.",
+   "title": "Sr. Product Manager, Integration & APIs"
+  },
+  {
+   "company": "Dahl Consulting (retail client)",
+   "title": "Data Product Manager"
+  },
+  {
+   "company": "EBSCO",
+   "title": "Product Manager, AI Exchange"
+  },
+  {
+   "company": "Liberty Mutual Insurance",
+   "title": "Director I, Data Science Product Management"
+  },
+  {
+   "company": "PeopleGrove",
+   "title": "Lead Product Manager"
+  },
+  {
+   "company": "RoShay Services",
+   "title": "Remote AI Product Manager (Creative AI Focus)"
+  },
+  {
+   "company": "1mind",
+   "title": "Product Manager"
+  },
+  {
+   "company": "Intellect",
+   "title": "Senior Product Manager (Remote Anywhere in the U.S.)"
+  },
+  {
+   "company": "Sembi",
+   "title": "Product Manager - Testmo"
+  },
+  {
+   "company": "Group 1001",
+   "title": "Senior Product Manager, New Products"
+  },
+  {
+   "company": "Fortive",
+   "title": "Sr. Director Product Management"
+  },
+  {
+   "company": "Fortive",
+   "title": "Product Manager"
+  },
+  {
+   "company": "Oddball",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "CodeAI",
+   "title": "Curriculum and Professional Learning Product Manager"
+  },
+  {
+   "company": "S&P Global",
+   "title": "Principal Product Manager – Private Credit Valuations"
+  },
+  {
+   "company": "PadSplit",
+   "title": "Product Manager"
+  },
+  {
+   "company": "QuinStreet",
+   "title": "Product Manager - 360 Finance"
+  },
+  {
+   "company": "QuinStreet",
+   "title": "Product Manager - Appoint"
+  },
+  {
+   "company": "QuinStreet",
+   "title": "Product Manager - IBC"
+  },
+  {
+   "company": "15Five",
+   "title": "Director, Product"
+  },
+  {
+   "company": "1Password",
+   "title": "Senior Staff Product Manager, Device Security"
+  },
+  {
+   "company": "1Password",
+   "title": "Staff Product Manager, Developer Workflows"
+  },
+  {
+   "company": "1Password",
+   "title": "Senior Product Manager, Machine Identity"
+  },
+  {
+   "company": "1Password",
+   "title": "Director, Product Management, Identity"
+  },
+  {
+   "company": "Adobe",
+   "title": "Principal Product Manager"
+  },
+  {
+   "company": "Adobe",
+   "title": "Principal Product Manager, Graph"
+  },
+  {
+   "company": "Affirm",
+   "title": "Director, Product Management (Shopping & Offers)"
+  },
+  {
+   "company": "Affirm",
+   "title": "Senior Director, Product Management"
+  },
+  {
+   "company": "Affirm",
+   "title": "Senior Product Manager, 1: Many Merchant Growth"
+  },
+  {
+   "company": "Affirm",
+   "title": "Senior Product Manager, Agent Enablement"
+  },
+  {
+   "company": "Affirm",
+   "title": "Senior Product Manager, Credit & Pricing"
+  },
+  {
+   "company": "Affirm",
+   "title": "Staff Product Manager, Affirm Bank"
+  },
+  {
+   "company": "Affirm",
+   "title": "Staff Product Manager, App Platform & Experience"
+  },
+  {
+   "company": "Aledade",
+   "title": "Senior Technical Product Manager - AI Innovation, Remote - Aledade"
+  },
+  {
+   "company": "Alteryx",
+   "title": "VP, Product Management, Analytics Experience"
+  },
+  {
+   "company": "Angi",
+   "title": "Principal Product Manager, AI Platform"
+  },
+  {
+   "company": "Arcadia",
+   "title": "Principal Product Manager, AI Product - Arcadia"
+  },
+  {
+   "company": "Arize AI",
+   "title": "Senior AI Product Manager, Observability - Arize AI"
+  },
+  {
+   "company": "BJAK",
+   "title": "Product Manager - AI Neobank App - BJAK"
+  },
+  {
+   "company": "BJAK",
+   "title": "Technical Product Manager, AI Systems - BJAK"
+  },
+  {
+   "company": "Boostlingo",
+   "title": "Senior Product Manager, AI Products - Boostlingo"
+  },
+  {
+   "company": "Boulevard",
+   "title": "Senior Product Manager, AI Receptionist - Boulevard"
+  },
+  {
+   "company": "Brightwheel",
+   "title": "Staff Product Manager"
+  },
+  {
+   "company": "Bugcrowd",
+   "title": "Staff Product Manager (AI & Data) - Bugcrowd"
+  },
+  {
+   "company": "Capital One",
+   "title": "Senior Manager, Product Management: Capital One Shopping (Remote-Eligible)"
+  },
+  {
+   "company": "Capital One",
+   "title": "Senior Product Manager, Growth - Capital One Shopping (Remote-Eligible)"
+  },
+  {
+   "company": "Capital One",
+   "title": "Product Manager: Capital One Shopping (Remote-Eligible)"
+  },
+  {
+   "company": "Capital One",
+   "title": "Director of Product: Capital One Shopping (Remote - Eligible)"
+  },
+  {
+   "company": "Cisco",
+   "title": "Product Manager"
+  },
+  {
+   "company": "Cisco",
+   "title": "Product Manager - Partner Experience"
+  },
+  {
+   "company": "Cisco",
+   "title": "Senior Staff Product Manager - Cisco Cloud Control Integration"
+  },
+  {
+   "company": "Cisco",
+   "title": "Senior Product Manager, Network Platform (Remote)"
+  },
+  {
+   "company": "Cisco",
+   "title": "Senior Staff Product Manager - Splunk AI Foundations"
+  },
+  {
+   "company": "Cisco",
+   "title": "Senior Staff Product Manager, AI Knowledge Graph & Intelligence"
+  },
+  {
+   "company": "Cisco",
+   "title": "Product Manager, Cloud Platform (Data & Telemetry) (Remote)"
+  },
+  {
+   "company": "CodePath.org",
+   "title": "Founding Product Manager, AI Corps - CodePath.org"
+  },
+  {
+   "company": "Cohere",
+   "title": "Product Manager, Integrations"
+  },
+  {
+   "company": "Cohere",
+   "title": "Product Manager, Platform Experience & Developer Product"
+  },
+  {
+   "company": "ConnectWise",
+   "title": "Product Manager- AI - ConnectWise"
+  },
+  {
+   "company": "Cribl",
+   "title": "Director, Product Manager (Platform)"
+  },
+  {
+   "company": "Cribl",
+   "title": "Sr. Staff Product/Principal Product Manager, Cribl AI"
+  },
+  {
+   "company": "Duel.com",
+   "title": "Product Owner"
+  },
+  {
+   "company": "Filevine",
+   "title": "Senior Technical Product Manager, Doc Platform & AI Infrastructure - Filevine"
+  },
+  {
+   "company": "Grafana Labs",
+   "title": "Senior Product Manager, Infrastructure Observability | US | Remote"
+  },
+  {
+   "company": "Headway",
+   "title": "Staff Product Manager, Billing Infrastructure"
+  },
+  {
+   "company": "Headway",
+   "title": "Staff Product Manager, AI Patient Experience"
+  },
+  {
+   "company": "Headway",
+   "title": "Staff Product Manager, AI Platform"
+  },
+  {
+   "company": "Headway",
+   "title": "Principal Product Manager"
+  },
+  {
+   "company": "Headway",
+   "title": "Staff Product Manager, Pricing"
+  },
+  {
+   "company": "Headway",
+   "title": "Staff Product Manager"
+  },
+  {
+   "company": "Hewlett Packard Enterprise",
+   "title": "Senior Inbound Product Manager - VME/Morpheus"
+  },
+  {
+   "company": "Hopper",
+   "title": "Principal Product Manager- Conversational AI - Hopper"
+  },
+  {
+   "company": "Hyphen Connect Limited",
+   "title": "Product Manager (AI x Web3 Security) - Hyphen Connect Limited"
+  },
+  {
+   "company": "iCapital Network",
+   "title": "Distributed Ledger Technology Product Manager - Assistant Vice President / Vice President"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Lead Product Manager, Security"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Lead Product Manager"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "P&C Product Management Manager - State Management"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Principal Product Manager, Growth"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Lead Technical Product Manager, Content and Tools"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Associate Director, Product Management"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Senior Director, Product"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Associate Director, Digital Product Management, Catalysts"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Senior Staff Product Manager, Purple AI"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Product Manager, Partner Integrations"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Product Manager (Internal HRIS / HR Tech)"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Lead Product Manager - Interoperability Prior Authorizations"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Lead Product Manager - Provider Direct Connect"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Technical Product Manager, AI and Data"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Product Owner"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Product Manager, Clearing Systems"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Product Manager"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Product Manager II"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "AI Product Manager, Content Platform Operations and Publishing"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Product Manager, Strategy & Growth"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Product Owner-SolutionsITW"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Senior Director, Product Management & Patient Experience"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Technical Product Manager - GenAI Programmes"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Head of Product - Engagement"
+  },
+  {
+   "company": "Jobgether (anonymized partner employer)",
+   "title": "Product Manager, LMS (Contract Position)"
+  },
+  {
+   "company": "KeyBank",
+   "title": "Deposit Account Control Agreement (DACA) Sr. Product Manager"
+  },
+  {
+   "company": "Lansweeper",
+   "title": "Principal Product Manager"
+  },
+  {
+   "company": "LaunchDarkly",
+   "title": "Staff Product Manager - Data Products and Agent Interface"
+  },
+  {
+   "company": "Lyra Health",
+   "title": "Lead Product Manager, Data and AI - Lyra Health"
+  },
+  {
+   "company": "Maxwell",
+   "title": "Senior Product Manager, AI & Data - Maxwell"
+  },
+  {
+   "company": "Mercury",
+   "title": "Head of Product - Business Lending"
+  },
+  {
+   "company": "Mercury",
+   "title": "Senior Product Manager - Activation"
+  },
+  {
+   "company": "Mercury",
+   "title": "Senior Product Manager - Business Lending"
+  },
+  {
+   "company": "Mercury",
+   "title": "Senior Product Manager - Dashboard Experience"
+  },
+  {
+   "company": "Mercury",
+   "title": "Senior Product Manager - Users"
+  },
+  {
+   "company": "Mercury",
+   "title": "Staff Product Manager - Mercury Command"
+  },
+  {
+   "company": "MeridianLink",
+   "title": "Senior Product Manager - AI Products (FinTech) - MeridianLink"
+  },
+  {
+   "company": "MinIO",
+   "title": "Sr. AI Product Manager - MinIO"
+  },
+  {
+   "company": "Mirantis",
+   "title": "Technical Product Manager, AI Cloud Networking - Mirantis"
+  },
+  {
+   "company": "Mitratech",
+   "title": "Sr. Product Manager AI - Mitratech"
+  },
+  {
+   "company": "Momentive Software",
+   "title": "Agentic AI — AI-Native Senior Product Manager - Momentive Software"
+  },
+  {
+   "company": "NetDocuments",
+   "title": "Senior Product Manager - AI - NetDocuments"
+  },
+  {
+   "company": "Netflix",
+   "title": "AI Product Manager, Content Platform Operations and Publishing - Netflix"
+  },
+  {
+   "company": "Netlify",
+   "title": "Staff Product Manager (Accounts & Billing)"
+  },
+  {
+   "company": "Newfold Digital",
+   "title": "Principal Product Manager - AI Applications - Newfold Digital"
+  },
+  {
+   "company": "NVIDIA",
+   "title": "Senior Product Manager, AI Physics"
+  },
+  {
+   "company": "NVIDIA",
+   "title": "Senior Technical Product Manager, Rules of Road Perception - Autonomous Vehicles"
+  },
+  {
+   "company": "NVIDIA",
+   "title": "Senior Product Manager, cuEST and cuEquivariance"
+  },
+  {
+   "company": "NVIDIA",
+   "title": "Senior Technical Product Manager, RAN Digital Twin"
+  },
+  {
+   "company": "Orderly Network",
+   "title": "Product Manager"
+  },
+  {
+   "company": "Payabli",
+   "title": "Senior Product Manager, Platform"
+  },
+  {
+   "company": "Ping Identity",
+   "title": "Product Manager - Identity for AI - Ping Identity"
+  },
+  {
+   "company": "Place",
+   "title": "Senior Product Manager, AI & Data"
+  },
+  {
+   "company": "PointClickCare",
+   "title": "Senior Product Manager, Revenue Cycle Management AI - PointClickCare"
+  },
+  {
+   "company": "PointClickCare",
+   "title": "Principal Product Manager - AI Models - PointClickCare"
+  },
+  {
+   "company": "Rentable",
+   "title": "Senior / Lead Product Manager - AI & Data - Rentable"
+  },
+  {
+   "company": "Salesforce",
+   "title": "Technical Product Manager (Remote)"
+  },
+  {
+   "company": "Salesforce",
+   "title": "Missionforce - Senior Product Manager, Agentforce Public Sector"
+  },
+  {
+   "company": "Salesforce",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Scribd, Inc.",
+   "title": "Lead Product Manager - AI Developer Platform - Scribd, Inc."
+  },
+  {
+   "company": "Sekai (Versa Inc)",
+   "title": "AI Product Manager (Remote) - Sekai (Versa Inc)"
+  },
+  {
+   "company": "ServiceTitan",
+   "title": "Senior Product Manager - Data and AI Platform - ServiceTitan"
+  },
+  {
+   "company": "Sidecar Health",
+   "title": "Lead Product Manager, AI - Sidecar Health"
+  },
+  {
+   "company": "Simprints",
+   "title": "Senior Technical Product Manager"
+  },
+  {
+   "company": "Smartsheet",
+   "title": "Principal Product Manager - AI Creation & Growth (Remote Eligible)"
+  },
+  {
+   "company": "Smartsheet",
+   "title": "Senior Product Manager II - Applied AI (Remote Eligible)"
+  },
+  {
+   "company": "Spark",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Talkdesk",
+   "title": "Forward Deployed AI Product Manager, HLS - Talkdesk"
+  },
+  {
+   "company": "Talkdesk",
+   "title": "Forward Deployed AI Product Manager, FSI - Talkdesk"
+  },
+  {
+   "company": "TE Connectivity",
+   "title": "PRODUCT MANAGER II (#Remote, PA, US, #Remote)"
+  },
+  {
+   "company": "Teamworks",
+   "title": "Senior Product Manager, AI - Teamworks"
+  },
+  {
+   "company": "TENEX.AI",
+   "title": "Principal Product Manager - AI - TENEX.AI"
+  },
+  {
+   "company": "The Standard",
+   "title": "Product Manager - Data & AI Platform - The Standard"
+  },
+  {
+   "company": "Tiger Analytics Inc.",
+   "title": "Manager/ Sr. Manager - Data Product Manager"
+  },
+  {
+   "company": "Tiny Health",
+   "title": "Technical Product Manager, AI and Data - Tiny Health"
+  },
+  {
+   "company": "Toast",
+   "title": "Senior Product Manager, Consumer Payments"
+  },
+  {
+   "company": "Toast",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Upstart",
+   "title": "Principal Product Manager, Growth"
+  },
+  {
+   "company": "Vanguard",
+   "title": "AI/ML Product Manager - Vanguard"
+  },
+  {
+   "company": "Vanta",
+   "title": "Staff Product Manager, AI Foundations"
+  },
+  {
+   "company": "Vanta",
+   "title": "Senior Product Manager, Agent Ecosystem"
+  },
+  {
+   "company": "Vanta",
+   "title": "Senior Product Manager, Integrations Delivery"
+  },
+  {
+   "company": "Vanta",
+   "title": "Senior Product Manager, Design Systems"
+  },
+  {
+   "company": "Vanta",
+   "title": "Staff Product Manager, Data Platform"
+  },
+  {
+   "company": "Vanta",
+   "title": "Senior Product Manager, GRC Platform"
+  },
+  {
+   "company": "Vantage Data Centers",
+   "title": "AI Product Manager, Global - Vantage Data Centers"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - LIMS"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Technical Product Manager (AI) - Veeva QualityDocs & Training"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Technical Product Manager (AI) - Veeva Quality Cloud"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - Medical Inquiry"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - Safety"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - Ostro Medical"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Technical Product Manager - Veeva Labeling AI"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - Vault CRM - Service Center"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Director Product Management - Veeva RIM"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Technical Product Manager"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - EDC"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Product Manager/Director - Crossix"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - SAP ERP Integrations"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - Patient CRM"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - Vault CRM - Med Tech"
+  },
+  {
+   "company": "Veeva Systems",
+   "title": "Senior Product Manager - Compass Platform"
+  },
+  {
+   "company": "Versapay",
+   "title": "Senior Product Manager, Payments"
+  },
+  {
+   "company": "Warner Bros. Discovery",
+   "title": "Advanced Product Manager"
+  },
+  {
+   "company": "Webflow",
+   "title": "Senior Product Manager, AI"
+  },
+  {
+   "company": "Webflow",
+   "title": "Staff Product Manager, AI"
+  },
+  {
+   "company": "Webflow",
+   "title": "Staff Product Manager, Governance"
+  },
+  {
+   "company": "Webflow",
+   "title": "Staff Product Manager, AI - Webflow"
+  },
+  {
+   "company": "Webflow",
+   "title": "Senior Product Manager, AI - Webflow"
+  },
+  {
+   "company": "Wisdom",
+   "title": "Principal Product Manager (AI) - Wisdom"
+  },
+  {
+   "company": "Wizard AI",
+   "title": "Senior Product Manager — Agentic AI Experiences - Wizard AI"
+  },
+  {
+   "company": "WorkOS",
+   "title": "Product Manager - Growth"
+  },
+  {
+   "company": "WorkOS",
+   "title": "Product Manager"
+  },
+  {
+   "company": "WorkWave",
+   "title": "Technical Product Manager - AI & Data Analytics - WorkWave"
+  },
+  {
+   "company": "Xsolla",
+   "title": "Senior Technical Product Manager, Ad Platform"
+  },
+  {
+   "company": "YipitData",
+   "title": "AI Product Manager - YipitData"
+  },
+  {
+   "company": "Zip Co",
+   "title": "Group Product Manager, AI (Products) - Zip Co"
+  },
+  {
+   "company": "Array",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "Array",
+   "title": "Senior AI Product Manager"
+  },
+  {
+   "company": "The AI Education Project (aiEDU)",
+   "title": "Product Manager, Fractional Independent Contractor"
+  },
+  {
+   "company": "Get Gauge Inc. (gauge.ai)",
+   "title": "Contract Product Manager"
+  },
+  {
+   "company": "Shippabo",
+   "title": "Product Management Consultant (1099 Contractor)"
+  },
+  {
+   "company": "Mindgrub Technologies",
+   "title": "Product Manager (contract)"
+  },
+  {
+   "company": "Credible",
+   "title": "Product Manager for Marketplace Lending, Contractor"
+  },
+  {
+   "company": "Etsy",
+   "title": "Director of Product Management (Remote) - 1086"
+  },
+  {
+   "company": "MDisrupt",
+   "title": "Senior Product Manager"
+  },
+  {
+   "company": "micro1",
+   "title": "Product Management Expert"
+  },
+  {
+   "company": "Pindrop",
+   "title": "Senior Platform Product Manager (Contract Position)"
+  },
+  {
+   "company": "Wizdaa",
+   "title": "Senior Product Manager - Integrations"
+  }
+ ]
+}
