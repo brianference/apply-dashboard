@@ -61,6 +61,67 @@ function slug(s) {
 const CAPTCHA_SEL = 'iframe[src*="recaptcha/api2/anchor"], iframe[src*="hcaptcha"], iframe[src*="challenges.cloudflare.com"], .g-recaptcha:not([data-size="invisible"])';
 const WALL_TEXT = /performing security verification|checking your browser|verify you are human|unusual traffic|sign in to (apply|continue|view)|create an account to apply/i;
 
+/**
+ * Employer careers sites that are a skin over a Greenhouse board. The posting
+ * URL carries the Greenhouse job id as `gh_jid`, but the page itself is a
+ * client-rendered SPA whose form only appears after an iframe loads -- and for
+ * three of these five the vanity page never exposes the board token in its HTML
+ * at all, so the token cannot be sniffed and has to be known.
+ *
+ * Every token here was confirmed against the Greenhouse boards API: a GET of
+ * /v1/boards/<token>/jobs/<gh_jid> returns 200 and its `absolute_url` points
+ * back at the host on the left. `greenhouseEmbedUrl` re-runs that check at
+ * runtime, so a token that stops matching stops rewriting instead of sending
+ * the run to some other company's form.
+ */
+const GH_VANITY_BOARDS = {
+  'stripe.com': 'stripe',
+  'samsara.com': 'samsara',
+  'coinbase.com': 'coinbase',
+  'pinterestcareers.com': 'pinterest',
+  'instacart.careers': 'instacart',
+};
+
+/**
+ * Resolve a vanity careers URL to the plain Greenhouse application form.
+ *
+ * `job-boards.greenhouse.io/<token>/jobs/<id>` is NOT usable here: Greenhouse
+ * 302s it straight back to the employer's own careers page, which is where we
+ * started. The form that actually renders standalone is the embed endpoint.
+ *
+ * @param {string} url posting URL as it appears in the queue
+ * @returns {Promise<{url:string, why:string}|null>} null when this is not a
+ *   known vanity board, or when the board token could not be confirmed.
+ */
+async function greenhouseEmbedUrl(url) {
+  let u;
+  try { u = new URL(url); } catch { return null; }
+  const jid = u.searchParams.get('gh_jid');
+  if (!jid || !/^\d+$/.test(jid)) return null;
+  const host = u.hostname.replace(/^www\./, '');
+  const board = GH_VANITY_BOARDS[host];
+  if (!board) return null;
+
+  /* Confirm the token really owns this job id before redirecting the run. */
+  let job;
+  try {
+    const r = await fetch(`https://boards-api.greenhouse.io/v1/boards/${board}/jobs/${jid}`,
+      { signal: AbortSignal.timeout(20000) });
+    if (!r.ok) return null;
+    job = await r.json();
+  } catch {
+    return null;
+  }
+  let absHost = '';
+  try { absHost = new URL(job.absolute_url).hostname.replace(/^www\./, ''); } catch { return null; }
+  if (absHost !== host) return null;
+
+  return {
+    url: `https://job-boards.greenhouse.io/embed/job_app?for=${board}&token=${jid}`,
+    why: `greenhouse vanity board "${board}" (confirmed: boards-api absolute_url is ${absHost})`,
+  };
+}
+
 /** Where Brian can legally be hired. A posting that excludes these is a hard stop. */
 const HOME_STATE = /\barizona\b|\bAZ\b/i;
 const US_ANYWHERE = /\b(united states|u\.?s\.?a?\b|us[- ]remote|remote[- ]us|anywhere in the (us|u\.s\.)|nationwide|all (us )?states)\b/i;
@@ -495,12 +556,35 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   console.log(`\n=== ${args.url}`);
   console.log(`mode: ${args.submit ? 'SUBMIT' : 'DRY RUN (will not submit)'}`);
 
+  /* Lever serves the job description and the application form at two different
+     URLs. The posting page carries no inputs at all, so the runner read it as
+     "this ATS needs an account or a wizard" and skipped every Lever posting in
+     the queue -- 47 of them. The form lives at <posting>/apply. */
+  let landing = args.url;
+
+  /* Stripe, Samsara, Coinbase, Pinterest and Instacart all run their careers
+     site as a skin over Greenhouse. Pointed at the vanity URL the runner landed
+     on a marketing page with no form -- Greenhouse even 302s its own
+     /<board>/jobs/<id> URL back to that same page -- so 28 queued postings
+     looked unapplyable. The embed endpoint serves the real form standalone. */
+  const ghForm = await greenhouseEmbedUrl(landing);
+  if (ghForm) {
+    landing = ghForm.url;
+    console.log(`greenhouse: ${ghForm.why}`);
+    console.log(`greenhouse: going to the application form at ${landing}`);
+  }
+
+  if (/jobs\.lever\.co/i.test(landing) && !/\/apply\/?$/.test(landing)) {
+    landing = landing.replace(/\/+$/, '') + '/apply';
+    console.log(`lever: going to the application form at ${landing}`);
+  }
+
   /* A persistent context sometimes aborts its very first navigation while the
      profile is still warming up. One retry, then give up honestly. */
   let resp = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      resp = await page.goto(args.url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      resp = await page.goto(landing, { waitUntil: 'domcontentloaded', timeout: 45000 });
       break;
     } catch (e) {
       if (attempt === 2) throw e;
@@ -583,11 +667,31 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   const YESNO = [
     [/legally authorized to work/i, 'Yes'],
     [/are you (legally )?(authorized|eligible)/i, 'Yes'],
-    [/require sponsorship|visa sponsorship|sponsorship for a visa|require employment visa/i, 'No'],
-    [/non[- ]compete|post[- ]employment restriction|employment agreements/i, 'No'],
+    /* "immigration sponsorship" is the wording Affirm and Smartsheet use, and
+       it matched none of the visa patterns -- thirteen postings across those two
+       employers stopped on a question the profile already answers. */
+    [/require sponsorship|visa sponsorship|sponsorship for a visa|require employment visa|immigration sponsorship|sponsorship for work/i, 'No'],
+    [/non[- ]compete|post[- ]employment restriction|employment agreements|post[- ]employment,? contractual|contractual or other restrictions|restrictive covenant/i, 'No'],
+    /* Relationship-to-the-employer gates. All are No for him: he has no prior
+       tie to any of these companies and is not a customer or partner of one. */
+    [/know any(one|body) who works at|anyone currently (working|employed) at|referred by (an|a current) employee/i, 'No'],
+    [/current user of|used .{0,20}in the past 12 months|been employed by a partner or customer|customer or partner of/i, 'No'],
+    /* Consent and contact-preference gates. Declining these blocks the submit
+       on some boards and helps on none. */
+    [/applicant privacy notice|privacy notice|^i consent|data privacy (policy|notice)/i, 'Yes'],
+    [/would like to be contacted about future|future .{0,25}(employment )?opportunities|add me to .{0,20}talent/i, 'Yes'],
+    /* Experience gates. Two years with the PM title plus the Amex years running
+       the role as an Engineering Manager clear a 5+ bar; see narrative.local.md
+       "Seniority framing". */
+    [/\b5\+? (years )?of product management|5\+ years.{0,25}product/i, 'Yes'],
+    /* He is in Arizona and is not entitled to work in Canada. */
+    [/entitled to work in canada|authorized to work in canada|eligible to work in canada/i, 'No'],
     /* Brian's standing answers, 2026-08-24: yes to occasional onsite/travel,
        no to permanent relocation, no to prior contact with the employer. */
-    [/previously (worked|applied|been employed|consulted)|ever (worked|interviewed|applied)|interviewed at/i, 'No'],
+    /* "ever been previously employed by Spotify" matched none of the original
+       alternatives -- they required the word "been" before "employed" and the
+       word "ever" immediately before the verb. Cover the plain forms too. */
+    [/previously,? ?(worked|applied|been employed|employed|consulted)|ever (been )?(previously )?(worked|interviewed|applied|employed)|interviewed at|employed by (us|this company)/i, 'No'],
     [/open to relocat|willing to relocat|require relocation/i, 'No'],
     [/open to working in[- ]person|in the office|onsite|on-site|hybrid|willing to travel|open to travel/i, 'Yes'],
     /* Common gates seen on live Ashby/Greenhouse forms. "Are you over the age
@@ -601,6 +705,31 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
     if (await clickYesNo(target, q, a, log)) continue;
     if (await answerYesNo(target, q, a, log)) continue;
     await fillCombo(target, q, a, log);
+  }
+
+  /* Lever's location field is <input id="location-input" name="location"> with
+     NO label element at all, so no label-based matcher reaches it, and it is
+     required on every Lever posting. It is a Google-Places style typeahead: the
+     typed text alone does not register, an option has to be chosen. */
+  const leverLoc = target.locator('#location-input, input[name="location"]').first();
+  if (await leverLoc.count().catch(() => 0) && await leverLoc.isVisible().catch(() => false)) {
+    for (const attempt of [id.location, `${id.city}, ${id.state}`, id.city].filter(Boolean)) {
+      await leverLoc.click().catch(() => {});
+      await leverLoc.fill('').catch(() => {});
+      await leverLoc.type(String(attempt), { delay: 60 }).catch(() => {});
+      await page.waitForTimeout(1800);
+      const opt = target.locator('[role="option"]:visible, .dropdown-location li:visible, ul[class*="location"] li:visible, li[class*="location"]:visible').first();
+      if (await opt.count().catch(() => 0)) {
+        const t = (await opt.innerText().catch(() => '')).trim();
+        await opt.click().catch(() => {});
+        log.push(`lever location = ${t.slice(0, 40)}`);
+        break;
+      }
+      /* No popup: some tenants accept free text. Leave it typed and move on. */
+      log.push(`lever location typed "${String(attempt).slice(0, 30)}" (no listbox offered)`);
+      break;
+    }
+    await page.waitForTimeout(300);
   }
 
   /* Location is another unlabelled Ashby combobox. Tag it by its question text
@@ -701,7 +830,13 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   /* Greenhouse renders EEO as custom comboboxes, not native selects, so the
      block above cannot reach them. Drive each one through the listbox. */
   const EEO_COMBOS = [
-    [/^gender/i, /decline to self.?identify|don'?t wish to answer|prefer not/i],
+    /* Instacart asks "What is your gender or gender identity?" and Greenhouse
+       hands that whole sentence over as the label, so an anchored /^gender/
+       matched nothing and a required EEO combo stayed blocking. */
+    [/^gender|your gender|gender identity/i, /decline to self.?identify|don'?t wish to answer|prefer not/i],
+    /* Sexual-orientation self-ID is the same kind of voluntary demographic
+       question and takes the same standing decline. */
+    [/lgbt|sexual orientation/i, /decline to self.?identify|don'?t wish to answer|prefer not/i],
     [/hispanic|latino|ethnic|race/i, /decline to self.?identify|don'?t wish to answer|prefer not/i],
     [/disability status/i, /do ?n'?t wish to answer|decline to answer|prefer not/i],
     [/veteran status/i, /decline to self.?identify|don'?t wish to answer|prefer not|i am not a protected veteran|not a (protected )?veteran/i],
@@ -923,9 +1058,12 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   for (let i = 0; i < nFiles; i++) {
     const f = files.nth(i);
     let ok = false;
-    for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+    /* Five attempts with a growing pause. Ashby drops the upload under parallel
+       load, and three quick tries were not enough to ride that out -- five
+       postings in one run reached the submit gate with no resume attached. */
+    for (let attempt = 1; attempt <= 5 && !ok; attempt++) {
       await f.setInputFiles(resume).catch(() => {});
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(1500 + attempt * 900);
       /* Greenhouse REPLACES the <input type=file> with an "attached" widget
          the moment the upload lands, so evaluating on the input throws a
          detached-element timeout and the old catch turned that into
@@ -948,9 +1086,9 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
       }, resumeName).catch(() => ({ failed: false, present: false }));
       if (!status.present && !(await f.count().catch(() => 1))) status.present = true;
       if (status.present && !status.failed) { ok = true; break; }
-      if (attempt < 3) {
+      if (attempt < 5) {
         log.push(`resume upload attempt ${attempt} failed on input ${i}, retrying`);
-        await page.waitForTimeout(2500);
+        await page.waitForTimeout(2000 + attempt * 1200);
       }
     }
     log.push(ok ? `attached resume to file input ${i}` : `RESUME UPLOAD FAILED on input ${i}`);
@@ -1089,7 +1227,33 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
       const req = e.required || e.getAttribute('aria-required') === 'true' || /\*/.test(labelTxt);
       if (!req) continue;
       let empty;
-      if (e.type === 'checkbox' || e.type === 'radio') {
+      if (e.type === 'radio') {
+        /* A radio GROUP is one question. Testing each option on its own made
+           every unselected option its own "required and empty" field, and the
+           label walk then named it after the option rather than the question --
+           which is why Lever postings reported blockers reading "Yes", "Yes",
+           "No" and "I confirm". The group is answered when ANY member is
+           checked. */
+        const group = e.name
+          ? [...document.querySelectorAll(`input[type="radio"][name="${CSS.escape(e.name)}"]`)]
+          : [e];
+        if (group.some(g => g.checked)) continue;
+        /* Report the group once, on its first member. */
+        if (e.name && group[0] !== e) continue;
+        empty = true;
+      } else if (e.type === 'checkbox') {
+        /* Lever renders a single-choice question as CHECKBOXES sharing one name
+           -- cards[<uuid>][field0] repeated per option. Treated individually,
+           every unticked option became its own blocker named after the option,
+           which is where "No", "Yes - Intern" and "Yes - Full Time Employment"
+           came from on the Spotify form. Group them the same way as radios. */
+        const siblings = e.name
+          ? [...document.querySelectorAll(`input[type="checkbox"][name="${CSS.escape(e.name)}"]`)]
+          : [e];
+        if (siblings.length > 1) {
+          if (siblings.some(g => g.checked)) continue;
+          if (siblings[0] !== e) continue;
+        }
         empty = !e.checked;
       } else if (e.type === 'file') {
         /* Ashby swaps the native input for its own widget and clears .value once
@@ -1136,7 +1300,41 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
         }
       }
       if (!empty) continue;
-      const lab = e.getAttribute('aria-label')
+      /* For a radio the nearest label is the OPTION ("Yes"), never the question,
+         so prefer the group's own heading: a fieldset legend, or the first label
+         in the container that is not one of the options. Naming the field "Yes"
+         made it unanswerable -- no matcher can map an answer onto that. */
+      let groupLab = '';
+      if (e.type === 'radio' || (e.type === 'checkbox' && e.name
+        && document.querySelectorAll(`input[type="checkbox"][name="${CSS.escape(e.name)}"]`).length > 1)) {
+        const fs = e.closest('fieldset');
+        const legend = fs?.querySelector('legend')?.innerText;
+        const wrap = e.closest('[class*="application-question"],[class*="question"],fieldset,li,div');
+        const heading = wrap
+          ? [...wrap.querySelectorAll('label,legend,.application-label,[class*="label"]')]
+            .map(x => (x.innerText || '').replace(/\s+/g, ' ').trim())
+            .find(t => t.length > 3 && !/^(yes|no|i confirm|n\/?a)$/i.test(t))
+          : '';
+        /* Lever keeps the question as a bare text node inside
+           li.application-question and puts only the options in
+           .application-field, so no label element holds it. Take the container
+           text and subtract the options: "Have you ever been previously
+           employed by Spotify? No Yes - Intern Yes - Full Time Employment"
+           becomes the question alone, which the Yes/No table can then match. */
+        let stripped = '';
+        const q = e.closest('[class*="application-question"]');
+        if (q) {
+          const optText = [...q.querySelectorAll('input[type="checkbox"],input[type="radio"]')]
+            .map(i => (i.closest('label')?.innerText || '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean);
+          stripped = (q.innerText || '').replace(/\s+/g, ' ').trim();
+          for (const o of optText) stripped = stripped.split(o).join(' ');
+          stripped = stripped.replace(/\s+/g, ' ').trim();
+        }
+        groupLab = legend || (stripped.length > 3 ? stripped : '') || heading || '';
+      }
+      const lab = groupLab
+        || e.getAttribute('aria-label')
         || (e.id && document.querySelector(`label[for="${CSS.escape(e.id)}"]`)?.innerText)
         || e.closest('label')?.innerText || e.name || '(unlabelled)';
       const key = 'apb-' + (seq++);
@@ -1162,6 +1360,39 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
     let filledAny = false;
     for (const f of unansweredFields) {
       const hay = `${f.label} ${f.question}`;
+      /* A grouped choice is answered by TICKING an option, not by typing into
+         it. The resolver used to fill() the checkbox, which does nothing, so
+         Lever's "Have you ever been previously employed by Spotify?" stayed
+         blocking forever. Match the question against the Yes/No table, then
+         click the option whose own label matches that answer -- preferring an
+         exact match so "No" never selects "Yes - Full Time Employment". */
+      const yn = YESNO.find(([rx]) => rx.test(hay));
+      if (yn) {
+        const want = String(yn[1]);
+        const picked = await target.evaluate(({ key, want: w }) => {
+          const el = document.querySelector(`[data-apblock="${key}"]`);
+          if (!el || !/^(checkbox|radio)$/.test(el.type)) return null;
+          const group = el.name
+            ? [...document.querySelectorAll(`input[type="${el.type}"][name="${CSS.escape(el.name)}"]`)]
+            : [el];
+          const textOf = (i) => (i.closest('label')?.innerText || '').replace(/\s+/g, ' ').trim();
+          const exact = group.find(i => textOf(i).toLowerCase() === w.toLowerCase());
+          const loose = group.find(i => new RegExp(`^${w}\\b`, 'i').test(textOf(i)));
+          const target2 = exact || loose;
+          if (!target2) return null;
+          target2.setAttribute('data-apclick', '1');
+          return textOf(target2);
+        }, { key: f.key, want }).catch(() => null);
+        if (picked) {
+          await target.locator('[data-apclick="1"]').first().click().catch(() => {});
+          await target.evaluate(() => document.querySelectorAll('[data-apclick]')
+            .forEach(x => x.removeAttribute('data-apclick'))).catch(() => {});
+          log.push(`ticked "${f.label.slice(0, 40)}" = ${picked.slice(0, 30)}`);
+          filledAny = true;
+          await page.waitForTimeout(250);
+          continue;
+        }
+      }
       const hit = VALUE_MAP.find(([rx]) => rx.test(hay));
       const bankKey = hit ? null : Object.keys(answerBank)
         .filter(k => !k.startsWith('_'))

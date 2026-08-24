@@ -20,6 +20,12 @@ import { spawn } from 'node:child_process';
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
 const APPLY_API = 'https://apply-dashboard.pages.dev/api/apply';
+/* Spelled out, NOT derived from APPLY_API. APPLY_API.replace('/apply',
+   '/blocked') matches the HOSTNAME first -- '//apply-dashboard' contains
+   '/apply' -- and produced https://blocked-dashboard.pages.dev/api/apply,
+   a domain that does not exist. Every blocked record silently went nowhere,
+   which is why no posting ever carried a runner-recorded reason. */
+const BLOCKED_API = 'https://apply-dashboard.pages.dev/api/blocked';
 let LEDGER = path.join(ROOT, 'evidence', 'apply', 'batch-ledger.json');
 let ISSUES = path.join(ROOT, 'evidence', 'apply', 'ISSUES.md');
 const ANSWERS = path.join(ROOT, 'apply', 'answers.general.local.json');
@@ -38,15 +44,36 @@ const DIRECT = /ashbyhq\.com|greenhouse\.io|lever\.co|workable\.com|smartrecruit
    network connection" from Ashby. Re-enable only once the runner treats a
    rejection as "the form is now blank, start over".
    Note ScribdInc is an Ashby tenant, so this covers it. */
-const PAUSED_HOSTS = /ashbyhq\.com/i;
+/* Greenhouse joined the pause on 2026-08-24. Every tenant tested gates the
+   submit behind a one-time code emailed to the applicant (Temporal, Boostlingo,
+   Arize, Boulevard) or answers the form POST with HTTP 428 asking for the same
+   thing (Anthropic). The form fills clean and the resume uploads; the code is
+   the wall, and each new attempt invalidates the previous code, so unattended
+   volume is not possible here. Re-enable for a supervised code-relay session.
+   Lever, Workday, iCIMS and SmartRecruiters do not gate this way. */
+/* Ashby is BACK ON as of 2026-08-24. The reason it was paused -- a rejected
+   submit returning a fresh FormRender that wipes the form -- only bites when
+   the first submit is rejected, and the thing rejecting it was the unfilled
+   "City, Region/State, Country" typeahead. With that fixed the first submit
+   goes through: Delinea Endpoint Privilege Management returned FormSubmitSuccess
+   and rendered "Your application was successfully submitted."
+
+   Greenhouse stays paused: every tenant tested gates the submit behind a
+   one-time code emailed to the applicant, and each new attempt invalidates the
+   previous code, so unattended volume is impossible there. */
+const PAUSED_HOSTS = /greenhouse\.io/i;
 
 /** States worth one automatic retry — a real crash, not a real blocker. */
-const RETRYABLE = new Set(['crashed']);
+/* upload-failed is TRANSIENT, not a property of the posting. Ashby drops the
+   resume upload under parallel load -- five postings lost it in one four-shard
+   run -- and it was in TERMINAL, so each one was retired permanently for a
+   problem that clears on a quieter retry. */
+const RETRYABLE = new Set(['crashed', 'upload-failed']);
 /* A form that rejected the submit is blocked on a field the profile cannot
    answer. Retrying it produces the same rejection, so it is recorded once and
    never attempted again - that is what "skip and move on" means in practice. */
 const TERMINAL = new Set(['submitted-unconfirmed', 'needs-input', 'no-submit-button', 'needs-account-or-wizard',
-  'location-ineligible', 'needs-consent-decision', 'upload-failed', 'wall', 'captcha',
+  'location-ineligible', 'needs-consent-decision', 'wall', 'captcha',
   /* The form POST came back 428/403 -- a bot wall. Retrying only burns time. */
   'captcha-blocked',
   /* The board emailed a one-time code and will not accept the application
@@ -213,7 +240,7 @@ async function markBlocked(dedupeKey, reason, detail) {
   try { token = fs.readFileSync(TOKEN_FILE, 'utf8').trim(); } catch { return false; }
   if (!token) return false;
   try {
-    const r = await fetch(APPLY_API.replace('/apply', '/blocked'), {
+    const r = await fetch(BLOCKED_API, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-apply-token': token },
       body: JSON.stringify({ dedupe_key: dedupeKey, reason, detail })
