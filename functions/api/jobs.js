@@ -14,8 +14,12 @@ const COLUMNS = [
   "status", "lane", "submitted_at", "posted", "work_type", "updated_at"
 ];
 
+/* salary_* was added on 2026-08-24 so the $180k floor in CRITERIA.md can be
+   enforced instead of merely stated. Without these in the SELECT the backfill
+   lands in D1 but nothing downstream can read it. */
 const SELECT = `
-  SELECT ${COLUMNS.join(", ")}, link_status, link_checked_at
+  SELECT ${COLUMNS.join(", ")}, link_status, link_checked_at, blocked_reason, blocked_detail,
+         salary_min, salary_max, salary_source
   FROM jobs
   ORDER BY
     CASE lane WHEN 'submitted' THEN 0 WHEN 'ft' THEN 1 ELSE 2 END,
@@ -24,7 +28,8 @@ const SELECT = `
 `;
 
 /** Same query without the link-check columns, for a database not yet migrated. */
-const SELECT_LEGACY = SELECT.replace(", link_status, link_checked_at", "");
+const SELECT_LEGACY = SELECT
+  .replace(", link_status, link_checked_at, blocked_reason, blocked_detail,\n         salary_min, salary_max, salary_source", "");
 
 const HEADERS = {
   "content-type": "application/json; charset=utf-8",

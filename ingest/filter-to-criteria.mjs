@@ -32,7 +32,9 @@ const TOO_JUNIOR = /\b(associate product manager|junior|intern|apprentice|entry[
 const CONTRACT = /\b(contract|contractor|c2c|corp[- ]to[- ]corp|1099|fractional|part[- ]time|freelance|temporary|interim|consult(ing|ant)|hourly|fixed[- ]term)\b/i;
 
 /** Remote-US eligibility. He is in Arizona and will not relocate. */
-const REMOTE_OK = /\b(remote|distributed|anywhere|work from home|wfh)\b/i;
+/* TELECOMMUTE is schema.org's literal value for a remote role. Built In emits
+   it, and omitting it dropped 54 genuinely remote postings. */
+const REMOTE_OK = /\b(remote|distributed|anywhere|work from home|wfh|telecommute)\b/i;
 /* Exclusion-based, not inclusion-based. "New York, San Francisco or Remote" is a
    US-eligible posting, and an inclusion list rejected it. Only an explicit
    non-US-only restriction disqualifies. */
