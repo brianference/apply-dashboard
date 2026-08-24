@@ -190,8 +190,31 @@ async function tagNear(page, question, attr, sel) {
     /* The sidebar has its own "Location" heading, and taking the first match
        tagged a control next to that instead of the form field. Prefer an EMPTY
        control, and prefer a combobox over a plain text input. */
-    const empty = found.filter(c => !String(c.value || '').trim());
-    const pool = empty.length ? empty : found;
+    /* NEVER pick a control that identifies itself as something else. Headway's
+       sidebar carries its own "Location" heading; walking up from that reached a
+       container holding the whole form, and querySelector returned the FIRST
+       input in it -- Full Name. The runner then wrote "Cave Creek, Arizona,
+       United States" into the candidate's name. Preferring an empty control was
+       not enough, because Full Name is empty at that point too. */
+    const OWN_LABEL_IS_SOMETHING_ELSE = /(full |legal |first |last |preferred )?name|e-?mail|phone|resume|cv|linkedin|github|portfolio|website|url|salary|compensation|pronoun|company|employer|title/i;
+    const labelOf = (c) => {
+      const byFor = c.id ? document.querySelector(`label[for="${CSS.escape(c.id)}"]`) : null;
+      return String(
+        c.getAttribute('aria-label')
+        || (byFor && byFor.innerText)
+        || (c.closest('label') && c.closest('label').innerText)
+        || c.placeholder
+        || c.name
+        || ''
+      ).replace(/\s+/g, ' ').trim();
+    };
+    const safe = found.filter(c => {
+      const lab = labelOf(c);
+      return !(lab && OWN_LABEL_IS_SOMETHING_ELSE.test(lab));
+    });
+    if (!safe.length) return false;
+    const empty = safe.filter(c => !String(c.value || '').trim());
+    const pool = empty.length ? empty : safe;
     const combo = pool.filter(c => c.getAttribute('role') === 'combobox');
     const pick = (combo.length ? combo : pool)[0];
     pick.setAttribute(attr, '1');
@@ -562,15 +585,21 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
      4-to-7 page wizard. None of that fits the single-form path below, so the
      whole flow lives in apply/workday-drive.mjs. */
   if (/myworkdayjobs\.com/i.test(args.url)) {
+    let wdBank = {};
+    if (args.answers && fs.existsSync(String(args.answers))) {
+      try { wdBank = JSON.parse(fs.readFileSync(String(args.answers), 'utf8')); } catch { /* keep empty */ }
+    }
     const wd = await runWorkday({
       page,
       url: args.url,
       root: ROOT,
       profile,
+      answerBank: wdBank,
       submit: !!args.submit,
       shot: (step) => shot(page, step),
       log,
     });
+    console.log(`\nWORKDAY LOG:\n${log.filter(l => l.startsWith('wd:')).join('\n')}`);
     console.log(`
 WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
     return await finish(ctx, !!args.batch, { state: wd.state, detail: wd.detail, log });
@@ -588,11 +617,7 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
      /<board>/jobs/<id> URL back to that same page -- so 28 queued postings
      looked unapplyable. The embed endpoint serves the real form standalone. */
   const ghForm = await greenhouseEmbedUrl(landing);
-  if (ghForm) {
-    landing = ghForm.url;
-    console.log(`greenhouse: ${ghForm.why}`);
-    console.log(`greenhouse: going to the application form at ${landing}`);
-  }
+  if (ghForm) console.log(`greenhouse: ${ghForm.why}`);
 
   if (/jobs\.lever\.co/i.test(landing) && !/\/apply\/?$/.test(landing)) {
     landing = landing.replace(/\/+$/, '') + '/apply';
@@ -657,7 +682,36 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
      employer embeds Greenhouse inside a custom careers page, otherwise `page`
      itself (the common case) - target === page then, so nothing changes for
      any posting that isn't using this pattern. */
-  const target = await getFormFrame(page);
+  let target = await getFormFrame(page);
+
+  /* Stripe, Samsara, Coinbase, Pinterest and Instacart run their careers site
+     as a skin over Greenhouse, and some of them render nothing but marketing
+     copy -- Greenhouse even 302s its own /<board>/jobs/<id> URL back to that
+     page -- so 28 queued postings looked unapplyable. Go to the bare embed
+     form only when the employer page produced no form. Pinterest and Samsara
+     load their iframe as embed/job_app?for=<board>&validityToken=<...>, which
+     the bare embed URL has no way to mint; whether Greenhouse checks that at
+     submit time is untested, so prefer the employer page and keep the bare
+     URL as the fallback rather than the default. */
+  if (ghForm) {
+    const onPage = await page.locator('input,select,textarea').count().catch(() => 0);
+    if (target === page && onPage < 4) {
+      console.log(`greenhouse: no form on the employer page, falling back to ${ghForm.url}`);
+      log.push('greenhouse: employer page had no form, used the embed URL');
+      await page.goto(ghForm.url, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+      await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+      for (const rx of [/^apply for this job$/i, /^apply now$/i, /^apply$/i]) {
+        const btn = page.getByRole('button', { name: rx }).first();
+        if (await btn.count().catch(() => 0) && await btn.isVisible().catch(() => false)) {
+          await btn.click().catch(() => {});
+          await page.waitForTimeout(2500);
+          break;
+        }
+      }
+      await shot(page, '2b-embed-form');
+      target = await getFormFrame(page);
+    }
+  }
   if (target !== page) log.push(`form lives in a nested ATS iframe: ${target.url().slice(0, 70)}`);
 
   // --- fill what we know ---
@@ -735,6 +789,36 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
     await fillCombo(target, q, a, log);
   }
 
+  /* A consent rendered as a SINGLE radio. Headway's "I understand and agree
+     that Headway may contact additional references" is one lone
+     input[type=radio] inside its field entry -- there is no Yes and no No to
+     match, so every Yes/No path skipped it and the server rejected the submit
+     naming that field on five of their postings. When the question reads as a
+     consent and the group holds exactly one option, ticking it IS the answer. */
+  const CONSENT_Q = /i understand and agree|understand and agree|^\s*consent\s*\*?\s*$|i acknowledge|i agree|applicant privacy notice/i;
+  const consents = await target.evaluate((src) => {
+    const rx = new RegExp(src, 'i');
+    let n = 0;
+    for (const entry of document.querySelectorAll('[data-field-path], .ashby-application-form-field-entry, fieldset, li')) {
+      const lab = (entry.querySelector('label')?.innerText || '').replace(/\s+/g, ' ').trim();
+      if (!lab || !rx.test(lab)) continue;
+      const opts = [...entry.querySelectorAll('input[type="radio"],input[type="checkbox"]')];
+      if (opts.length !== 1 || opts[0].checked) continue;
+      opts[0].setAttribute('data-apconsent', String(++n));
+    }
+    return n;
+  }, CONSENT_Q.source).catch(() => 0);
+  for (let i = 1; i <= consents; i++) {
+    const box = target.locator(`[data-apconsent="${i}"]`).first();
+    await box.check({ force: true }).catch(async () => { await box.click().catch(() => {}); });
+    await page.waitForTimeout(200);
+    log.push('ticked single-option consent');
+  }
+  if (consents) {
+    await target.evaluate(() => document.querySelectorAll('[data-apconsent]')
+      .forEach(e => e.removeAttribute('data-apconsent'))).catch(() => {});
+  }
+
   /* Lever's location field is <input id="location-input" name="location"> with
      NO label element at all, so no label-based matcher reaches it, and it is
      required on every Lever posting. It is a Google-Places style typeahead: the
@@ -769,7 +853,7 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
      stayed empty and every one of those submits came back "Missing entry for
      required field: City, Region/State, Country". Nine Delinea postings failed
      on exactly this. Match the comma-separated shape too. */
-  if (await tagNear(target, /^\s*Location\s*\*?\s*$|where are you located|your location|city,\s*(region|state)|city\s*\/\s*(region|state)|city,\s*country/i,
+  if (await tagNear(target, /^\s*Location\s*\*?\s*$|where are you located|your location|city,\s*(region|state)|city\s*\/\s*(region|state)|city,\s*country|current working location|working location|currently based|where are you based/i,
                     'data-apply-loc', 'input[role="combobox"],input[type="text"],select')) {
     const loc = target.locator('[data-apply-loc="1"]').first();
     if (await loc.isVisible().catch(() => false)) {
@@ -782,6 +866,7 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
          live Delinea form showed "Cave Creek" returns "Cave Creek, Arizona,
          United States" as the active first row, while the comma-joined
          "Cave Creek, Arizona" is not guaranteed to match anything. */
+      let pickedLocation = false;
       for (const attempt of [id.city, `${id.city}, ${id.state}`, id.location, id.state, 'United States']) {
         if (!attempt) continue;
         await loc.click().catch(() => {});
@@ -798,10 +883,20 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
         if (hit) {
           await hit.el.click().catch(() => {});
           log.push(`picked Location = ${hit.t.slice(0, 44)}`);
+          pickedLocation = true;
           break;
         }
-        await loc.fill('').catch(() => {});
         log.push(`Location: "${attempt}" offered nothing matching his city/state/country`);
+      }
+      /* If no popup row ever matched, LEAVE the text in the field. The loop used
+         to clear it after every failed attempt, so a plain free-text location
+         box ended the run empty and the server rejected the submit naming it.
+         Headway's "Please enter your current working location" is exactly that:
+         it offers no list, and five of their postings failed on it. */
+      if (!pickedLocation) {
+        await loc.click().catch(() => {});
+        await loc.fill(String(id.location || '')).catch(() => {});
+        log.push(`Location: left free text "${String(id.location).slice(0, 34)}" (no list offered)`);
       }
       await page.waitForTimeout(300);
     }
