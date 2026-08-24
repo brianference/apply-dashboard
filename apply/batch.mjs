@@ -48,7 +48,10 @@ const RETRYABLE = new Set(['crashed']);
 const TERMINAL = new Set(['submitted-unconfirmed', 'needs-input', 'no-submit-button', 'needs-account-or-wizard',
   'location-ineligible', 'needs-consent-decision', 'upload-failed', 'wall', 'captcha',
   /* The form POST came back 428/403 -- a bot wall. Retrying only burns time. */
-  'captcha-blocked']);
+  'captcha-blocked',
+  /* The board emailed a one-time code and will not accept the application
+     until a human types it in. Retrying just sends another email. */
+  'needs-email-code']);
 
 /** @returns {Record<string,string|boolean>} */
 function args() {

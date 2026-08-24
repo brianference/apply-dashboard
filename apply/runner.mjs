@@ -1443,6 +1443,14 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
      success message or a validation error. */
   const SUCCESS = /thank you|application (was )?(received|submitted)|we have received|successfully (applied|submitted)|your application (has been|was)/i;
   const FAILURE = /form needs corrections|missing entry for required|please (correct|complete|fix)|there (was|were) (an )?error/i;
+  /* Greenhouse can gate the submit behind an emailed one-time code: the form
+     stays on screen with an empty "Security code" field, the Submit button goes
+     disabled, and the page reads "A verification code was sent to <email>. To
+     submit your application, enter the 8-character code to confirm you're a
+     human." Nothing on that page matches FAILURE, and enough of it matched the
+     old SUCCESS test that three Temporal postings were written to D1 as
+     applications that were never sent. Treat a pending code as its own state. */
+  const EMAIL_CODE = /verification code was sent|enter the \d+[- ]character code|security code|confirm you'?re a human|check your email for a (verification|security) code/i;
   const deadline = Date.now() + 45000;
   let after = '';
   while (Date.now() < deadline) {
@@ -1451,7 +1459,14 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
     await page.waitForTimeout(1000);
   }
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-  const confirmed = SUCCESS.test(after) && !FAILURE.test(after);
+  const confirmed = SUCCESS.test(after) && !FAILURE.test(after) && !EMAIL_CODE.test(after);
+  if (!confirmed && EMAIL_CODE.test(after)) {
+    console.log('');
+    console.log('SUBMIT PENDING: the board emailed a one-time verification code.');
+    console.log('The application is NOT sent until that code is typed in. A human has to finish it.');
+    await shot(page, 'stop-email-code');
+    return await finish(ctx, !!args.batch, { state: 'needs-email-code', log });
+  }
   /* A 428/403 on the form POST is a bot wall, not a fillable-field problem. Say
      so distinctly so the batch can route it to a human instead of retrying. */
   const wall = submitRejections.find(x => x.status === 428 || x.status === 403 || x.status === 429);
