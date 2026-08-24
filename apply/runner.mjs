@@ -81,6 +81,10 @@ const GH_VANITY_BOARDS = {
   'coinbase.com': 'coinbase',
   'pinterestcareers.com': 'pinterest',
   'instacart.careers': 'instacart',
+  'fivetran.com': 'fivetran',
+  'cribl.io': 'cribl',
+  'careers.upstart.com': 'upstart',
+  'jobs.elastic.co': 'elastic',
 };
 
 /**
@@ -370,13 +374,56 @@ async function fillCombo(page, label, value, log) {
  * @param {import('playwright').Page} page
  * @returns {Promise<import('playwright').Page|import('playwright').Frame>}
  */
+/**
+ * Is a bot-check wall standing anywhere on this page, including inside a frame?
+ *
+ * stopCheck reads the TOP-LEVEL body text, and SmartRecruiters' wall leaves that
+ * string empty: the "Verification Required / Slide right to secure your access"
+ * page is served by DataDome inside a geo.captcha-delivery.com iframe. Measured
+ * on ServiceNow 744000144573740 -- top-level innerText was "", the frame held
+ * the whole notice -- so the run filed a wall nobody can pass as
+ * "needs-account-or-wizard", a gate a human could have cleared.
+ *
+ * @param {import('playwright').Page} page
+ * @returns {Promise<string|null>} what was seen, or null when the page is clear
+ */
+async function wallInAnyFrame(page) {
+  for (const f of page.frames()) {
+    /* DataDome only, and only by URL. Listing hcaptcha.com here made the
+       INVISIBLE badge on the iCIMS wizard ("Protected by hCaptcha", a strip in
+       the footer) read as a wall, and a form that was one email field away from
+       opening got reported as unpassable. A rendered challenge is caught by
+       CAPTCHA_SEL, which measures the box. DataDome is different in kind: it
+       replaces the whole document with an interstitial. */
+    if (/geo\.captcha-delivery\.com/i.test(f.url())) {
+      return `bot-check iframe: ${f.url().slice(0, 60)}`;
+    }
+    const txt = await f.evaluate(() => (document.body ? document.body.innerText : '')).catch(() => '');
+    if (WALL_TEXT.test(txt.slice(0, 4000))) return `wall text in ${f.url().slice(0, 60)}`;
+  }
+  return null;
+}
+
 async function getFormFrame(page) {
   for (const f of page.frames()) {
     if (!/\/embed\/job_app|greenhouse\.io\/embed/i.test(f.url())) continue;
     const n = await f.locator('input,select,textarea').count().catch(() => 0);
     if (n > 0) return f;
   }
-  return page;
+  /* Not every embedded ATS is Greenhouse. iCIMS serves its whole application
+     inside icims_content_iframe, and the top document holds nothing but the
+     employer chrome, so the run saw a page with no form. Take any child frame
+     carrying a real cluster of controls -- four, so a lone search box or a
+     cookie toggle in some widget frame cannot pass for an application. */
+  let best = null;
+  let bestCount = 3;
+  for (const f of page.frames()) {
+    if (f === page.mainFrame()) continue;
+    if (/recaptcha|hcaptcha|captcha-delivery|doubleclick|googletagmanager|analytics/i.test(f.url())) continue;
+    const n = await f.locator('input:not([type=hidden]),select,textarea').count().catch(() => 0);
+    if (n > bestCount) { best = f; bestCount = n; }
+  }
+  return best || page;
 }
 
 /**
@@ -697,16 +744,27 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
      /^apply$/ found nothing, the page kept its search box and cookie inputs,
      and the zero-form guard (which counts inputs, not form inputs) let the run
      report dry-run-ok having filled nothing at all. Match links too. */
-  const APPLY_CTA = [/^apply for this job$/i, /^apply now$/i, /^apply$/i, /^i'?m interested$/i, /^apply for this position$/i];
+  const APPLY_CTA = [/^apply for this job( online)?$/i, /^apply now$/i, /^apply( online)?$/i, /^i'?m interested$/i, /^apply for this (position|role)$/i];
+  /* Search the frames as well as the top document. iCIMS puts the entire
+     posting -- description, "Apply for this job online" button and all -- inside
+     an icims_content_iframe, so a top-level-only search found no CTA, the page
+     kept zero form fields, and five Applied Systems postings were filed as
+     needing an account when the form is one click away. */
+  const ctaFrames = [page, ...page.frames().filter(f => f !== page.mainFrame())];
+  let clickedCta = false;
   for (const rx of APPLY_CTA) {
-    const cta = page.getByRole('button', { name: rx }).or(page.getByRole('link', { name: rx })).first();
-    if (await cta.count().catch(() => 0) && await cta.isVisible().catch(() => false)) {
+    for (const scope of ctaFrames) {
+      const cta = scope.getByRole('button', { name: rx }).or(scope.getByRole('link', { name: rx })).first();
+      if (!(await cta.count().catch(() => 0))) continue;
+      if (!(await cta.isVisible().catch(() => false))) continue;
       await cta.click().catch(() => {});
       await page.waitForTimeout(3000);
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
       log.push(`clicked ${rx}`);
+      clickedCta = true;
       break;
     }
+    if (clickedCta) break;
   }
   await shot(page, '2-form');
 
@@ -773,7 +831,7 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
      renders the same questions as comboboxes. Try both for each. */
   const YESNO = [
     [/legally authorized to work/i, 'Yes'],
-    [/are you (legally )?(authorized|eligible)/i, 'Yes'],
+    [/are you (currently )?(legally )?(authorized|eligible)/i, 'Yes'],
     /* "immigration sponsorship" is the wording Affirm and Smartsheet use, and
        it matched none of the visa patterns -- thirteen postings across those two
        employers stopped on a question the profile already answers. */
@@ -798,6 +856,20 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
     [/\b5\+? (years )?of product management|5\+ years.{0,25}product/i, 'Yes'],
     /* He is in Arizona and is not entitled to work in Canada. */
     [/entitled to work in canada|authorized to work in canada|eligible to work in canada/i, 'No'],
+    /* Background-check and reference consents. Refusing these blocks the submit
+       and helps on nothing. 1Password asks four postings the same question. */
+    [/offers of employment are conditional|conditional on satisfactory|background (check|screening|investigation)|investigative consumer report|consumer report/i, 'Yes'],
+    /* Conflict-of-interest screens. He has no relative or partner at any of
+       these companies. */
+    [/close personal relationship|family members?, domestic|relative(s)? (who )?(work|employed)|conflict of interest/i, 'No'],
+    /* Standard employment-history screens. */
+    [/ever been fired|asked to resign|terminated for cause|dismissed from a job/i, 'No'],
+    [/perform the essential functions|with or without reasonable accommodation/i, 'Yes'],
+    [/legal right to work in the location|right to work in the location you indicated/i, 'Yes'],
+    /* Reference-contact permissions: past employers yes, the CURRENT one no --
+       he is employed at Equity Methods and has not told them he is looking. */
+    [/contact your (past|previous|former) employer/i, 'Yes'],
+    [/contact your current|current or most recent employer/i, 'No'],
     /* Brian's standing answers, 2026-08-24: yes to occasional onsite/travel,
        no to permanent relocation, no to prior contact with the employer. */
     /* "ever been previously employed by Spotify" matched none of the original
@@ -1254,6 +1326,21 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
      to a meaningless "no submit button". */
   const fieldCount = await target.locator('input:not([type=hidden]), textarea, select').count().catch(() => 0);
   if (fieldCount === 0) {
+    /* A wall put up AFTER the apply click looked identical to an ATS that
+       wants an account. SmartRecruiters answers "I'm interested" with a slider
+       captcha ("Verification Required" / "Slide right to secure your access"),
+       and filing that as needs-account-or-wizard mixes a gate nobody can pass
+       in with gates a human can. Re-check the wall here, on the page we ended
+       up on, not only on the one we landed on. */
+    const postApply = await stopCheck(page);
+    const framed = await wallInAnyFrame(page);
+    if (framed) log.push(`bot-check: ${framed}`);
+    if (postApply.wall || postApply.captcha || framed) {
+      console.log(`
+STOP: a bot-check wall stands where the application form should be. Not an account gate - nothing here can be filled in.`);
+      await shot(page, 'stop-wall-after-apply');
+      return await finish(ctx, !!args.batch, { state: 'wall', log });
+    }
     console.log(`
 STOP: no application form on this page (${fieldCount} fields). This ATS needs an account or a multi-step flow.`);
     await shot(page, 'stop-no-form');
@@ -1820,16 +1907,31 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
       const value = String(hit ? hit[1] : answerBank[bankKey] || '');
       if (!value) continue;
 
-      /* find the control sitting under the named label */
+      /* Find the control INSIDE the field entry the banner named.
+
+         Matching on any ancestor whose text contains the question is wrong:
+         the form root contains every question, so the first input on the page
+         wins and the answer lands in the wrong box. That is the same defect
+         that once wrote a location into the Full Name field. Scope to a real
+         field entry, and refuse a control whose own label says it is something
+         else. */
       const tagged = await target.evaluate((label) => {
-        const norm = (t) => t.replace(/\s+/g, ' ').trim().toLowerCase();
-        const want = norm(label);
+        const norm = (t) => String(t || '').replace(/[\s]+/g, ' ').trim().toLowerCase();
+        const want = norm(label).replace(/[*]$/, '').trim();
+        if (!want) return false;
         document.querySelectorAll('[data-apfix]').forEach(e => e.removeAttribute('data-apfix'));
-        for (const e of document.querySelectorAll('input,select,textarea,[role="combobox"]')) {
-          if (['hidden', 'submit', 'button'].includes(e.type)) continue;
-          const box = e.closest('div,fieldset,li') || e.parentElement;
-          const ctx = norm(box ? box.innerText : '');
-          if (ctx.includes(want.replace(/\*$/, ''))) { e.setAttribute('data-apfix', '1'); return true; }
+        const ENTRY = '[data-field-path], .ashby-application-form-field-entry, li.application-question, [class*=application-question], fieldset';
+        const OTHER = /(full |legal |first |last |preferred )?name|e-?mail|phone|resume|linkedin|github|portfolio/i;
+        for (const entry of document.querySelectorAll(ENTRY)) {
+          const lab = norm(entry.querySelector('label,legend')?.innerText || entry.innerText);
+          if (!lab.includes(want)) continue;
+          for (const c of entry.querySelectorAll('input,select,textarea,[role=combobox]')) {
+            if (['hidden', 'submit', 'button'].includes(c.type)) continue;
+            const own = norm(c.getAttribute('aria-label') || c.placeholder || c.name);
+            if (own && OTHER.test(own) && !want.includes(own)) continue;
+            c.setAttribute('data-apfix', '1');
+            return true;
+          }
         }
         return false;
       }, name).catch(() => false);

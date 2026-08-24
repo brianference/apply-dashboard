@@ -68,7 +68,11 @@ const PAUSED_HOSTS = /greenhouse\.io/i;
    resume upload under parallel load -- five postings lost it in one four-shard
    run -- and it was in TERMINAL, so each one was retired permanently for a
    problem that clears on a quieter retry. */
-const RETRYABLE = new Set(['crashed', 'upload-failed']);
+/* wd-stuck is a Workday page that was valid and simply did not advance. The
+   "Save and Continue" button is an aria-hidden <button> under a click_filter
+   overlay, and a click that lands mid-re-render is dropped silently, so this
+   clears on a retry rather than describing the posting. */
+const RETRYABLE = new Set(['crashed', 'upload-failed', 'wd-stuck']);
 /* A form that rejected the submit is blocked on a field the profile cannot
    answer. Retrying it produces the same rejection, so it is recorded once and
    never attempted again - that is what "skip and move on" means in practice. */
@@ -80,7 +84,15 @@ const TERMINAL = new Set(['submitted-unconfirmed', 'needs-input', 'no-submit-but
      until a human types it in. Retrying just sends another email. */
   'needs-email-code',
   /* The employer caps applications per candidate. No retry clears it. */
-  'employer-rate-limit']);
+  'employer-rate-limit',
+  /* Workday blockers that a retry cannot clear. wd-auth-blocked means Brian
+     already has a candidate account on that tenant under a password this repo
+     does not hold - it has to be added to apply/workday-accounts.local.json by
+     hand. wd-unknown-question and wd-validation-blocked mean the wizard asked
+     for something the profile and the answer bank do not cover; the run stops
+     rather than guessing. wd-no-apply-path is a posting Workday now 404s. */
+  'wd-auth-blocked', 'wd-unknown-question', 'wd-validation-blocked',
+  'wd-no-apply-path', 'wd-too-many-pages']);
 
 /** @returns {Record<string,string|boolean>} */
 function args() {
@@ -197,7 +209,7 @@ function runOne(url, submit) {
          overnight run threw all of it away, so fifteen rejected submits left
          nothing but the word "submitted-unconfirmed" and every diagnosis had
          to start by re-running the posting by hand. */
-      if (state !== 'submitted' && state !== 'dry-run-ok') {
+      if (state !== 'submitted' && state !== 'dry-run-ok' && state !== 'wd-review-reached-dry-run') {
         try {
           const safe = String(url).replace(/^https?:\/\//, '').replace(/[^a-z0-9]+/gi, '-').slice(0, 90);
           fs.writeFileSync(path.join(ROOT, 'evidence', 'apply', `runlog-${safe}.txt`),
