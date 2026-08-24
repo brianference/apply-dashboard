@@ -554,6 +554,20 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
      "submitted-unconfirmed" and the batch retired the posting, so a wall that
      needs a human looked identical to a form the runner filled wrong. */
   const submitRejections = [];
+  /* Every application POST, not only the failing ones. Clicking Submit on the
+     Greenhouse iframe embedded in Instacart's careers page fires NO request at
+     all -- the click is swallowed -- and the page then looks exactly like a
+     silent success: form still there, no banner, no error. That reported as
+     "submitted-unconfirmed", which is the state the batch retires a posting
+     on. A submit that never left the browser must never be able to reach it. */
+  const appPosts = [];
+  page.on('response', (r) => {
+    if (r.request().method() !== 'POST') return;
+    const u = r.url();
+    if (!/greenhouse\.io|ashbyhq\.com|lever\.co|myworkday|smartrecruiters|icims/i.test(u)) return;
+    if (/snowplow|analytics|segment|sentry|recaptcha|amazonaws\.com|\/tp2/i.test(u)) return;
+    appPosts.push({ status: r.status(), url: u.slice(0, 120) });
+  });
   page.on('response', (r) => {
     if (r.request().method() !== 'POST') return;
     const u = r.url();
@@ -1729,7 +1743,14 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
       }
     }
 
-    await submit.click().catch(() => {});
+    /* A bare .catch(() => {}) here hid a click that never landed. Say so. */
+    await submit.scrollIntoViewIfNeeded().catch(() => {});
+    let clickErr = null;
+    await submit.click({ timeout: 15000 }).catch((e) => { clickErr = String(e.message).split(String.fromCharCode(10))[0].slice(0, 120); });
+    if (clickErr) {
+      console.log(`  [submit round ${round}] click failed: ${clickErr}`);
+      log.push(`submit click failed: ${clickErr}`);
+    }
     await page.waitForTimeout(4000);
     const missing = await readBanner();
     if (!missing.length) break;
@@ -1835,6 +1856,22 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
      UI in the text at all -- Anthropic did exactly that, yet still sent Brian a
      code. So a 428 is the same gate as the visible prompt, not a separate wall.
      Treat either signal as "a code is required". */
+  /* Some employers cap how often one candidate may apply. Kit: "Candidates may
+     not apply more than 2 times in any 60 day span for any job at Kit."
+     Headway: "we limit applicants to 2 applications across all roles per 60
+     days." Neither is a fillable-field problem and no retry will ever clear it,
+     so it must not look like a form defect -- the batch burned repeated
+     attempts on five Headway postings before this existed. */
+  const RATE_LIMIT = /may not apply more than|limit applicants to \d+ application|more than \d+ (times|applications) in any|applications across all roles per/i;
+  if (!confirmed && RATE_LIMIT.test(after)) {
+    const quote = (after.match(/[^.]*(may not apply more than|limit applicants to)[^.]*\./i) || [''])[0].trim();
+    console.log(`
+EMPLOYER RATE LIMIT: ${quote.slice(0, 160)}`);
+    console.log('No retry will clear this. Recording it and moving on.');
+    await shot(page, 'stop-employer-rate-limit');
+    return await finish(ctx, !!args.batch, { state: 'employer-rate-limit', note: quote.slice(0, 200), log });
+  }
+
   const codeWanted = EMAIL_CODE.test(after)
     || submitRejections.some(x => x.status === 428);
   if (!confirmed && codeWanted) {
@@ -1930,7 +1967,15 @@ SUBMIT BLOCKED: the form POST returned HTTP ${wall.status} (${wall.url}).`);
   after = after.slice(0, 400);
   await shot(page, confirmed ? '4-submitted' : '4-after-submit-unconfirmed');
   console.log(`\nafter submit: ${JSON.stringify(after.slice(0, 200))}`);
+  if (!confirmed && !appPosts.length) {
+    console.log('');
+    console.log('SUBMIT DID NOTHING: the button was clicked but no application request ever left the browser.');
+    console.log('Nothing was sent. Do not mark this posting applied.');
+    await shot(page, 'stop-no-request');
+    return await finish(ctx, !!args.batch, { state: 'submit-no-request', log });
+  }
   console.log(confirmed ? 'SUBMITTED — confirmation text found on the page.' : 'SUBMIT CLICKED but no confirmation text found. Verify manually before marking applied.');
+  if (!confirmed) console.log(`  application POSTs seen: ${appPosts.map(x => x.status).join(', ')}`);
   return await finish(ctx, !!args.batch, { state: confirmed ? 'submitted' : 'submitted-unconfirmed', log });
 }
 

@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import {
   tenantCredentials, wdClick, wdFill, wdSelect, wdPromptPick,
-  wdErrors, wdPageInfo, wdDebug, wdFieldGroups, wdAnswerGroup, markCredentialVerified, wdSelectOptions,
+  wdErrors, wdPageInfo, wdDebug, wdFieldGroups, wdAnswerGroup, markCredentialVerified, wdSelectChoose,
 } from './workday.mjs';
 
 const A = id => `[data-automation-id="${id}"]`;
@@ -191,7 +191,7 @@ const WD_QUESTIONS = [
   [/sponsor|immigration case|visa transfer|work (permit|visa)/i, /^no$/i],
   [/authoriz(ed|ation)|legally (entitled|permitted|eligible)|eligible to work|right to work/i, /^yes$/i],
   [/age of (18|eighteen)|at least (18|eighteen)|over (the age of )?(18|eighteen)|are you (18|eighteen)/i, /^yes$/i],
-  [/(work(ed)?|employed|engaged).{0,90}(temporar|consultant|contingent|contractor|vendor|agency|intern|subsidiar|affiliate|in the past|previously|before)/i, /^no$/i],
+  [/(work(ed)?|employed|engaged).{0,90}(temporar|consultant|contingent|contractor|vendor|agency|intern\b|subsidiar|affiliate|in the past|previously|before)/i, /^no$/i],
   [/(relative|family member|related to|friend).{0,80}(work|employ)/i, /^no$/i],
   [/referred by|employee referral/i, /^no$/i],
   [/non-?compete|restrictive covenant|post-?employment restriction/i, /^no$/i],
@@ -248,38 +248,35 @@ async function answerSalary(page, grp, profile, log) {
     return ok;
   }
   if (grp.kind !== 'select') return false;
-  const opts = await wdSelectOptions(page, grp.field);
-  log.push(`wd: salary bands offered: ${opts.join(' / ').slice(0, 220)}`);
-  /** @type {{label:string,lo:number,hi:number}[]} */
-  const bands = [];
-  for (const label of opts) {
-    const k = /k/i.test(label);
-    const nums = (label.match(/\d[\d,]*/g) || [])
-      .map(n => Number(n.replace(/,/g, '')))
-      .map(v => (k && v < 1000 ? v * 1000 : v))
-      .filter(v => v >= 1000);
-    if (!nums.length) continue;
-    /* "Under $50K" is an open BOTTOM and "$400K+" an open TOP. Treating both as
-       [n, Infinity] made "Under $50K" look like it contained a $200K target,
-       and it is the first option in the list. */
-    if (nums.length === 1) {
-      if (/under|less than|below|up to/i.test(label)) bands.push({ label, lo: 0, hi: nums[0] });
-      else bands.push({ label, lo: nums[0], hi: Infinity });
-    } else {
-      bands.push({ label, lo: nums[0], hi: nums[nums.length - 1] });
+  const res = await wdSelectChoose(page, grp.field, (labels) => {
+    /** @type {{label:string,lo:number,hi:number}[]} */
+    const bands = [];
+    for (const label of labels) {
+      const k = /\dk\b/i.test(label);
+      const nums = (label.match(/\d[\d,]*/g) || [])
+        .map(n => Number(n.replace(/,/g, '')))
+        .map(v => (k && v < 1000 ? v * 1000 : v))
+        .filter(v => v >= 1000);
+      if (!nums.length) continue;
+      /* "Under $50K" is an open BOTTOM and "$400K+" an open TOP. Treating both
+         as [n, Infinity] made "Under $50K" look like it contained a $200K
+         target, and it is the first option in the list. */
+      if (nums.length === 1) {
+        if (/under|less than|below|up to/i.test(label)) bands.push({ label, lo: 0, hi: nums[0] });
+        else bands.push({ label, lo: nums[0], hi: Infinity });
+      } else {
+        bands.push({ label, lo: nums[0], hi: nums[nums.length - 1] });
+      }
     }
-  }
-  if (!bands.length) return false;
-  /* Highest band whose floor is still at or below the target, and whose ceiling
-     clears the profile's floor. Profile rule: aim for targetUsd, never below
-     floorUsd, never the top of a posted range. */
-  const chosen = bands
-    .filter(b => b.lo <= targetUsd && b.hi >= floorUsd)
-    .sort((a, b) => b.lo - a.lo)[0];
-  if (!chosen) return false;
-  const ok = await wdSelect(page, grp.field, chosen.label, log);
-  if (ok) log.push(`wd: salary band = ${chosen.label}`);
-  return ok;
+    /* Highest band whose floor is at or below the target and whose ceiling
+       clears the profile floor. Profile rule: aim for targetUsd, never below
+       floorUsd, never the top of a posted range. */
+    const best = bands
+      .filter(b => b.lo <= targetUsd && b.hi >= floorUsd)
+      .sort((a, b) => b.lo - a.lo)[0];
+    return best ? best.label : null;
+  }, log);
+  return res.ok;
 }
 
 /**
@@ -309,10 +306,15 @@ async function answerFreeText(page, grp, bank, log) {
  * @param {string[]} log
  */
 async function fillDisclosures(page, profile, log) {
-  const DECLINE = /decline to (self[- ]identify|answer|specify)|prefer not to (answer|say|disclose)|do not wish to (answer|self[- ]identify)|don't wish to answer|i do not wish/i;
+  const DECLINE = /decline to (self[- ]identify|answer|specify)|prefer not to (answer|say|disclose)|(do not|don't) (wish|want) to (answer|self[- ]identify|disclose)|i do not wish|choose not to (answer|disclose)/i;
   for (const grp of await wdFieldGroups(page)) {
+    /* The disability form's "Please check one of the boxes below" is a checkbox
+       group, not a select or a radio group, so an earlier version left the one
+       required field on the page untouched and the wizard refused to advance.
+       Leaving an EEO field blank is the profile's documented fallback when no
+       decline option exists, so a miss here is not an error. */
     if (grp.kind === 'select') await wdSelect(page, grp.field, DECLINE, log);
-    if (grp.kind === 'radio') await wdAnswerGroup(page, grp, DECLINE, log);
+    else if (grp.kind === 'radio' || grp.kind === 'checkbox') await wdAnswerGroup(page, grp, DECLINE, log);
   }
   const terms = page.locator('[data-automation-id="agreementCheckbox"], [data-automation-id*="termsAndConditions"] input[type=checkbox], input[type=checkbox][id*="gree"]').first();
   if (await terms.count().catch(() => 0)) { await terms.check({ force: true }).catch(() => {}); log.push('wd: ticked terms acknowledgement'); }
