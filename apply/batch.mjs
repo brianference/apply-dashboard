@@ -445,7 +445,12 @@ while (processed < SAFETY_CAP) {
     try {
       const chk = await fetch(API, { headers: { 'cache-control': 'no-cache' } });
       const { jobs: fresh } = await chk.json();
-      const clash = fresh.find(f => f.url === j.url && (f.lane === 'submitted' || f.status === 'submitted'));
+      /* Match on the dedupe key as well as the URL. Brian applies by hand from
+         the dashboard while this runs, and confirming there writes the row by
+         dedupe_key; a URL-only test would miss a posting he has just finished
+         if the stored URL differs by a query string or a source tag. */
+      const isDone = (f) => f.lane === 'submitted' || f.status === 'submitted';
+      const clash = fresh.find(f => isDone(f) && (f.url === j.url || f.dedupe_key === j.dedupe_key));
       if (clash) {
         console.log(`[skip] ${j.company} — already applied to this posting as "${clash.company} | ${clash.title}"\n`);
         ledger[j.dedupe_key] = {
