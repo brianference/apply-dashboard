@@ -824,7 +824,14 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
   await fillCombo(target, /passport country/i, id.country, log);
   await fillCombo(target, /^country/i, id.country, log);
   await fillCombo(target, /where do you (currently )?reside/i, id.country, log);
-  await fillByLabel(target, /salary|compensation expectation|expected (base )?(salary|comp)/i,
+  /* Expectation questions are fine to answer. SALARY HISTORY is not: asking for
+     it is unlawful in a growing number of jurisdictions, the answer can only
+     anchor an offer downwards, and nothing in the profile authorises one. The
+     old pattern matched a bare /salary/, so "What was your salary at your last
+     employer" would have been answered with his target figure. Refuse those and
+     let the run stop honestly instead. */
+  await fillByLabel(target,
+    /^(?!.*\b(current|previous|last|prior|most recent|history|currently (make|earn|paid))\b).*(salary|compensation expectation|expected (base )?(salary|comp)|desired (salary|compensation))/i,
     profile.compensation.answerTemplate, log);
   await fillByLabel(target, /start date|earliest.*start|available/i, profile.eligibility.earliestStart, log);
   /* Yes/No questions. Ashby renders them as a pair of buttons; Greenhouse
