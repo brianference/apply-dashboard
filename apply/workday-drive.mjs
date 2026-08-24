@@ -1,0 +1,303 @@
+/**
+ * Workday wizard driver: signs in (creating the candidate account the first time)
+ * and walks the multi-page application, filling each page from the profile and
+ * the answer bank. It submits only when `submit` is true, and only from the
+ * Review page.
+ */
+
+import fs from 'node:fs';
+import {
+  tenantCredentials, wdClick, wdFill, wdSelect, wdPromptPick,
+  wdErrors, wdPageInfo, wdDebug, wdFieldGroups, wdAnswerGroup,
+} from './workday.mjs';
+
+const A = id => `[data-automation-id="${id}"]`;
+
+/**
+ * Open the posting, dismiss the cookie banner, click Apply and choose the
+ * manual path, landing on the Create Account / Sign In page.
+ * @param {import('playwright').Page} page
+ * @param {string} url posting url
+ * @param {string[]} log
+ * @returns {Promise<boolean>} whether the account page was reached
+ */
+async function openApplyManually(page, url, log) {
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(3500);
+  const cookie = page.getByRole('button', { name: /accept cookies|accept all/i }).first();
+  if (await cookie.count().catch(() => 0)) { await cookie.click().catch(() => {}); await page.waitForTimeout(800); }
+
+  if (/the page you are looking for doesn't exist/i.test(await page.locator('body').innerText().catch(() => ''))) {
+    log.push('wd: posting is gone (Workday 404 page)');
+    return false;
+  }
+  await page.getByRole('link', { name: /^apply$/i })
+    .or(page.getByRole('button', { name: /^apply$/i })).first()
+    .click({ timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(3500);
+  await page.getByRole('button', { name: /apply manually/i }).first().click({ timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(5000);
+  return (await page.locator(A('email')).count().catch(() => 0)) > 0
+      || (await page.locator(A('formField-source')).count().catch(() => 0)) > 0;
+}
+
+/**
+ * Create the candidate account, or sign in when it already exists.
+ * @param {import('playwright').Page} page
+ * @param {{email:string,password:string,fresh:boolean}} cred
+ * @param {string[]} log
+ * @returns {Promise<'signed-in'|'blocked'>}
+ */
+async function authenticate(page, cred, log) {
+  const onCreate = async () => (await page.locator(A('verifyPassword')).count().catch(() => 0)) > 0;
+  const onSignIn = async () => (await page.locator(A('signInSubmitButton')).count().catch(() => 0)) > 0;
+
+  if (cred.fresh && await onCreate()) {
+    await page.locator(A('email')).first().fill(cred.email);
+    await page.locator(A('password')).first().fill(cred.password);
+    await page.locator(A('verifyPassword')).first().fill(cred.password);
+    const agree = page.locator(A('createAccountCheckbox')).first();
+    if (await agree.count().catch(() => 0)) await agree.check({ force: true }).catch(() => {});
+    await wdClick(page.locator(A('createAccountSubmitButton')));
+    await page.waitForTimeout(8000);
+    const errs = await wdErrors(page);
+    if (errs.some(e => /already (exists|in use)|account with this email/i.test(e))) {
+      log.push('wd: account already existed, falling back to sign in');
+    } else if (!(await onCreate())) {
+      log.push('wd: created candidate account');
+      return 'signed-in';
+    } else {
+      log.push(`wd: account creation refused: ${errs.join(' | ').slice(0, 200)}`);
+      return 'blocked';
+    }
+  }
+
+  for (let i = 0; i < 4 && !(await onSignIn()); i++) {
+    await wdClick(page.locator(A('signInLink')));
+    await page.waitForTimeout(2500);
+  }
+  if (!(await onSignIn())) { log.push('wd: could not reach the sign-in form'); return 'blocked'; }
+  await page.locator(A('email')).first().fill(cred.email);
+  await page.locator(A('password')).first().fill(cred.password);
+  await wdClick(page.locator(A('signInSubmitButton')));
+  await page.waitForTimeout(9000);
+  if (await onSignIn()) {
+    log.push(`wd: sign-in failed: ${(await wdErrors(page)).join(' | ').slice(0, 200)}`);
+    return 'blocked';
+  }
+  log.push('wd: signed in');
+  return 'signed-in';
+}
+
+/**
+ * Fill the "My Information" page.
+ * @param {import('playwright').Page} page
+ * @param {object} profile
+ * @param {string[]} log
+ */
+async function fillMyInformation(page, profile, log) {
+  const id = profile.identity;
+  /* "Online job board" is the answer bank's value. The leaf list is per tenant,
+     so prefer the generic "Other" under Job Boards over naming a specific board
+     that nothing in the profile says he used. */
+  await wdPromptPick(page, 'source', /job board/i, [/^other$/i, /^linkedin$/i, /^indeed$/i], log);
+  await wdSelect(page, 'country', /United States of America/i, log);
+  await wdFill(page, 'legalName--firstName', id.firstName, log);
+  await wdFill(page, 'legalName--lastName', id.lastName, log);
+  await wdFill(page, 'addressSection_addressLine1', id.street, log);
+  await wdFill(page, 'addressLine1', id.street, log);
+  await wdFill(page, 'addressSection_city', id.city, log);
+  await wdFill(page, 'city', id.city, log);
+  await wdSelect(page, 'addressSection_countryRegion', new RegExp(`^${id.state}$`, 'i'), log);
+  await wdSelect(page, 'countryRegion', new RegExp(`^${id.state}$`, 'i'), log);
+  await wdFill(page, 'addressSection_postalCode', id.postalCode, log);
+  await wdFill(page, 'postalCode', id.postalCode, log);
+  await wdSelect(page, 'phoneType', /^mobile$/i, log);
+  await wdFill(page, 'phoneNumber', id.phone, log);
+  // "Have you previously worked for <company>?" — always No for these employers.
+  for (const f of ['candidateIsPreviousWorker', 'previousWorker']) {
+    const no = page.locator(A(`formField-${f}`)).locator('input[type=radio][value="false"], label:has-text("No") input[type=radio]').first();
+    if (await no.count().catch(() => 0)) { await no.check({ force: true }).catch(() => {}); log.push(`wd: ${f} = No`); }
+  }
+}
+
+/**
+ * Attach the resume on the "My Experience" page.
+ * @param {import('playwright').Page} page
+ * @param {string} resumePath
+ * @param {string[]} log
+ */
+async function attachResume(page, resumePath, log) {
+  const inputs = page.locator('input[type=file]');
+  const n = await inputs.count().catch(() => 0);
+  for (let i = 0; i < n; i++) {
+    const f = inputs.nth(i);
+    await f.setInputFiles(resumePath).catch(() => {});
+    await page.waitForTimeout(4000);
+  }
+  if (n) log.push(`wd: attached resume to ${n} file input(s)`);
+}
+
+
+/**
+ * Standing answers, matched against the QUESTION WORDING because Workday gives
+ * tenant-specific questions opaque GUID field ids. Order matters: the
+ * sponsorship test must run before the work-authorisation test, since both
+ * mention working legally.
+ * Sources: apply-profile.local.json eligibility/policy blocks.
+ * @type {[RegExp,RegExp][]}
+ */
+const WD_QUESTIONS = [
+  [/require (visa |immigration |employment )?sponsorship|need sponsorship|sponsorship (now or )?in the future|will you (now or in the future )?require/i, /^no$/i],
+  [/legally authoriz|authoriz(ed|ation) to work|eligible to work|legally (entitled|permitted) to work|right to work/i, /^yes$/i],
+  [/currently (working|employed|engaged).{0,60}(contractor|contingent|vendor|temporary|agency)/i, /^no$/i],
+  [/(worked|employed|been employed).{0,60}(in the past|previously|before)|previously (worked|been employed|applied)|former (employee|worker)/i, /^no$/i],
+  [/non-?compete|restrictive covenant|post-?employment restriction/i, /^no$/i],
+  [/(related to|family member|relative).{0,40}(employee|director|officer)/i, /^no$/i],
+  [/referred by (an|a current) employee|employee referral/i, /^no$/i],
+  [/are you (at least )?(18|eighteen)/i, /^yes$/i],
+  [/have you read and (agree|accept)|do you (agree|consent|acknowledge)/i, /^yes$/i],
+];
+
+/**
+ * Answer the tenant-specific questions on an Application Questions page.
+ * Anything unmatched is returned so the caller can stop honestly instead of
+ * submitting a half-filled form.
+ * @param {import('playwright').Page} page
+ * @param {string[]} log
+ * @returns {Promise<string[]>} unanswered question wordings
+ */
+async function answerQuestions(page, log) {
+  const unanswered = [];
+  for (const grp of await wdFieldGroups(page)) {
+    if (!['select', 'radio'].includes(grp.kind)) continue;
+    const hit = WD_QUESTIONS.find(([q]) => q.test(grp.text));
+    if (!hit) { unanswered.push(grp.text.slice(0, 120)); continue; }
+    const ok = await wdAnswerGroup(page, grp, hit[1], log);
+    if (!ok) unanswered.push(grp.text.slice(0, 120));
+  }
+  return unanswered;
+}
+
+/**
+ * Voluntary Disclosures / Self Identify pages. The profile's standing policy is
+ * to decline every EEO question, and to tick the terms acknowledgement.
+ * @param {import('playwright').Page} page
+ * @param {object} profile
+ * @param {string[]} log
+ */
+async function fillDisclosures(page, profile, log) {
+  const DECLINE = /decline to (self[- ]identify|answer|specify)|prefer not to (answer|say|disclose)|do not wish to (answer|self[- ]identify)|don't wish to answer|i do not wish/i;
+  for (const grp of await wdFieldGroups(page)) {
+    if (grp.kind === 'select') await wdSelect(page, grp.field, DECLINE, log);
+    if (grp.kind === 'radio') await wdAnswerGroup(page, grp, DECLINE, log);
+  }
+  const terms = page.locator('[data-automation-id="agreementCheckbox"], [data-automation-id*="termsAndConditions"] input[type=checkbox], input[type=checkbox][id*="gree"]').first();
+  if (await terms.count().catch(() => 0)) { await terms.check({ force: true }).catch(() => {}); log.push('wd: ticked terms acknowledgement'); }
+  // The disability form asks for name and today's date.
+  await wdFill(page, 'name', profile.identity.fullName, log);
+  const today = new Date();
+  const mm = page.locator('[data-automation-id="dateSectionMonth-input"]').first();
+  if (await mm.count().catch(() => 0)) {
+    await mm.fill(String(today.getMonth() + 1)).catch(() => {});
+    await page.locator('[data-automation-id="dateSectionDay-input"]').first().fill(String(today.getDate())).catch(() => {});
+    await page.locator('[data-automation-id="dateSectionYear-input"]').first().fill(String(today.getFullYear())).catch(() => {});
+    log.push('wd: signed the self-identification date');
+  }
+}
+
+/**
+ * Drive the whole Workday application.
+ * @param {object} opts
+ * @param {import('playwright').Page} opts.page
+ * @param {string} opts.url posting url
+ * @param {string} opts.root repo root
+ * @param {object} opts.profile
+ * @param {boolean} opts.submit
+ * @param {(step:string)=>Promise<string>} opts.shot screenshot helper
+ * @param {string[]} opts.log
+ * @returns {Promise<{state:string,detail?:string}>}
+ */
+export async function runWorkday({ page, url, root, profile, submit, shot, log }) {
+  const host = new URL(url).host;
+  const cred = tenantCredentials(root, host, profile.identity.email);
+  log.push(`wd: tenant ${host}, credentials ${cred.fresh ? 'generated' : 'reused'}`);
+
+  if (!(await openApplyManually(page, url, log))) {
+    await shot('wd-1-no-apply');
+    return { state: 'wd-no-apply-path' };
+  }
+  await shot('wd-1-account');
+
+  const auth = await authenticate(page, cred, log);
+  if (auth === 'blocked') { await shot('wd-2-auth-blocked'); return { state: 'wd-auth-blocked' }; }
+  await shot('wd-2-signed-in');
+
+  const seen = [];
+  let recovered = 0;
+  for (let step = 0; step < 14; step++) {
+    await page.waitForTimeout(1500);
+    /* Workday throws a bare "Something went wrong. Please refresh the page"
+       when a wizard page is re-entered on a resumed application. It really does
+       clear on a reload, so retry twice before giving up. */
+    if (/something went wrong/i.test(await page.locator('body').innerText().catch(() => '')) && recovered < 2) {
+      recovered += 1;
+      log.push(`wd: "Something went wrong" - reloading (${recovered})`);
+      await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.waitForTimeout(7000);
+    }
+    const info = await wdPageInfo(page);
+    /* The progress bar prints every step name on every page, so testing the page
+       text for "Review" matched on page 1 and short-circuited the whole wizard.
+       Use the name of the CURRENT step only. */
+    const name = info.stepName || info.heading.slice(0, 60);
+    const label = `${info.step} :: ${name}`;
+    seen.push(label);
+    log.push(`wd: page ${step + 1} - ${label}`);
+    await wdDebug(page, `page-${step + 1}`);
+    await shot(`wd-p${step + 1}`);
+
+    if (/my information/i.test(name)) await fillMyInformation(page, profile, log);
+    if (/my experience/i.test(name)) await attachResume(page, profile.documents.resume, log);
+    if (/application question|additional question|questionnaire/i.test(name)) {
+      const missed = await answerQuestions(page, log);
+      if (missed.length) {
+        await shot(`wd-p${step + 1}-unanswered`);
+        return { state: 'wd-unknown-question', detail: missed.join(' | ').slice(0, 400) };
+      }
+    }
+    if (/voluntary disclosure|self identify|self-identif|disability/i.test(name)) {
+      await fillDisclosures(page, profile, log);
+    }
+
+    const hasNext = (await page.locator(A('pageFooterNextButton')).count().catch(() => 0)) > 0;
+    if (/review/i.test(name) || !hasNext) {
+      const submitBtn = page.getByRole('button', { name: /^submit$/i }).first();
+      if (!(await submitBtn.count().catch(() => 0))) {
+        return { state: 'wd-stuck', detail: `no next or submit button on: ${label}` };
+      }
+      if (!submit) { await shot('wd-review-dry'); return { state: 'wd-review-reached-dry-run' }; }
+      await wdClick(submitBtn);
+      await page.waitForTimeout(9000);
+      await shot('wd-submitted');
+      const after = (await page.locator('body').innerText().catch(() => '')).slice(0, 1500);
+      const confirmed = /you have (already )?(applied|submitted)|thank you for applying|application (was )?(submitted|received)|we('| ha)ve received your application/i.test(after);
+      return { state: confirmed ? 'submitted' : 'submitted-unconfirmed', detail: after.replace(/\s+/g, ' ').slice(0, 300) };
+    }
+
+    const before = page.url() + '|' + info.step;
+    await wdClick(page.locator(A('pageFooterNextButton')));
+    await page.waitForTimeout(6000);
+    const errs = await wdErrors(page);
+    const nowInfo = await wdPageInfo(page);
+    if (nowInfo.step === info.step && errs.length) {
+      await shot(`wd-p${step + 1}-errors`);
+      return { state: 'wd-validation-blocked', detail: errs.join(' | ').slice(0, 400) };
+    }
+    if (page.url() + '|' + nowInfo.step === before && !errs.length) {
+      await shot(`wd-p${step + 1}-nomove`);
+      return { state: 'wd-stuck', detail: `page did not advance from ${label}` };
+    }
+  }
+  return { state: 'wd-too-many-pages', detail: seen.join(' -> ') };
+}
