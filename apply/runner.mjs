@@ -462,17 +462,31 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   const consoleErrors = [];
   page.on('pageerror', e => consoleErrors.push(String(e.message).slice(0, 120)));
 
+  /* Watch the form POST's status code. Anthropic's Greenhouse board answers the
+     submit with HTTP 428 (Precondition Required) -- reCAPTCHA Enterprise
+     refusing an automated submission -- while the page just re-renders the job
+     description with no error text at all. Without this the run reported
+     "submitted-unconfirmed" and the batch retired the posting, so a wall that
+     needs a human looked identical to a form the runner filled wrong. */
+  const submitRejections = [];
+  page.on('response', (r) => {
+    if (r.request().method() !== 'POST') return;
+    const u = r.url();
+    if (/snowplow|analytics|segment|sentry|recaptcha|amazonaws\.com/i.test(u)) return;
+    if (r.status() >= 400) submitRejections.push({ status: r.status(), url: u.slice(0, 120) });
+  });
+
   /* APPLY_TRACE=1 dumps the application POST and its response. A form that
      looks complete in a screenshot and still comes back "Missing entry for
      required field" can only be told apart from a stale banner by reading what
      actually went over the wire. */
   if (process.env.APPLY_TRACE === '1') {
     page.on('request', r => {
-      if (r.method() !== 'POST' || !/application|submit|apply/i.test(r.url())) return;
+      if (r.method() !== 'POST') return;
       console.log(`\n[trace] POST ${r.url().slice(0, 120)}\n[trace] body: ${String(r.postData() || '').slice(0, 3000)}`);
     });
     page.on('response', async r => {
-      if (r.request().method() !== 'POST' || !/application|submit|apply/i.test(r.url())) return;
+      if (r.request().method() !== 'POST') return;
       const body = await r.text().catch(() => '');
       console.log(`\n[trace] <= ${r.status()} ${r.url().slice(0, 100)}\n[trace] resp: ${body.slice(0, 1500)}`);
     });
@@ -912,14 +926,27 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
     for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
       await f.setInputFiles(resume).catch(() => {});
       await page.waitForTimeout(1500);
-      const status = await f.evaluate((el) => {
-        const box = el.closest('div,fieldset,section') || el.parentElement;
-        const txt = (box ? box.innerText : '');
+      /* Greenhouse REPLACES the <input type=file> with an "attached" widget
+         the moment the upload lands, so evaluating on the input throws a
+         detached-element timeout and the old catch turned that into
+         present:false. A SUCCESSFUL upload was therefore recorded as "RESUME
+         UPLOAD FAILED", which sets uploadFailed and makes the runner refuse to
+         submit -- that alone blocked the Anthropic form. Verify against the
+         page, which survives the swap, and treat a vanished input as the
+         success signal it actually is.
+
+         The old test also carried a literal 0x08 where a \b was meant, so its
+         filename branch could never match and it leaned entirely on
+         el.files.length -- unreadable once the element detached. */
+      const resumeName = path.basename(resume);
+      const status = await target.evaluate((name) => {
+        const txt = document.body ? document.body.innerText : '';
         return {
-          failed: /failed to upload|upload failed|error/i.test(txt),
-          present: /\.(pdf|docx?|rtf|txt)/i.test(txt) || (el.files && el.files.length > 0)
+          failed: /failed to upload|upload failed|could not upload/i.test(txt),
+          present: txt.includes(name) || /\.(pdf|docx?|rtf|txt)/i.test(txt),
         };
-      }).catch(() => ({ failed: false, present: false }));
+      }, resumeName).catch(() => ({ failed: false, present: false }));
+      if (!status.present && !(await f.count().catch(() => 1))) status.present = true;
       if (status.present && !status.failed) { ok = true; break; }
       if (attempt < 3) {
         log.push(`resume upload attempt ${attempt} failed on input ${i}, retrying`);
@@ -1039,6 +1066,20 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
     let seq = 0;
     for (const e of document.querySelectorAll('input,select,textarea')) {
       if (['hidden', 'submit', 'button'].includes(e.type)) continue;
+      /* Greenhouse renders every custom question as a PAIR: the real
+         input[role="combobox"] carrying id="question_<n>", and a second bare
+         <input> with no id, no name and no label association sitting in the
+         same container. The scan counted that decoy as its own required field,
+         could match no answer to it because it has no label, and reported it as
+         "(unlabelled)". Fifteen of those across the overnight run blocked forms
+         whose questions were in fact all answered -- Anthropic stopped on four
+         "blockers" of which three were already filled and the fourth was this
+         phantom. Skip a nameless input that shares a container with a real
+         combobox. */
+      if (e.tagName === 'INPUT' && !e.id && !e.name && e.getAttribute('role') !== 'combobox') {
+        const box = e.closest('div,fieldset,li');
+        if (box && box.querySelector('input[role="combobox"],select')) continue;
+      }
       /* Ashby marks some required fields only with an asterisk in the label,
          with no required or aria-required attribute. Delinea's "City,
          Region/State, Country*" is one, so the scan never reported it and
@@ -1058,6 +1099,18 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
         empty = !(e.files && e.files.length) && !/\.(pdf|docx?|rtf|txt)\b/i.test(box ? box.innerText : '');
       } else {
         empty = !String(e.value || '').trim();
+        /* Greenhouse's react-select keeps the input's .value blank even after a
+           real selection, and stamps the choice on the wrapper instead:
+           select__value-container--has-value, whose text is the chosen option.
+           Probing Anthropic's "Do you require visa sponsorship?" showed .value
+           still "" straight after clicking No in the listbox. Without this the
+           scan called five answered questions empty, the resolver then typed
+           over each one with a plain fill() -- which clears a react-select --
+           and the run stopped on questions it had already answered correctly. */
+        if (empty) {
+          const vc = e.closest('.select__value-container');
+          if (vc && vc.className.includes('--has-value') && (vc.innerText || '').trim()) empty = false;
+        }
         if (empty) {
           /* Greenhouse and Ashby both back a custom combobox with a hidden
              native input they leave blank. The rendered control is the truth.
@@ -1399,6 +1452,16 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
   }
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
   const confirmed = SUCCESS.test(after) && !FAILURE.test(after);
+  /* A 428/403 on the form POST is a bot wall, not a fillable-field problem. Say
+     so distinctly so the batch can route it to a human instead of retrying. */
+  const wall = submitRejections.find(x => x.status === 428 || x.status === 403 || x.status === 429);
+  if (!confirmed && wall) {
+    console.log(`
+SUBMIT BLOCKED: the form POST returned HTTP ${wall.status} (${wall.url}).`);
+    console.log('This is a captcha / bot wall, not a missing field. It needs a human to submit.');
+    await shot(page, 'stop-submit-wall');
+    return await finish(ctx, !!args.batch, { state: 'captcha-blocked', httpStatus: wall.status, log });
+  }
   if (FAILURE.test(after)) {
     const errs = (after.match(/Missing entry for required field: [^.]{0,70}/gi) || []).slice(0, 6);
     console.log('\nform rejected the submit:', errs.length ? errs.join(' | ') : '(see screenshot)');
