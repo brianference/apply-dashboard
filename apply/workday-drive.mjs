@@ -207,6 +207,21 @@ const WD_QUESTIONS = [
   [/referred by|employee referral/i, /^no$/i],
   [/non-?compete|restrictive covenant|post-?employment restriction/i, /^no$/i],
   [/(agree|consent|acknowledge).{0,90}(terms|privacy|policy|statement|notice)|have you read and/i, /^yes$/i],
+  /* Adobe wording that matched none of the above and stopped the wizard on page
+     4 of 7 with every earlier page filled. "legal age" carries no digits, so the
+     age rule above could not see it. */
+  [/legal age to work|of legal age/i, /^yes$/i],
+  [/willing to submit (to )?a? ?background (check|screening)|consent to a background/i, /^yes$/i],
+  /* Every posting in this queue is US-remote and he will not relocate, so "can
+     you work in the listed location" is yes for a remote role. The relocation
+     half of the same sentence is answered No everywhere else in this file, and
+     these tenants render it as one combined question -- answering the
+     work-in-location half is the accurate reading for a remote posting. */
+  [/able to work on a daily basis in the work location|work in the location listed|commute to (the|this) (office|location)/i, /^yes$/i],
+  /* "Have you ever worked at Adobe in the following capacity:" is a pick-list of
+     employment types, so the honest answer is the none-of-these option rather
+     than a yes or a no. He has never worked at any of these employers. */
+  [/worked (at|for) .{0,40} in the following capacity|in the following capacit/i, /^(none|none of the above|no|i have not|never)/i],
 ];
 
 
@@ -342,6 +357,96 @@ async function fillDisclosures(page, profile, log) {
 }
 
 /**
+ * Fill Workday's My Experience rows from the resume-parsed history.
+ *
+ * Strict tenants (Autodesk, Adobe, Blackbaud) make Company, Job Title, From and
+ * To required, and the Autofill-with-Resume parse leaves those boxes blank, so
+ * the wizard stopped on "The field Company is required and must have a value."
+ * Every value here comes from profile.experience.history, parsed out of the
+ * exact PDF attached to the application. Nothing is invented: if the profile
+ * carries no parsed history the page is left alone.
+ *
+ * @param {import('playwright').Page} page
+ * @param {object} profile
+ * @param {string[]} log
+ * @returns {Promise<void>}
+ */
+async function fillWorkExperience(page, profile, log) {
+  const history = profile.experience && profile.experience.history;
+  if (!Array.isArray(history) || !history.length) {
+    log.push('wd: no resume-parsed work history in the profile, leaving My Experience alone');
+    return;
+  }
+  const MONTHS = {
+    jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+    jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+  };
+  /** @param {string} v @returns {{month:string,year:string}|null} */
+  const split = (v) => {
+    const m = String(v || '').match(/([A-Za-z]{3})?\s*(\d{4})/);
+    if (!m) return null;
+    return { month: m[1] ? MONTHS[m[1].toLowerCase()] || '01' : '01', year: m[2] };
+  };
+
+  /* Address the CONTROLS directly rather than the workExperience-N wrapper.
+     Adobe reported three "The field Company is required" errors while scoping
+     by wrapper filled exactly one row: the wrapper count and the number of
+     rendered rows do not agree across tenants. Counting the company inputs
+     themselves is unambiguous. */
+  /* Workday puts the automation id on a formField- WRAPPER, not on the input.
+     Selecting [data-automation-id="companyName"] found nothing and reported
+     "0 experience row(s)" while the debug dump listed five of them, because the
+     dump reads formField-* wrappers. Match the wrapper, then type into the
+     control inside it. */
+  const companies = page.locator('[data-automation-id="formField-companyName"], [data-automation-id="formField-company"]');
+  const count = await companies.count().catch(() => 0);
+  const rows = Math.min(Math.max(count, 1), history.length);
+  log.push('wd: ' + count + ' experience row(s) on the page, filling ' + rows);
+
+  for (let i = 0; i < rows; i++) {
+    const job = history[i];
+    /** @param {string} auto @param {string} value */
+    const put = async (auto, value) => {
+      if (!value) return;
+      /* Try the wrapper first, then the bare id: tenants differ over which one
+         carries the automation id. */
+      let all = page.locator('[data-automation-id="formField-' + auto + '"]');
+      let n = await all.count().catch(() => 0);
+      if (!n) {
+        all = page.locator('[data-automation-id="' + auto + '"]');
+        n = await all.count().catch(() => 0);
+      }
+      if (!n) return;
+      const box = all.nth(Math.min(i, n - 1));
+      const input = box.locator('input, textarea').first();
+      const el = (await input.count().catch(() => 0)) ? input : box;
+      await el.fill(String(value)).catch(() => {});
+      await page.waitForTimeout(120);
+    };
+    await put('jobTitle', job.title);
+    await put('companyName', job.company);
+    await put('company', job.company);
+
+    const from = split(job.from);
+    const to = /present|current/i.test(String(job.to || '')) ? null : split(job.to);
+    if (from) {
+      await put('startDate-dateSectionMonth-input', from.month);
+      await put('startDate-dateSectionYear-input', from.year);
+    }
+    if (to) {
+      await put('endDate-dateSectionMonth-input', to.month);
+      await put('endDate-dateSectionYear-input', to.year);
+    } else {
+      const curAll = page.locator('[data-automation-id="currentlyWorkHere"]');
+      const curN = await curAll.count().catch(() => 0);
+      const cur = curN ? curAll.nth(Math.min(i, curN - 1)) : curAll.first();
+      if (await cur.count().catch(() => 0)) await cur.check({ force: true }).catch(() => {});
+    }
+    log.push('wd: experience ' + (i + 1) + ' = ' + job.title + ' at ' + job.company);
+  }
+}
+
+/**
  * Drive the whole Workday application.
  * @param {object} opts
  * @param {import('playwright').Page} opts.page
@@ -404,6 +509,7 @@ export async function runWorkday({ page, url, root, profile, answerBank = {}, su
     await shot(`wd-p${step + 1}`);
 
     if (/my information/i.test(name)) await fillMyInformation(page, profile, log);
+    if (/my experience|work experience/i.test(name)) await fillWorkExperience(page, profile, log);
     /* The resume input appears on My Experience on the manual route and on a
        dedicated upload page on the autofill route, so attach wherever an empty
        file input shows up rather than keying on the step name. */
