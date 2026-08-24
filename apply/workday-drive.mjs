@@ -48,8 +48,19 @@ async function openApplyManually(page, url, log) {
     await page.getByRole('button', { name: /apply manually/i }).first().click({ timeout: 15000 }).catch(() => {});
   }
   await page.waitForTimeout(6000);
-  return (await page.locator(A('email')).count().catch(() => 0)) > 0
-      || (await page.locator(A('formField-source')).count().catch(() => 0)) > 0;
+  if ((await page.locator(A('email')).count().catch(() => 0)) > 0
+   || (await page.locator(A('formField-source')).count().catch(() => 0)) > 0) return true;
+
+  /* Already signed in on this tenant, so Workday skipped Create Account and
+     dropped us straight onto the wizard. Adobe did exactly that and the
+     email-field test called it wd-no-apply-path while the screenshot showed
+     step 1 of 7, Autofill with Resume, with a file drop and a Next button.
+     A visible wizard IS the apply path. */
+  const body = await page.locator('body').innerText().catch(() => '');
+  const onWizard = /autofill with resume|my information|my experience|voluntary disclosures|self identify/i.test(body)
+    && (await page.getByRole('button', { name: /^(next|continue|save and continue)$/i }).count().catch(() => 0)) > 0;
+  if (onWizard) { log.push('wd: already signed in, landed on the wizard'); return true; }
+  return false;
 }
 
 /**
@@ -355,7 +366,12 @@ export async function runWorkday({ page, url, root, profile, answerBank = {}, su
   await shot('wd-1-account');
   const applyUrl = page.url();
 
-  const auth = await authenticate(page, cred, applyUrl, log);
+  /* If openApplyManually already reported the wizard, this tenant recognised
+     the session and there is no sign-in form to reach. Running authenticate
+     anyway reported wd-auth-blocked on Adobe while the candidate was in fact
+     signed in and standing on step 1 of 7. */
+  const alreadyIn = log.some(l => l === 'wd: already signed in, landed on the wizard');
+  const auth = alreadyIn ? 'signed-in' : await authenticate(page, cred, applyUrl, log);
   markCredentialVerified(root, host, auth === 'signed-in');
   if (auth === 'blocked') {
     await shot('wd-2-auth-blocked');

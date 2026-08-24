@@ -407,6 +407,10 @@ while (processed < SAFETY_CAP) {
     return true;
   });
   if (A.company) candidates = candidates.filter(j => new RegExp(String(A.company), 'i').test(j.company));
+  /* --host lets one lane be worked on its own. Workday needs its own driver and
+     its own pace, and the score-ordered queue reaches it only after everything
+     else. */
+  if (A.host) candidates = candidates.filter(j => new RegExp(String(A.host), 'i').test(j.url || ''));
 
   if (!candidates.length) { console.log('\nqueue exhausted: no more eligible direct-form postings.'); break; }
 
