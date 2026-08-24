@@ -27,6 +27,15 @@ const PROFILE_PATH = path.join(ROOT, 'apply-profile.local.json');
 const EVIDENCE_DIR = path.join(ROOT, 'evidence', 'apply');
 const SESSION_DIR = path.join(ROOT, '.apply-session');
 
+/**
+ * Escape a string for safe use inside a RegExp.
+ * @param {string} s
+ * @returns {string}
+ */
+function escapeRx(s) {
+  return String(s).split('').map(c => '.*+?^${}()|[]\\'.includes(c) ? '\\' + c : c).join('');
+}
+
 /** @returns {Record<string,string|boolean>} parsed argv */
 function parseArgs() {
   const out = {};
@@ -91,6 +100,110 @@ async function locationEligibility(page) {
 }
 
 /**
+ * Tag the first control that sits under a given question text, so it can be
+ * driven by Playwright. Ashby renders several controls with no id, no name and
+ * no aria-label, which makes getByLabel useless on them.
+ * @param {import('playwright').Page} page
+ * @param {RegExp} question
+ * @param {string} attr data-attribute name to stamp
+ * @param {string} sel which controls count
+ * @returns {Promise<boolean>}
+ */
+async function tagNear(page, question, attr, sel) {
+  return page.evaluate(({ src, attr, sel }) => {
+    const rx = new RegExp(src, 'i');
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const found = [];
+    let n;
+    while ((n = w.nextNode())) {
+      if (!rx.test(n.textContent)) continue;
+      let el = n.parentElement;
+      for (let up = 0; up < 5 && el; up++) {
+        const c = el.querySelector(sel);
+        if (c) { found.push(c); break; }
+        el = el.parentElement;
+      }
+    }
+    if (!found.length) return false;
+    /* The sidebar has its own "Location" heading, and taking the first match
+       tagged a control next to that instead of the form field. Prefer an EMPTY
+       control, and prefer a combobox over a plain text input. */
+    const empty = found.filter(c => !String(c.value || '').trim());
+    const pool = empty.length ? empty : found;
+    const combo = pool.filter(c => c.getAttribute('role') === 'combobox');
+    const pick = (combo.length ? combo : pool)[0];
+    pick.setAttribute(attr, '1');
+    return true;
+  }, { src: question.source, attr, sel }).catch(() => false);
+}
+
+/**
+ * Answer a Yes/No question whose options are plain buttons, using a REAL
+ * Playwright click. A scripted element.click() inside page.evaluate did not
+ * register with Ashby's React handler — the log said answered, the rendered
+ * control stayed unselected, and the form refused to submit.
+ * @param {import('playwright').Page} page
+ * @param {RegExp} question
+ * @param {"Yes"|"No"} answer
+ * @param {string[]} log
+ * @returns {Promise<boolean>}
+ */
+async function clickYesNo(page, question, answer, log) {
+  /* Tag EVERY unanswered group matching the question, not just the first.
+     Docker asks about work authorization twice with different wording, and
+     answering only one left the form rejecting the submit. */
+  const count = await page.evaluate(({ src }) => {
+    const rx = new RegExp(src, 'i');
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const groups = new Set();
+    let n;
+    while ((n = w.nextNode())) {
+      if (!rx.test(n.textContent)) continue;
+      let el = n.parentElement;
+      for (let up = 0; up < 5 && el; up++) {
+        const btns = [...el.querySelectorAll('button')]
+          .filter(b => /^(yes|no)$/i.test((b.innerText || '').trim()));
+        /* EXACTLY one Yes/No pair. Allowing up to four buttons let an ancestor
+           holding two separate questions match, so the sponsorship answer "No"
+           overwrote the work-authorization "Yes" and Docker kept rejecting it. */
+        if (btns.length === 2) { groups.add(el); break; }
+        if (btns.length > 2) break;
+        el = el.parentElement;
+      }
+    }
+    let i = 0;
+    for (const g of groups) {
+      /* skip a group that already has a selection: aria-pressed/checked, or a
+         button styled as active via aria-current */
+      const btns = [...g.querySelectorAll('button')]
+        .filter(b => /^(yes|no)$/i.test((b.innerText || '').trim()));
+      const answered = btns.some(b => b.getAttribute('aria-pressed') === 'true'
+        || b.getAttribute('aria-checked') === 'true' || b.dataset.state === 'checked');
+      if (answered) continue;
+      g.setAttribute('data-yn-group', String(++i));
+      btns.forEach(b => b.setAttribute('data-yn', (b.innerText || '').trim().toLowerCase()));
+    }
+    return i;
+  }, { src: question.source }).catch(() => 0);
+  if (!count) return false;
+
+  let clicked = 0;
+  for (let i = 1; i <= count; i++) {
+    const target = page.locator(`[data-yn-group="${i}"] [data-yn="${answer.toLowerCase()}"]`).first();
+    if (!(await target.count().catch(() => 0))) continue;
+    await target.click().catch(() => {});
+    await page.waitForTimeout(200);
+    clicked++;
+  }
+  await page.evaluate(() => {
+    document.querySelectorAll('[data-yn-group]').forEach(e => e.removeAttribute('data-yn-group'));
+    document.querySelectorAll('[data-yn]').forEach(e => e.removeAttribute('data-yn'));
+  }).catch(() => {});
+  if (clicked) log.push(`clicked ${question.source.slice(0, 34)} = ${answer} (${clicked} group${clicked > 1 ? 's' : ''})`);
+  return clicked > 0;
+}
+
+/**
  * Fill a labelled field if it exists, reporting what happened.
  * @param {import('playwright').Page} page
  * @param {RegExp|string} label
@@ -99,10 +212,20 @@ async function locationEligibility(page) {
  * @returns {Promise<boolean>} whether a field was filled
  */
 async function fillByLabel(page, label, value, log) {
-  const el = page.getByLabel(label).first();
+  /* Restrict to real form controls. getByLabel(/linkedin/i) matched Autodesk's
+     LinkedIn SOCIAL ICON (an <a>), and fill() then hung waiting for a link to
+     become editable until the whole run was killed - which is why every Workday
+     posting recorded zero submissions. */
+  const el = page.locator('input, textarea, select').filter({ hasNot: page.locator('[type=hidden]') })
+    .and(page.getByLabel(label)).first();
   if (!(await el.count().catch(() => 0))) return false;
   if (!(await el.isVisible().catch(() => false))) return false;
-  await el.fill(String(value));
+  const editable = await el.evaluate(e => {
+    const t = e.tagName;
+    return (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') && !e.disabled && !e.readOnly;
+  }).catch(() => false);
+  if (!editable) return false;
+  await el.fill(String(value), { timeout: 10000 }).catch(() => {});
   log.push(`filled ${label} = ${String(value).slice(0, 40)}`);
   return true;
 }
@@ -149,6 +272,26 @@ async function fillCombo(page, label, value, log) {
   }
   await page.waitForTimeout(350);
   return true;
+}
+
+/**
+ * Some employers put a custom-branded careers page in front of Greenhouse
+ * rather than showing the bare job-boards.greenhouse.io template directly.
+ * The visible "Apply" control there is decorative; the real form lives in a
+ * same-page iframe at a URL like .../embed/job_app?for=<company>&token=<id>.
+ * Instacart is a confirmed case: the top document has zero form fields and
+ * zero apply buttons, so every fill and the submit-button search silently
+ * found nothing and the run wrongly reported "no submit button found."
+ * @param {import('playwright').Page} page
+ * @returns {Promise<import('playwright').Page|import('playwright').Frame>}
+ */
+async function getFormFrame(page) {
+  for (const f of page.frames()) {
+    if (!/\/embed\/job_app|greenhouse\.io\/embed/i.test(f.url())) continue;
+    const n = await f.locator('input,select,textarea').count().catch(() => 0);
+    if (n > 0) return f;
+  }
+  return page;
 }
 
 /**
@@ -202,6 +345,64 @@ async function answerYesNo(page, question, answer, log) {
   return found;
 }
 
+
+/** States where a human is expected to take over — never auto-close for these
+ * in interactive (non-batch) use. In --batch mode there is no human watching,
+ * so every state closes; leaving the browser open per posting is exactly what
+ * piled up 20+ orphaned Chrome processes and stalled an unattended run. */
+const HUMAN_TURN_STATES = new Set([
+  'wall', 'captcha', 'needs-input', 'needs-consent-decision',
+  'location-ineligible', 'no-submit-button'
+]);
+
+/**
+ * Close the browser context unless this is an interactive stop meant for a
+ * human, then return the result. Centralised so every exit path is covered —
+ * nine separate early returns previously never closed anything, so even a
+ * clean "submitted" run left Chrome running until something else killed it.
+ * @param {import('playwright').BrowserContext} ctx
+ * @param {boolean} batchMode
+ * @param {object} result
+ * @returns {Promise<object>}
+ */
+async function finish(ctx, batchMode, result) {
+  const leaveOpen = !batchMode && HUMAN_TURN_STATES.has(result.state);
+  if (!leaveOpen) {
+    await ctx.close().catch(() => {});
+    /* Closing the context is not enough on Windows: Chrome's child processes
+       can outlive it, and the throwaway profile directory is left on disk.
+       23 orphaned .apply-session-* dirs and 100+ chrome.exe accumulated this
+       way. Kill anything still holding THIS run's profile, then remove it. */
+    await cleanupProfile();
+  }
+  return result;
+}
+
+/** Profile directory this run owns, set once the context launches. */
+let ACTIVE_PROFILE_DIR = null;
+let cleanedUp = false;
+
+/**
+ * Kill any chrome still holding this run's own profile dir, then delete it.
+ * Scoped to this run's unique directory so no other browser is touched.
+ * @returns {Promise<void>}
+ */
+async function cleanupProfile() {
+  if (cleanedUp || !ACTIVE_PROFILE_DIR) return;
+  cleanedUp = true;
+  const dirName = path.basename(ACTIVE_PROFILE_DIR);
+  try {
+    const { execFileSync } = await import('node:child_process');
+    execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+      `Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*${dirName}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+    ], { stdio: 'ignore', timeout: 20000 });
+  } catch { /* best effort */ }
+  for (let i = 0; i < 3; i++) {
+    try { fs.rmSync(ACTIVE_PROFILE_DIR, { recursive: true, force: true }); break; }
+    catch { await new Promise(r => setTimeout(r, 700)); }
+  }
+}
+
 async function main() {
   const args = parseArgs();
   if (args.help || !args.url) {
@@ -211,6 +412,7 @@ async function main() {
   --submit              actually submit; without it this is a dry run
   --answer "<text>"     answer for a required free-text question
   --headed              show the browser (default: headed, so you can take over)
+  --batch               unattended mode: always close the browser on exit, even on a stop
   --help
 
 Profile: ${PROFILE_PATH}
@@ -240,6 +442,7 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   };
 
   const log = [];
+  let uploadFailed = false;
   /* A previous run is deliberately left open on a stop, and it holds the profile
      directory. Chrome then answers "Opening in existing browser session" and
      Playwright never gets a connection. Reclaim the profile first. */
@@ -249,6 +452,7 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
      Ashby, Greenhouse, Lever and Workday all serve their forms without a login,
      so there is no session worth persisting. Pass --session to reuse one. */
   const profileDir = args.session ? SESSION_DIR : `${SESSION_DIR}-${Date.now()}`;
+  ACTIVE_PROFILE_DIR = profileDir;
   const ctx = await chromium.launchPersistentContext(profileDir, {
     headless: false,
     viewport: { width: 1360, height: 1000 },
@@ -257,6 +461,22 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   const page = await ctx.newPage();
   const consoleErrors = [];
   page.on('pageerror', e => consoleErrors.push(String(e.message).slice(0, 120)));
+
+  /* APPLY_TRACE=1 dumps the application POST and its response. A form that
+     looks complete in a screenshot and still comes back "Missing entry for
+     required field" can only be told apart from a stale banner by reading what
+     actually went over the wire. */
+  if (process.env.APPLY_TRACE === '1') {
+    page.on('request', r => {
+      if (r.method() !== 'POST' || !/application|submit|apply/i.test(r.url())) return;
+      console.log(`\n[trace] POST ${r.url().slice(0, 120)}\n[trace] body: ${String(r.postData() || '').slice(0, 3000)}`);
+    });
+    page.on('response', async r => {
+      if (r.request().method() !== 'POST' || !/application|submit|apply/i.test(r.url())) return;
+      const body = await r.text().catch(() => '');
+      console.log(`\n[trace] <= ${r.status()} ${r.url().slice(0, 100)}\n[trace] resp: ${body.slice(0, 1500)}`);
+    });
+  }
 
   console.log(`\n=== ${args.url}`);
   console.log(`mode: ${args.submit ? 'SUBMIT' : 'DRY RUN (will not submit)'}`);
@@ -283,7 +503,24 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   if (pre.wall) {
     console.log('STOP: sign-in or bot-check wall on the posting page. Browser left open.');
     await shot(page, 'stop-wall');
-    return { state: 'wall', log };
+    return await finish(ctx, !!args.batch, { state: 'wall', log });
+  }
+
+  /* Workday opens a "Start Your Application" modal offering Autofill with
+     Resume / Apply Manually / Use My Last Application before any form exists.
+     Take the resume-autofill path; without this the runner saw a page with no
+     fields and every Workday posting produced nothing. */
+  for (const rx of [/autofill with resume/i, /apply manually/i]) {
+    /* These are not role=button in Workday's markup, so getByRole found nothing
+       and the modal stayed up. Match on visible text instead. */
+    const b = page.locator('button, a, [role="button"], div[tabindex]')
+      .filter({ hasText: rx }).first();
+    if (await b.count().catch(() => 0) && await b.isVisible().catch(() => false)) {
+      await b.click().catch(() => {});
+      await page.waitForTimeout(3500);
+      log.push(`workday: chose ${rx.source}`);
+      break;
+    }
   }
 
   // reveal the form where the ATS hides it behind an Apply button
@@ -298,35 +535,105 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   }
   await shot(page, '2-form');
 
+  /* Everything from here on operates on `target`: the real form frame when the
+     employer embeds Greenhouse inside a custom careers page, otherwise `page`
+     itself (the common case) - target === page then, so nothing changes for
+     any posting that isn't using this pattern. */
+  const target = await getFormFrame(page);
+  if (target !== page) log.push(`form lives in a nested ATS iframe: ${target.url().slice(0, 70)}`);
+
   // --- fill what we know ---
   const id = profile.identity;
-  await fillByLabel(page, /^full name|^name$/i, id.fullName, log);
-  await fillByLabel(page, /first name/i, id.firstName, log);
-  await fillByLabel(page, /last name/i, id.lastName, log);
-  await fillByLabel(page, /^email/i, id.email, log);
-  await fillByLabel(page, /phone/i, id.phone, log);
-  await fillByLabel(page, /linkedin/i, id.linkedin, log);
-  await fillByLabel(page, /github/i, id.github, log);
-  await fillByLabel(page, /where do you (currently )?reside|current location|^location/i, id.location, log);
-  await fillCombo(page, /country of residence/i, id.country, log);
-  await fillCombo(page, /passport country/i, id.country, log);
-  await fillCombo(page, /^country/i, id.country, log);
-  await fillCombo(page, /where do you (currently )?reside/i, id.country, log);
-  await fillByLabel(page, /salary|compensation expectation|expected (base )?(salary|comp)/i,
+  await fillByLabel(target, /^full name|^name$/i, id.fullName, log);
+  await fillByLabel(target, /first name/i, id.firstName, log);
+  await fillByLabel(target, /last name/i, id.lastName, log);
+  await fillByLabel(target, /^email/i, id.email, log);
+  await fillByLabel(target, /phone/i, id.phone, log);
+  await fillByLabel(target, /linkedin/i, id.linkedin, log);
+  await fillByLabel(target, /github/i, id.github, log);
+  await fillByLabel(target, /^website|personal website|portfolio( url| link)?$|^url$|web ?site/i, id.website || id.github, log);
+  await fillByLabel(target, /where do you (currently )?reside|current location|^location/i, id.location, log);
+  await fillByLabel(target, /physical mailing address|mailing address|street address|address line ?1|^address$/i, id.mailingAddress || '', log);
+  await fillByLabel(target, /^city$/i, id.city || '', log);
+  await fillByLabel(target, /^state$|state \/ province|state\/province/i, id.state || '', log);
+  await fillByLabel(target, /zip|postal code/i, id.postalCode || '', log);
+  await fillCombo(target, /country of residence/i, id.country, log);
+  await fillCombo(target, /passport country/i, id.country, log);
+  await fillCombo(target, /^country/i, id.country, log);
+  await fillCombo(target, /where do you (currently )?reside/i, id.country, log);
+  await fillByLabel(target, /salary|compensation expectation|expected (base )?(salary|comp)/i,
     profile.compensation.answerTemplate, log);
-  await fillByLabel(page, /start date|earliest.*start|available/i, profile.eligibility.earliestStart, log);
+  await fillByLabel(target, /start date|earliest.*start|available/i, profile.eligibility.earliestStart, log);
   /* Yes/No questions. Ashby renders them as a pair of buttons; Greenhouse
      renders the same questions as comboboxes. Try both for each. */
   const YESNO = [
     [/legally authorized to work/i, 'Yes'],
     [/are you (legally )?(authorized|eligible)/i, 'Yes'],
-    [/require sponsorship|visa sponsorship|sponsorship for a visa/i, 'No'],
+    [/require sponsorship|visa sponsorship|sponsorship for a visa|require employment visa/i, 'No'],
     [/non[- ]compete|post[- ]employment restriction|employment agreements/i, 'No'],
-    [/previously (worked|applied|been employed|consulted)/i, 'No'],
+    /* Brian's standing answers, 2026-08-24: yes to occasional onsite/travel,
+       no to permanent relocation, no to prior contact with the employer. */
+    [/previously (worked|applied|been employed|consulted)|ever (worked|interviewed|applied)|interviewed at/i, 'No'],
+    [/open to relocat|willing to relocat|require relocation/i, 'No'],
+    [/open to working in[- ]person|in the office|onsite|on-site|hybrid|willing to travel|open to travel/i, 'Yes'],
+    /* Common gates seen on live Ashby/Greenhouse forms. "Are you over the age
+       of 18?" blocked a Supabase submit with the resume already attached. */
+    [/over the age of 18|at least 18|18 years or older|legally of age/i, 'Yes'],
+    [/read and (agree|accept)|agree to the (terms|privacy)|acknowledge/i, 'Yes'],
+    [/consent to (the )?(processing|storage|retention)|retain my (personal )?(information|data)/i, 'Yes'],
+    [/currently (located|residing|living) in the united states|located in the us/i, 'Yes'],
   ];
   for (const [q, a] of YESNO) {
-    const viaButton = await answerYesNo(page, q, a, log);
-    if (!viaButton) await fillCombo(page, q, a, log);
+    if (await clickYesNo(target, q, a, log)) continue;
+    if (await answerYesNo(target, q, a, log)) continue;
+    await fillCombo(target, q, a, log);
+  }
+
+  /* Location is another unlabelled Ashby combobox. Tag it by its question text
+     and drive it like any other typeahead.
+
+     The label is NOT always the word "Location". Delinea (and every other Ashby
+     tenant that turns the city field on) labels it "City, Region/State,
+     Country*", which the old regex missed, so the branch never ran, the field
+     stayed empty and every one of those submits came back "Missing entry for
+     required field: City, Region/State, Country". Nine Delinea postings failed
+     on exactly this. Match the comma-separated shape too. */
+  if (await tagNear(target, /^\s*Location\s*\*?\s*$|where are you located|your location|city,\s*(region|state)|city\s*\/\s*(region|state)|city,\s*country/i,
+                    'data-apply-loc', 'input[role="combobox"],input[type="text"],select')) {
+    const loc = target.locator('[data-apply-loc="1"]').first();
+    if (await loc.isVisible().catch(() => false)) {
+      /* The option must actually name his city, state or country. Taking the
+         first row blind chose "Azerbaijan" for the query "Cave Creek, AZ". */
+      const OK_LOC = new RegExp(
+        `(${[id.city, id.state, 'United States'].filter(Boolean)
+          .map(x => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'i');
+      /* City alone first: the popup is a prefix search, and a probe against the
+         live Delinea form showed "Cave Creek" returns "Cave Creek, Arizona,
+         United States" as the active first row, while the comma-joined
+         "Cave Creek, Arizona" is not guaranteed to match anything. */
+      for (const attempt of [id.city, `${id.city}, ${id.state}`, id.location, id.state, 'United States']) {
+        if (!attempt) continue;
+        await loc.click().catch(() => {});
+        await loc.fill('').catch(() => {});
+        await loc.type(String(attempt), { delay: 45 }).catch(() => {});
+        await page.waitForTimeout(1500);
+        const opts = target.locator('[role="option"]:visible, [role="listbox"] li:visible');
+        const n = Math.min(await opts.count().catch(() => 0), 12);
+        let hit = null;
+        for (let k = 0; k < n; k++) {
+          const t = (await opts.nth(k).innerText().catch(() => '')).trim();
+          if (OK_LOC.test(t)) { hit = { el: opts.nth(k), t }; break; }
+        }
+        if (hit) {
+          await hit.el.click().catch(() => {});
+          log.push(`picked Location = ${hit.t.slice(0, 44)}`);
+          break;
+        }
+        await loc.fill('').catch(() => {});
+        log.push(`Location: "${attempt}" offered nothing matching his city/state/country`);
+      }
+      await page.waitForTimeout(300);
+    }
   }
 
   /* Free-text answers come from a JSON file of {questionSubstring: answer}.
@@ -334,7 +641,7 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
      beforehand, drawn from apply/narrative.local.md and the resume. */
   if (args.answers && fs.existsSync(String(args.answers))) {
     const bank = JSON.parse(fs.readFileSync(String(args.answers), 'utf8'));
-    const areas = page.locator('textarea');
+    const areas = target.locator('textarea');
     const n = await areas.count();
     for (let i = 0; i < n; i++) {
       const ta = areas.nth(i);
@@ -350,14 +657,14 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
     }
   }
   if (args.answer) {
-    const ta = page.locator('textarea:visible').first();
+    const ta = target.locator('textarea:visible').first();
     if (await ta.count()) { await ta.fill(String(args.answer)); log.push('filled free-text answer'); }
   }
 
   /* EEO. Brian's standing instruction: always take the decline option. The only
      exception he gave is veteran status, where if no decline option exists the
      answer is "not a veteran". Never guess an EEO value. */
-  const eeoPicked = await page.evaluate(() => {
+  const eeoPicked = await target.evaluate(() => {
     const DECLINE = /decline to (self[- ]?identify|answer)|i don'?t wish to answer|i do ?n'?t want to answer|prefer not to (say|answer|disclose)|choose not to (disclose|self[- ]?identify)|wish not to answer/i;
     const NOT_VET = /^i am not a (protected )?veteran|not a veteran|i am not a protected veteran/i;
     const picked = [];
@@ -386,12 +693,20 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
     [/veteran status/i, /decline to self.?identify|don'?t wish to answer|prefer not|i am not a protected veteran|not a (protected )?veteran/i],
   ];
   for (const [label, want] of EEO_COMBOS) {
-    const el = page.getByLabel(label).first();
+    const el = target.getByLabel(label).first();
     if (!(await el.count().catch(() => 0))) continue;
     if (!(await el.isVisible().catch(() => false))) continue;
+    /* NEVER click a radio or checkbox here. getByLabel(/hispanic|latino/) also
+       matches the "Hispanic or Latino" OPTION itself, and clicking it selected
+       that race on a real Docker application. Only a combobox gets opened. */
+    const kind = await el.evaluate(e => (e.tagName.toLowerCase() + ':' + (e.type || ''))).catch(() => '');
+    if (/:radio|:checkbox/.test(kind)) {
+      log.push(`EEO ${label.source.slice(0, 22)} = radio group, handled below`);
+      continue;
+    }
     await el.click().catch(() => {});
     await page.waitForTimeout(500);
-    const opt = page.locator('[role="option"]:visible, [role="listbox"] li:visible')
+    const opt = target.locator('[role="option"]:visible, [role="listbox"] li:visible')
       .filter({ hasText: want }).first();
     if (await opt.count().catch(() => 0)) {
       await opt.click().catch(() => {});
@@ -403,33 +718,334 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
     await page.waitForTimeout(250);
   }
 
+  /* EEO rendered as radio groups (Docker's Ashby form). Tick only an explicit
+     decline option, by exact option text. Anything else is left alone. */
+  const eeoRadios = await target.evaluate(() => {
+    const DECLINE = /^\s*(i )?decline to self[- ]?identify|^\s*decline to answer|^\s*i do ?n'?t wish to answer|^\s*prefer not to/i;
+    const NOT_VET = /^\s*i am not a protected veteran\s*$/i;
+    const done = [];
+    const groups = {};
+    for (const r of document.querySelectorAll('input[type=radio]')) {
+      const name = r.name || (r.closest('fieldset,div')?.id || 'g');
+      (groups[name] = groups[name] || []).push(r);
+    }
+    for (const [name, radios] of Object.entries(groups)) {
+      if (radios.some(r => r.checked)) continue;
+      const texts = radios.map(r => (r.closest('label')?.innerText
+        || document.querySelector(`label[for="${CSS.escape(r.id)}"]`)?.innerText || '').trim());
+      const ctx = (radios[0].closest('fieldset,section,div')?.innerText || '').slice(0, 300);
+      const isEEO = /gender|race|ethnic|hispanic|latino|veteran|disab/i.test(ctx);
+      if (!isEEO) continue;
+      let i = texts.findIndex(t => DECLINE.test(t));
+      if (i < 0 && /veteran/i.test(ctx)) i = texts.findIndex(t => NOT_VET.test(t));
+      if (i < 0) { done.push(`${name}: no decline option, left blank`); continue; }
+      radios[i].click();
+      done.push(`${name}: ${texts[i].slice(0, 38)}`);
+    }
+    return done;
+  }).catch(() => []);
+  eeoRadios.forEach(r => log.push(`EEO radio ${r}`));
+
+  /* "Where did you hear about this job?" — Brian's answer is LinkedIn, or the
+     company website when LinkedIn is not offered. Radios, selects and comboboxes
+     all appear for this question depending on the ATS. */
+  const sourcePicked = await target.evaluate(() => {
+    const Q = /where did you (hear|find|learn)|how did you (hear|find|learn)|source of (application|referral)|referral source/i;
+    const WANT = [/^\s*linkedin\s*$/i, /company (website|careers)/i, /^\s*(company )?career (site|page)\s*$/i, /other online job boards?/i];
+    const done = [];
+    for (const s2 of document.querySelectorAll('select')) {
+      const ctx = (s2.getAttribute('aria-label') || s2.closest('label,div,fieldset')?.innerText || '');
+      if (!Q.test(ctx) || s2.value) continue;
+      for (const w of WANT) {
+        const o = [...s2.options].find(x => w.test(x.textContent.trim()));
+        if (!o) continue;
+        s2.value = o.value;
+        s2.dispatchEvent(new Event('input', { bubbles: true }));
+        s2.dispatchEvent(new Event('change', { bubbles: true }));
+        done.push('select = ' + o.textContent.trim());
+        break;
+      }
+    }
+    const groups = {};
+    for (const r of document.querySelectorAll('input[type=radio]')) {
+      (groups[r.name || 'g'] = groups[r.name || 'g'] || []).push(r);
+    }
+    for (const radios of Object.values(groups)) {
+      if (radios.some(r => r.checked)) continue;
+      const ctx = (radios[0].closest('fieldset,section,div')?.innerText || '');
+      if (!Q.test(ctx)) continue;
+      const texts = radios.map(r => (r.closest('label')?.innerText
+        || document.querySelector('label[for="' + CSS.escape(r.id) + '"]')?.innerText || '').trim());
+      for (const w of WANT) {
+        const i = texts.findIndex(t => w.test(t));
+        if (i < 0) continue;
+        radios[i].click();
+        done.push('radio = ' + texts[i]);
+        break;
+      }
+    }
+    return done;
+  }).catch(() => []);
+  sourcePicked.forEach(x => log.push('found-job-via ' + x));
+
+  /* The same question also ships as a typeahead ("How did you hear about
+     Render?" — Start typing...), which neither the select nor the radio branch
+     can reach. Try LinkedIn first, then a company-website style option. */
+  const SOURCE_Q = /how did you hear about|where did you (hear|find) (out )?about|how did you find/i;
+  /* Ashby renders this as <input role="combobox" placeholder="Start typing...">
+     with no id, no name and no aria-label, so getByLabel finds nothing. Tag the
+     control by walking up from the question text, then drive it normally. */
+  const tagged = await target.evaluate((src) => {
+    const rx = new RegExp(src, 'i');
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())) {
+      if (!rx.test(n.textContent)) continue;
+      let el = n.parentElement;
+      for (let up = 0; up < 4 && el; up++) {
+        const c = el.querySelector('input[role="combobox"],input[type="text"],select');
+        if (c) { c.setAttribute('data-apply-source', '1'); return true; }
+        el = el.parentElement;
+      }
+    }
+    return false;
+  }, SOURCE_Q.source).catch(() => false);
+
+  const sourceBox = tagged
+    ? target.locator('[data-apply-source="1"]').first()
+    : target.getByLabel(SOURCE_Q).first();
+  if (await sourceBox.count().catch(() => 0) && await sourceBox.isVisible().catch(() => false)) {
+    const kind = await sourceBox.evaluate(e => e.tagName.toLowerCase() + ':' + (e.type || '')).catch(() => '');
+    if (!/:radio|:checkbox/.test(kind)) {
+      let done = false;
+      for (const opt of ['LinkedIn', 'Company website', 'Company Website', 'Career site', 'Job board', 'Other']) {
+        await sourceBox.click().catch(() => {});
+        await sourceBox.fill('').catch(() => {});
+        await sourceBox.type(opt, { delay: 40 }).catch(() => {});
+        await page.waitForTimeout(1400);
+        const hit = target.locator('[role="option"]:visible, [role="listbox"] li:visible')
+          .filter({ hasText: new RegExp(opt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first();
+        if (await hit.count().catch(() => 0)) {
+          await hit.click().catch(() => {});
+          log.push(`found-job-via typeahead = ${opt}`);
+          done = true;
+          break;
+        }
+      }
+      if (!done) {
+        await sourceBox.fill('').catch(() => {});
+        log.push('found-job-via typeahead = NO MATCHING OPTION');
+      }
+      await page.waitForTimeout(300);
+    }
+  }
+
+  /* Consent questions are not EEO and are not mine to answer. */
+  const consent = await target.evaluate(() => {
+    const out = [];
+    for (const r of document.querySelectorAll('input[type=radio],input[type=checkbox]')) {
+      const ctx = (r.closest('fieldset,section,div')?.innerText || '').slice(0, 200);
+      if (!/recording consent|consent to be recorded|record(ed|ing) (of )?interview/i.test(ctx)) continue;
+      const grp = [...document.querySelectorAll(`input[name="${CSS.escape(r.name)}"]`)];
+      if (grp.some(x => x.checked)) continue;
+      out.push(ctx.replace(/\s+/g, ' ').slice(0, 90));
+    }
+    return [...new Set(out)];
+  }).catch(() => []);
+  if (consent.length) {
+    /* Brian chose YES on 2026-08-24. The answer comes from his profile, not
+       from a default baked into this file, so changing it is a one-line edit. */
+    const want = String((profile.consent && profile.consent.interviewRecording) || '').toUpperCase();
+    if (want !== 'YES' && want !== 'NO') {
+      console.log('\nSTOP: this form asks for interview-recording consent and the profile has no answer.');
+      consent.forEach(c => console.log('      ', c));
+      await shot(page, 'stop-consent');
+      return await finish(ctx, !!args.batch, { state: 'needs-consent-decision', consent, log });
+    }
+    const picked = await target.evaluate((yes) => {
+      const YES = /^\s*yes[,.]?\s*i consent|^\s*i consent|^\s*yes\s*$/i;
+      const NO = /opt out of recording|do not consent|^\s*no\s*$/i;
+      const out = [];
+      for (const r of document.querySelectorAll('input[type=radio]')) {
+        const ctx = (r.closest('fieldset,section,div')?.innerText || '');
+        if (!/recording consent|consent to be recorded|record(ed|ing) (of )?interview/i.test(ctx)) continue;
+        const grp = [...document.querySelectorAll(`input[name="${CSS.escape(r.name)}"]`)];
+        if (grp.some(x => x.checked)) continue;
+        const texts = grp.map(x => (x.closest('label')?.innerText
+          || document.querySelector(`label[for="${CSS.escape(x.id)}"]`)?.innerText || '').trim());
+        const i = texts.findIndex(t => (yes ? YES : NO).test(t));
+        if (i < 0) continue;
+        grp[i].click();
+        out.push(texts[i].slice(0, 44));
+      }
+      return [...new Set(out)];
+    }, want === 'YES').catch(() => []);
+    picked.forEach(x => log.push(`recording consent = ${x}`));
+    if (!picked.length) {
+      console.log('\nSTOP: recording-consent question present but no option matched the profile answer.');
+      await shot(page, 'stop-consent');
+      return await finish(ctx, !!args.batch, { state: 'needs-consent-decision', consent, log });
+    }
+  }
+
   // hard stop: can they even hire someone in Arizona?
-  const loc = await locationEligibility(page);
+  const loc = await locationEligibility(target);
   if (loc.restricted) {
     console.log('\nSTOP: this employer\'s residency list does not include Arizona or a US-wide option.');
     console.log('      offered:', loc.options.slice(0, 12).join(' | '));
     console.log('      Applying would be rejected on location. Not submitting.');
     await shot(page, 'stop-location-ineligible');
-    return { state: 'location-ineligible', options: loc.options, log };
+    return await finish(ctx, !!args.batch, { state: 'location-ineligible', options: loc.options, log });
   }
 
-  // resume, and the resume again where a cover letter upload is mandatory
-  const files = page.locator('input[type=file]');
+  /* Resume, and the resume again where a cover letter upload is mandatory.
+     Under parallel load these uploads FAIL: Ashby showed "BrianFerence_Resume
+     _August.pdf failed to upload" and then "We couldn't submit your
+     application - There was a problem with the network connection." The submit
+     was clicked on a form with no resume attached, so it never went through.
+     Attach, then verify the upload actually landed, and retry before trusting it. */
+  const files = target.locator('input[type=file]');
   const nFiles = await files.count();
   for (let i = 0; i < nFiles; i++) {
     const f = files.nth(i);
-    await f.setInputFiles(resume).then(() => log.push(`attached resume to file input ${i}`)).catch(() => {});
+    let ok = false;
+    for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+      await f.setInputFiles(resume).catch(() => {});
+      await page.waitForTimeout(1500);
+      const status = await f.evaluate((el) => {
+        const box = el.closest('div,fieldset,section') || el.parentElement;
+        const txt = (box ? box.innerText : '');
+        return {
+          failed: /failed to upload|upload failed|error/i.test(txt),
+          present: /\.(pdf|docx?|rtf|txt)/i.test(txt) || (el.files && el.files.length > 0)
+        };
+      }).catch(() => ({ failed: false, present: false }));
+      if (status.present && !status.failed) { ok = true; break; }
+      if (attempt < 3) {
+        log.push(`resume upload attempt ${attempt} failed on input ${i}, retrying`);
+        await page.waitForTimeout(2500);
+      }
+    }
+    log.push(ok ? `attached resume to file input ${i}` : `RESUME UPLOAD FAILED on input ${i}`);
+    if (!ok) uploadFailed = true;
   }
 
-  await page.waitForTimeout(1500);
+  /* If the page exposed no editable fields at all, this ATS needs a flow the
+     runner does not implement (Workday opens a modal, then requires an account
+     and a multi-page wizard). Record that distinctly instead of falling through
+     to a meaningless "no submit button". */
+  const fieldCount = await target.locator('input:not([type=hidden]), textarea, select').count().catch(() => 0);
+  if (fieldCount === 0) {
+    console.log(`
+STOP: no application form on this page (${fieldCount} fields). This ATS needs an account or a multi-step flow.`);
+    await shot(page, 'stop-no-form');
+    return await finish(ctx, !!args.batch, { state: 'needs-account-or-wizard', log });
+  }
+
   await shot(page, '3-filled');
 
-  // --- what is still required and unanswered? ---
-  const unanswered = await page.evaluate(() => {
+  /* Ashby re-renders the form when a combobox selection lands, and that wiped
+     an already-filled Email on the Render posting. Top up the plain text fields
+     after every widget has settled, filling only the ones that came back empty. */
+  await page.waitForTimeout(600);
+  const topUps = [
+    [/^full name|^name$/i, id.fullName],
+    [/first name/i, id.firstName],
+    [/last name/i, id.lastName],
+    [/^email/i, id.email],
+    [/phone/i, id.phone],
+    [/linkedin/i, id.linkedin],
+    [/github/i, id.github],
+    [/^website|personal website|portfolio( url| link)?$/i, id.website || id.github],
+    [/physical mailing address|mailing address|street address/i, id.mailingAddress || ''],
+  ];
+  for (const [label, value] of topUps) {
+    if (!value) continue;
+    const el = target.getByLabel(label).first();
+    if (!(await el.count().catch(() => 0))) continue;
+    if (!(await el.isVisible().catch(() => false))) continue;
+    const cur = await el.inputValue().catch(() => 'x');
+    if (String(cur).trim()) continue;
+    await el.fill(String(value)).catch(() => {});
+    log.push(`re-filled ${label.source.slice(0, 26)} (was cleared by a re-render)`);
+  }
+
+  /* Combobox selections re-render the form and drop earlier answers, so the
+     Yes/No questions get asserted again here, after every widget has settled.
+     clickYesNo skips any group that already shows a selection. */
+  for (const [q, a] of YESNO) {
+    await clickYesNo(target, q, a, log);
+  }
+  await page.waitForTimeout(400);
+
+  const VALUE_MAP = [
+    [/preferred (first )?name|^name$|full( legal)? name|legal name/i, id.fullName],
+    [/first name/i, id.firstName],
+    [/last name|surname|family name/i, id.lastName],
+    [/e-?mail/i, id.email],
+    [/phone|mobile|telephone/i, id.phone],
+    [/linkedin/i, id.linkedin],
+    [/github/i, id.github],
+    [/website|portfolio|personal (site|url)/i, id.website || id.github],
+    [/city/i, id.city],
+    [/state|province/i, id.state],
+    [/zip|postal/i, id.postalCode],
+    [/country|where .*(work|based|located)|working (from|location)/i, id.country],
+    [/current[\/\s].{0,20}(job )?title|current role|most recent (job )?title|present title/i, 'Senior Product Manager'],
+    [/current[\/\s].{0,20}(company|employer)|most recent (company|employer)|previous employer|present employer/i, 'Equity Methods'],
+    [/pronouns/i, 'He/Him'],
+    [/desired .*salary|salary .*range|compensation/i, profile.compensation.answerTemplate],
+    [/(street|mailing|physical) address|address line/i, id.mailingAddress],
+    [/nationality|citizenship/i, 'United States'],
+    [/years of (relevant )?experience|how many years/i, '18'],
+    [/notice period|when can you start|availability|earliest start/i, 'Immediately'],
+    [/how did you hear|where did you (hear|find)/i, 'LinkedIn'],
+    /* Yes/No policy questions. Ashby renders these as button pairs (handled by
+       clickYesNo) but Greenhouse renders the very same questions as unlabelled
+       comboboxes, which no label-based matcher can reach. Answering them here
+       by question text is what unblocked Anthropic. */
+    [/require (visa |employment visa )?sponsorship|sponsorship to work/i, 'No'],
+    [/legally authorized|authorized to work|eligible to work/i, 'Yes'],
+    [/open to relocat|willing to relocat/i, 'No'],
+    [/open to working in[- ]person|in one of our offices|onsite|on-site|hybrid|willing to travel/i, 'Yes'],
+    [/ever interviewed|previously (worked|applied|interviewed)|interviewed at/i, 'No'],
+    [/non[- ]compete|post[- ]employment restriction|employment agreement/i, 'No'],
+    [/over the age of 18|at least 18|18 years or older/i, 'Yes'],
+    [/read and (agree|accept)|agree to the (terms|privacy)|acknowledge/i, 'Yes'],
+    [/consent to (the )?(processing|storage|retention)|retain my (personal )?(information|data)/i, 'Yes'],
+    [/currently (located|residing|living) in the united states|located in the us/i, 'Yes'],
+  ];
+
+  /* Long-form questions still unanswered get one more pass against the answer
+     bank, matched on the question text rather than on the element being a
+     <textarea>. Anthropic's "AI Policy for Application" is a plain text input,
+     so the textarea-only pass above never saw it. */
+  let answerBank = {};
+  if (args.answers && fs.existsSync(String(args.answers))) {
+    try { answerBank = JSON.parse(fs.readFileSync(String(args.answers), 'utf8')); } catch { /* keep empty */ }
+  }
+
+  await page.waitForTimeout(700);
+  await shot(page, '3b-topped-up');
+
+  /* The blocking scan, as a reusable function. It tags every field it reports
+     with data-apblock so the resolver below can act on exactly the controls
+     that would stop the submit - an earlier version used its own separate
+     detection and found 0 fields while this scan found several, so nothing
+     ever got auto-filled. */
+  const scanUnanswered = () => target.evaluate(() => {
     const out = [];
+    document.querySelectorAll('[data-apblock]').forEach(e => e.removeAttribute('data-apblock'));
+    let seq = 0;
     for (const e of document.querySelectorAll('input,select,textarea')) {
       if (['hidden', 'submit', 'button'].includes(e.type)) continue;
-      const req = e.required || e.getAttribute('aria-required') === 'true';
+      /* Ashby marks some required fields only with an asterisk in the label,
+         with no required or aria-required attribute. Delinea's "City,
+         Region/State, Country*" is one, so the scan never reported it and
+         the server rejected the submit for that exact field. */
+      const labelBox = e.closest('div,fieldset,li');
+      const labelTxt = labelBox ? (labelBox.innerText || '').slice(0, 160) : '';
+      const req = e.required || e.getAttribute('aria-required') === 'true' || /\*/.test(labelTxt);
       if (!req) continue;
       let empty;
       if (e.type === 'checkbox' || e.type === 'radio') {
@@ -448,11 +1064,21 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
              Without this, four already-answered GitLab questions reported as
              missing and the run refused to submit a complete form. */
           const box = e.closest('[class*="select"],[class*="combobox"],[role="combobox"],div');
-          const shown = box ? box.innerText.replace(/\s+/g, ' ').trim() : '';
           const combo = e.getAttribute('aria-controls') || e.getAttribute('aria-owns');
           const live = combo ? document.getElementById(combo) : null;
-          if (/\b(yes|no|united states|decline|prefer not|i don'?t)\b/i.test(shown)
-              && !/^select\.{0,3}$/i.test(shown)) empty = false;
+          /* Only a genuinely SELECTED control counts as answered. The old test
+             looked for the words yes/no near the field, which is true of every
+             UNSELECTED button pair, so a form wiped by a re-render still scanned
+             as complete and the runner clicked submit on an empty form. */
+          /* Restrict the "already selected" rescue to genuine BUTTON/RADIO
+             groups. Applying it to comboboxes marked them filled whenever the
+             popup list happened to have a highlighted (aria-selected) row, so
+             Delinea's "City, Region/State, Country" scanned as complete and the
+             server rejected the submit for exactly that field. A combobox is
+             only answered when its own input carries a value. */
+          const isChoiceGroup = !!(box && box.querySelector('button,[role="radio"],input[type="radio"],input[type="checkbox"]'))
+            && e.getAttribute('role') !== 'combobox' && e.tagName !== 'SELECT';
+          if (isChoiceGroup && box.querySelector('[aria-pressed="true"],[aria-checked="true"],[data-state="checked"],input:checked')) empty = false;
           if (live && live.textContent.trim()) empty = false;
         }
       }
@@ -460,10 +1086,93 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
       const lab = e.getAttribute('aria-label')
         || (e.id && document.querySelector(`label[for="${CSS.escape(e.id)}"]`)?.innerText)
         || e.closest('label')?.innerText || e.name || '(unlabelled)';
-      out.push(String(lab).replace(/\s+/g, ' ').slice(0, 90));
+      const key = 'apb-' + (seq++);
+      e.setAttribute('data-apblock', key);
+      const box = e.closest('div,fieldset,li') || e.parentElement;
+      out.push({
+        key,
+        label: String(lab).replace(/\s+/g, ' ').slice(0, 90),
+        question: (box ? box.innerText : '').replace(/\s+/g, ' ').trim().slice(0, 140),
+        isCombo: e.getAttribute('role') === 'combobox' || e.tagName === 'SELECT',
+        isText: e.tagName === 'TEXTAREA' || e.type === 'text' || e.type === 'tel' || e.type === 'email' || e.type === 'url'
+      });
     }
-    return [...new Set(out)];
+    return out;
   });
+  let unansweredFields = await scanUnanswered();
+
+  /* Resolve whatever we can from the profile and the answer bank, then rescan.
+     Runs against the tagged blocking fields so it sees exactly what the submit
+     gate sees. Up to three passes because filling one control can re-render the
+     form and reveal or clear another. */
+  for (let pass = 1; pass <= 3 && unansweredFields.length; pass++) {
+    let filledAny = false;
+    for (const f of unansweredFields) {
+      const hay = `${f.label} ${f.question}`;
+      const hit = VALUE_MAP.find(([rx]) => rx.test(hay));
+      const bankKey = hit ? null : Object.keys(answerBank)
+        .filter(k => !k.startsWith('_'))
+        .sort((a, b) => b.length - a.length)
+        .find(k => hay.toLowerCase().includes(k.toLowerCase()));
+      if (!hit && !bankKey) continue;
+      const value = String(hit ? hit[1] : answerBank[bankKey] || '');
+      if (!value) continue;
+
+      const el = target.locator(`[data-apblock="${f.key}"]`).first();
+      if (!(await el.count().catch(() => 0))) continue;
+
+      /* A blocking file input means an earlier interaction re-rendered the form
+         and dropped the upload - clicking Supabase's "over 18" question wiped
+         Email, Resume, Github and LinkedIn all at once. Re-attach rather than
+         submitting a form with no resume on it. */
+      const isFile = await el.evaluate(e => e.type === 'file').catch(() => false);
+      if (isFile) {
+        await el.setInputFiles(resume).catch(() => {});
+        await page.waitForTimeout(1200);
+        log.push(`re-attached resume to "${f.label.slice(0, 30)}" after a re-render`);
+        filledAny = true;
+        continue;
+      }
+
+      if (!(await el.isVisible().catch(() => false))) continue;
+
+      /* Pass 1 uses the plain text fill. If a field is STILL blocking on a
+         later pass, it is a custom dropdown wearing a plain <input> - typing
+         into it never commits a value - so escalate to click/type/pick.
+         Anthropic's sponsorship and relocation questions are exactly this. */
+      if (f.isCombo || pass > 1) {
+        await el.click().catch(() => {});
+        await el.fill('').catch(() => {});
+        await el.type(value, { delay: 30 }).catch(() => {});
+        await page.waitForTimeout(1400);
+        const opts = target.locator('[role="option"]:visible, [role="listbox"] li:visible');
+        const n = Math.min(await opts.count().catch(() => 0), 10);
+        let picked = false;
+        const needle = escapeRx(value.split(',')[0]);
+        for (let k = 0; k < n; k++) {
+          const t = (await opts.nth(k).innerText().catch(() => '')).trim();
+          if (t && new RegExp(needle, 'i').test(t)) {
+            await opts.nth(k).click().catch(() => {});
+            log.push(`auto: "${f.label.slice(0, 34)}" = ${t.slice(0, 30)}`);
+            picked = true; filledAny = true;
+            break;
+          }
+        }
+        if (!picked) await el.fill('').catch(() => {});
+      } else {
+        await el.fill(value).catch(() => {});
+        log.push(`auto: "${f.label.slice(0, 34)}" = ${value.slice(0, 30)}`);
+        filledAny = true;
+      }
+      await page.waitForTimeout(180);
+    }
+    if (!filledAny) break;
+    await page.waitForTimeout(500);
+    unansweredFields = await scanUnanswered();
+    console.log(`  [resolver pass ${pass}] ${unansweredFields.length} still blocking`);
+  }
+
+  const unanswered = unansweredFields.map(f => f.label);
 
   /* Drop questions the runner demonstrably answered through the listbox. Their
      hidden native input stays blank by design in Greenhouse's widget, so the
@@ -476,7 +1185,7 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
     console.log(`\n(${unanswered.length - stillMissing.length} field(s) reported empty but were answered via the listbox — not blocking)`);
   }
 
-  const post = await stopCheck(page);
+  const post = await stopCheck(target);
   console.log('\nfilled:');
   log.forEach(l => console.log('  -', l));
   console.log('\nstill required and empty:');
@@ -487,34 +1196,255 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   if (post.captcha) {
     console.log('\nSTOP: an interactive captcha is on the form. Not submitting. Browser left open — your turn.');
     await shot(page, 'stop-captcha');
-    return { state: 'captcha', unanswered, log };
+    return await finish(ctx, !!args.batch, { state: 'captcha', unanswered, log });
   }
   if (stillMissing.length) {
     console.log('\nSTOP: required fields this profile has no answer for. Not submitting. Browser left open.');
     await shot(page, 'stop-unanswered');
-    return { state: 'needs-input', unanswered: stillMissing, log };
+    return await finish(ctx, !!args.batch, { state: 'needs-input', unanswered: stillMissing, log });
   }
   if (!args.submit) {
     console.log('\nDRY RUN complete — form is filled and NOT submitted. Re-run with --submit to send it.');
-    return { state: 'dry-run-ok', unanswered, log };
+    return await finish(ctx, !!args.batch, { state: 'dry-run-ok', unanswered, log });
   }
 
-  const submit = page.getByRole('button', { name: /submit application|^submit$|send application/i }).first();
+  /* Never click submit on a form whose resume did not upload - that is exactly
+     how five applications were "submitted" into a network error. */
+  if (uploadFailed) {
+    console.log('\nSTOP: the resume failed to upload after 3 attempts. Not submitting.');
+    await shot(page, 'stop-upload-failed');
+    return await finish(ctx, !!args.batch, { state: 'upload-failed', log });
+  }
+
+  const submit = target.getByRole('button', { name: /submit application|^submit$|send application/i }).first();
   if (!(await submit.count())) {
     console.log('\nSTOP: no submit button found. Not submitting.');
     await shot(page, 'stop-nosubmit');
-    return { state: 'no-submit-button', log };
+    return await finish(ctx, !!args.batch, { state: 'no-submit-button', log });
   }
-  await submit.click();
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  await page.waitForTimeout(3000);
-  const after = await page.evaluate(() => (document.body ? document.body.innerText : '').replace(/\s+/g, ' ').slice(0, 400));
-  const confirmed = /thank you|application (received|submitted)|we have received|successfully applied|your application/i.test(after);
+  /* Submit, then let the FORM tell us what is missing rather than trying to
+     predict it. Five different attempts at detecting required fields client
+     side each failed on a new widget shape (asterisk-only labels, comboboxes
+     with highlighted-but-unselected rows, hidden inputs behind custom
+     dropdowns). The rejection banner names the exact fields, so use that as
+     ground truth: fill what it names, resubmit, up to three rounds. */
+  const readBanner = async () => target.evaluate(() => {
+    const txt = (document.body ? document.body.innerText : '');
+    const out = [];
+    const re = new RegExp('Missing entry for required field:' + String.fromCharCode(92) + 's*(['
+      + '^' + String.fromCharCode(92) + 'n]{1,80})', 'gi');
+    let m;
+    while ((m = re.exec(txt))) out.push(m[1].trim());
+    return [...new Set(out)];
+  }).catch(() => []);
+
+  /* Ashby's Yes/No is a pair of <button data-option="yes|no" aria-pressed> with
+     a decoy hidden checkbox that stays unchecked either way. Probing the live
+     Delinea form showed a single Playwright click does set aria-pressed="true",
+     but the resume-autofill re-render silently drops it again, and the banner
+     repair below only ever knew how to drive input/select/textarea/combobox --
+     so a dropped Yes/No answer reported "none of the named fields could be
+     answered from the profile" and the run stopped one field short. Read the
+     buttons directly, and repair them the same way. */
+  const readYesNoState = async () => target.evaluate(() => {
+    const out = [];
+    for (const g of document.querySelectorAll('.ashby-application-form-input-yesno, [class*="yesno"]')) {
+      const btns = [...g.querySelectorAll('button[data-option]')];
+      if (btns.length !== 2) continue;
+      const entry = g.closest('[data-field-path]') || g.parentElement;
+      const lab = entry ? (entry.querySelector('label')?.innerText || '').replace(/\s+/g, ' ').trim() : '';
+      const on = btns.find(b => b.getAttribute('aria-pressed') === 'true');
+      out.push({ label: lab.slice(0, 70), answer: on ? on.dataset.option : null });
+    }
+    return out;
+  }).catch(() => []);
+
+  /**
+   * Click the yes/no button under the label the rejection banner named.
+   * @param {string} label banner field name
+   * @param {string} answer 'yes' or 'no'
+   * @returns {Promise<boolean>} whether a button was pressed
+   */
+  const repairYesNo = async (label, answer) => {
+    const ok = await target.evaluate(({ label: lab, answer: ans }) => {
+      const norm = (t) => (t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const want = norm(lab).replace(/\*$/, '');
+      for (const g of document.querySelectorAll('.ashby-application-form-input-yesno, [class*="yesno"]')) {
+        const btns = [...g.querySelectorAll('button[data-option]')];
+        if (btns.length !== 2) continue;
+        const entry = g.closest('[data-field-path]') || g.parentElement;
+        const text = norm(entry ? entry.querySelector('label')?.innerText : '');
+        if (!text || (!text.includes(want) && !want.includes(text.slice(0, 40)))) continue;
+        const btn = btns.find(b => b.dataset.option === ans);
+        if (!btn) continue;
+        btn.setAttribute('data-yn-fix', '1');
+        return true;
+      }
+      return false;
+    }, { label, answer }).catch(() => false);
+    if (!ok) return false;
+    const btn = target.locator('[data-yn-fix="1"]').first();
+    await btn.click().catch(() => {});
+    await page.waitForTimeout(400);
+    const pressed = await btn.getAttribute('aria-pressed').catch(() => null);
+    await target.evaluate(() => document.querySelectorAll('[data-yn-fix]')
+      .forEach(e => e.removeAttribute('data-yn-fix'))).catch(() => {});
+    return pressed === 'true';
+  };
+
+  for (let round = 1; round <= 3; round++) {
+    /* Re-assert every Yes/No the autofill re-render may have dropped, and say
+       so out loud -- a silently-cleared answer is what made three Delinea
+       submits fail while the buttons still looked green in the screenshot. */
+    const ynBefore = await readYesNoState();
+    const dropped = ynBefore.filter(y => !y.answer);
+    console.log(`  [submit round ${round}] yes/no state: ${ynBefore.map(y => `${y.answer || 'UNSET'}`).join(', ') || '(none)'}`);
+    for (const d of dropped) {
+      const want = YESNO.find(([rx]) => rx.test(d.label));
+      if (want && await repairYesNo(d.label, String(want[1]).toLowerCase())) {
+        log.push(`re-asserted yes/no "${d.label.slice(0, 34)}" = ${want[1]}`);
+      }
+    }
+
+    await submit.click().catch(() => {});
+    await page.waitForTimeout(4000);
+    const missing = await readBanner();
+    if (!missing.length) break;
+
+    console.log(`  [submit round ${round}] form named ${missing.length} missing field(s): ${missing.slice(0, 6).join(' | ')}`);
+    let fixedAny = false;
+    for (const name of missing) {
+      /* A Yes/No named in the banner is not reachable by the input-based repair
+         below, so handle it first. */
+      const yn = YESNO.find(([rx]) => rx.test(name));
+      if (yn && await repairYesNo(name, String(yn[1]).toLowerCase())) {
+        log.push(`banner-fix: yes/no "${name.slice(0, 34)}" = ${yn[1]}`);
+        fixedAny = true;
+        continue;
+      }
+      const hit = VALUE_MAP.find(([rx]) => rx.test(name));
+      const bankKey = hit ? null : Object.keys(answerBank)
+        .filter(k => !k.startsWith('_')).sort((a, b) => b.length - a.length)
+        .find(k => name.toLowerCase().includes(k.toLowerCase()));
+      if (!hit && !bankKey) continue;
+      const value = String(hit ? hit[1] : answerBank[bankKey] || '');
+      if (!value) continue;
+
+      /* find the control sitting under the named label */
+      const tagged = await target.evaluate((label) => {
+        const norm = (t) => t.replace(/\s+/g, ' ').trim().toLowerCase();
+        const want = norm(label);
+        document.querySelectorAll('[data-apfix]').forEach(e => e.removeAttribute('data-apfix'));
+        for (const e of document.querySelectorAll('input,select,textarea,[role="combobox"]')) {
+          if (['hidden', 'submit', 'button'].includes(e.type)) continue;
+          const box = e.closest('div,fieldset,li') || e.parentElement;
+          const ctx = norm(box ? box.innerText : '');
+          if (ctx.includes(want.replace(/\*$/, ''))) { e.setAttribute('data-apfix', '1'); return true; }
+        }
+        return false;
+      }, name).catch(() => false);
+      if (!tagged) continue;
+
+      const el = target.locator('[data-apfix="1"]').first();
+      if (!(await el.count().catch(() => 0))) continue;
+      const kind = await el.evaluate(e => ({ type: e.type, role: e.getAttribute('role'), tag: e.tagName }))
+        .catch(() => ({}));
+
+      if (kind.type === 'file') {
+        await el.setInputFiles(resume).catch(() => {});
+        log.push(`banner-fix: re-attached resume for "${name.slice(0, 34)}"`);
+        fixedAny = true;
+      } else if (kind.role === 'combobox' || kind.tag === 'SELECT') {
+        await el.click().catch(() => {});
+        await el.fill('').catch(() => {});
+        await el.type(value, { delay: 40 }).catch(() => {});
+        await page.waitForTimeout(1600);
+        const opts = target.locator('[role="option"]:visible, [role="listbox"] li:visible');
+        const n = Math.min(await opts.count().catch(() => 0), 12);
+        for (let k = 0; k < n; k++) {
+          const t = (await opts.nth(k).innerText().catch(() => '')).trim();
+          if (t && new RegExp(escapeRx(value.split(',')[0]), 'i').test(t)) {
+            await opts.nth(k).click().catch(() => {});
+            log.push(`banner-fix: "${name.slice(0, 30)}" = ${t.slice(0, 30)}`);
+            fixedAny = true;
+            break;
+          }
+        }
+      } else {
+        await el.fill(value).catch(() => {});
+        log.push(`banner-fix: "${name.slice(0, 30)}" = ${value.slice(0, 30)}`);
+        fixedAny = true;
+      }
+      await page.waitForTimeout(300);
+    }
+    if (!fixedAny) {
+      console.log('  [submit] none of the named fields could be answered from the profile; stopping');
+      break;
+    }
+    await page.waitForTimeout(800);
+  }
+
+  /* Wait for a real end state, not a fixed sleep. The first Render run was
+     screenshotted while the button still showed its spinner, so a completed
+     submission was reported as unconfirmed. Poll until the page shows either a
+     success message or a validation error. */
+  const SUCCESS = /thank you|application (was )?(received|submitted)|we have received|successfully (applied|submitted)|your application (has been|was)/i;
+  const FAILURE = /form needs corrections|missing entry for required|please (correct|complete|fix)|there (was|were) (an )?error/i;
+  const deadline = Date.now() + 45000;
+  let after = '';
+  while (Date.now() < deadline) {
+    after = await target.evaluate(() => (document.body ? document.body.innerText : '').replace(/\s+/g, ' ')).catch(() => '');
+    if (SUCCESS.test(after) || FAILURE.test(after)) break;
+    await page.waitForTimeout(1000);
+  }
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+  const confirmed = SUCCESS.test(after) && !FAILURE.test(after);
+  if (FAILURE.test(after)) {
+    const errs = (after.match(/Missing entry for required field: [^.]{0,70}/gi) || []).slice(0, 6);
+    console.log('\nform rejected the submit:', errs.length ? errs.join(' | ') : '(see screenshot)');
+  }
+  after = after.slice(0, 400);
   await shot(page, confirmed ? '4-submitted' : '4-after-submit-unconfirmed');
   console.log(`\nafter submit: ${JSON.stringify(after.slice(0, 200))}`);
   console.log(confirmed ? 'SUBMITTED — confirmation text found on the page.' : 'SUBMIT CLICKED but no confirmation text found. Verify manually before marking applied.');
-  return { state: confirmed ? 'submitted' : 'submitted-unconfirmed', log };
+  return await finish(ctx, !!args.batch, { state: confirmed ? 'submitted' : 'submitted-unconfirmed', log });
 }
 
-const result = await main();
+/* A runner that throws, or is killed by the batch timeout, never reaches
+   finish(), so its Chrome and its profile dir survive. Clean up on every exit
+   path rather than only the happy one. */
+for (const sig of ['exit', 'SIGINT', 'SIGTERM', 'uncaughtException']) {
+  process.on(sig, () => {
+    if (!ACTIVE_PROFILE_DIR || cleanedUp) return;
+    cleanedUp = true;
+    const dirName = path.basename(ACTIVE_PROFILE_DIR);
+    try {
+      const { execFileSync } = require('node:child_process');
+      execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+        `Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*${dirName}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+      ], { stdio: 'ignore', timeout: 15000 });
+      fs.rmSync(ACTIVE_PROFILE_DIR, { recursive: true, force: true });
+    } catch { /* best effort on the way out */ }
+  });
+}
+
+let result;
+try {
+  result = await main();
+} catch (e) {
+  console.error('runner failed:', e && e.message);
+  try {
+    const { execFileSync } = require('node:child_process');
+    if (ACTIVE_PROFILE_DIR && !cleanedUp) {
+      cleanedUp = true;
+      const dirName = path.basename(ACTIVE_PROFILE_DIR);
+      execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+        `Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*${dirName}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+      ], { stdio: 'ignore', timeout: 15000 });
+      fs.rmSync(ACTIVE_PROFILE_DIR, { recursive: true, force: true });
+    }
+  } catch { /* best effort */ }
+  console.log('\nRESULT: "crashed"');
+  process.exit(1);
+}
 console.log('\nRESULT:', JSON.stringify(result && result.state));
