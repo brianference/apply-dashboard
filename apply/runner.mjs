@@ -838,7 +838,9 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
     /* sponsors?hip is deliberate. Headway's own form reads "require visa
        sponsorhip", and the correct spelling matched nothing, blocking five of
        their postings. */
-    [/require .{0,14}sponsors?hip|visa sponsors?hip|sponsors?hip for a visa|require employment visa|immigration sponsors?hip|sponsors?hip for (work|employment)/i, 'No'],
+    /* Kraken asks "will you now or in the future NEED sponsorship", which the
+       require-only pattern missed across four of their postings. */
+    [/(require|need|request).{0,16}sponsors?hip|visa sponsors?hip|sponsors?hip for a visa|require employment visa|immigration sponsors?hip|sponsors?hip for (work|employment)|sponsors?hip to work/i, 'No'],
     [/non[- ]compete|post[- ]employment restriction|employment agreements|post[- ]employment,? contractual|contractual or other restrictions|restrictive covenant/i, 'No'],
     /* Relationship-to-the-employer gates. All are No for him: he has no prior
        tie to any of these companies and is not a customer or partner of one. */
@@ -856,6 +858,14 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
     [/\b5\+? (years )?of product management|5\+ years.{0,25}product/i, 'Yes'],
     /* He is in Arizona and is not entitled to work in Canada. */
     [/entitled to work in canada|authorized to work in canada|eligible to work in canada/i, 'No'],
+    /* Years-of-experience gates. Two years with the Product Manager title plus
+       the Oracle and American Express years running the role clear these; see
+       narrative.local.md "Seniority framing". */
+    [/more than \d+ years|\d+\+? years.{0,30}(experience|working)|at least \d+ years/i, 'Yes'],
+    /* "Have you used OUR product" is a customer question, not an experience
+       one. He has not been a customer of any of these; apply-profile.local.json
+       records that explicitly for Chili Piper. */
+    [/have you (used|been a user of) .{0,40}(product|platform|app)|used (our|a) .{0,25}product in the last/i, 'No'],
     /* Background-check and reference consents. Refusing these blocks the submit
        and helps on nothing. 1Password asks four postings the same question. */
     [/offers of employment are conditional|conditional on satisfactory|background (check|screening|investigation)|investigative consumer report|consumer report/i, 'Yes'],
@@ -884,6 +894,14 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
     [/read and (agree|accept)|agree to the (terms|privacy)|acknowledge|i understand and agree|understand and agree|^\s*consent\s*\*?\s*$/i, 'Yes'],
     [/consent to (the )?(processing|storage|retention)|retain my (personal )?(information|data)/i, 'Yes'],
     [/currently (located|residing|living) in the united states|located in the us/i, 'Yes'],
+    /* LAST RULE, so every specific rule above wins first.
+       "Do you have experience with <the employer own domain>?" - Kraken asks
+       about case management and account takeovers, 1Password about
+       cybersecurity SaaS. No is the truthful default: the narrative covers
+       fintech, payments and AI product work, and claiming a domain he has not
+       owned would be a fabrication sitting in a real application. A No that
+       costs a posting is a cheaper mistake than a Yes he has to walk back. */
+    [/do you have (any )?(prior |direct |hands[- ]on )?experience (with|in|within|using)/i, 'No'],
   ];
   for (const [q, a] of YESNO) {
     if (await clickYesNo(target, q, a, log)) continue;
@@ -1419,6 +1437,14 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
     [/read and (agree|accept)|agree to the (terms|privacy)|acknowledge/i, 'Yes'],
     [/consent to (the )?(processing|storage|retention)|retain my (personal )?(information|data)/i, 'Yes'],
     [/currently (located|residing|living) in the united states|located in the us/i, 'Yes'],
+    /* LAST RULE, so every specific rule above wins first.
+       "Do you have experience with <the employer own domain>?" - Kraken asks
+       about case management and account takeovers, 1Password about
+       cybersecurity SaaS. No is the truthful default: the narrative covers
+       fintech, payments and AI product work, and claiming a domain he has not
+       owned would be a fabrication sitting in a real application. A No that
+       costs a posting is a cheaper mistake than a Yes he has to walk back. */
+    [/do you have (any )?(prior |direct |hands[- ]on )?experience (with|in|within|using)/i, 'No'],
   ];
 
   /* Long-form questions still unanswered get one more pass against the answer
