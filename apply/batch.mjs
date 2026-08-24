@@ -441,11 +441,27 @@ while (processed < SAFETY_CAP) {
 
   let { state, out } = await runOne(j.url, submit);
   if (RETRYABLE.has(state)) {
-    console.log('        crashed, retrying once');
-    await new Promise(r => setTimeout(r, 5000));
+    /* A longer, growing pause. The retry used to fire five seconds later, which
+       is inside the window that caused the failure in the first place: Ashby
+       answers ApiSetFormValue with HTTP 429 under parallel load, and that same
+       throttling is what drops the resume upload. Retrying immediately just
+       collects the same 429. */
+    console.log('        transient failure, backing off then retrying once');
+    await new Promise(r => setTimeout(r, 45000));
     ({ state, out } = await runOne(j.url, submit));
   }
+
+  /* Ashby rate-limits per IP. When a run comes back throttled, stop pushing for
+     a while -- going wider makes the whole batch slower, not faster, because
+     every worker then collects 429s. */
+  if (/HTTP 429/.test(out || '') || state === 'captcha-blocked') {
+    console.log('        throttled by the board, pausing 90s before the next posting');
+    await new Promise(r => setTimeout(r, 90000));
+  }
   tally[state] = (tally[state] || 0) + 1;
+  /* Steady pacing between postings. PACE_MS is per worker, so two workers at
+     20s each put roughly one request every ten seconds on the board. */
+  await new Promise(r => setTimeout(r, Number(process.env.PACE_MS || 20000)));
 
   let recorded = false;
   if (state === 'submitted' && submit) {

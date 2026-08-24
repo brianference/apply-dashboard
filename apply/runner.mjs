@@ -17,6 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { runWorkday } from './workday-drive.mjs';
 
 const require = createRequire(import.meta.url);
 /** Playwright lives in the RedAnvil tree, not in this repo. */
@@ -556,6 +557,25 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   console.log(`\n=== ${args.url}`);
   console.log(`mode: ${args.submit ? 'SUBMIT' : 'DRY RUN (will not submit)'}`);
 
+  /* Workday serves no form on the posting page at all: "Apply" opens a modal,
+     the form only exists behind a candidate account, and the application is a
+     4-to-7 page wizard. None of that fits the single-form path below, so the
+     whole flow lives in apply/workday-drive.mjs. */
+  if (/myworkdayjobs\.com/i.test(args.url)) {
+    const wd = await runWorkday({
+      page,
+      url: args.url,
+      root: ROOT,
+      profile,
+      submit: !!args.submit,
+      shot: (step) => shot(page, step),
+      log,
+    });
+    console.log(`
+WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
+    return await finish(ctx, !!args.batch, { state: wd.state, detail: wd.detail, log });
+  }
+
   /* Lever serves the job description and the application form at two different
      URLs. The posting page carries no inputs at all, so the runner read it as
      "this ATS needs an account or a wizard" and skipped every Lever posting in
@@ -650,7 +670,10 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
   await fillByLabel(target, /linkedin/i, id.linkedin, log);
   await fillByLabel(target, /github/i, id.github, log);
   await fillByLabel(target, /^website|personal website|portfolio( url| link)?$|^url$|web ?site/i, id.website || id.github, log);
-  await fillByLabel(target, /where do you (currently )?reside|current location|^location/i, id.location, log);
+  /* Ashby tenants word this many ways. "Please enter your current working
+     location" and "Where are you currently based?" both missed the old
+     pattern and blocked several Headway and bjak postings. */
+  await fillByLabel(target, /where do you (currently )?reside|current location|^location|current working location|working location|currently based|where are you based|based out of/i, id.location, log);
   await fillByLabel(target, /physical mailing address|mailing address|street address|address line ?1|^address$/i, id.mailingAddress || '', log);
   await fillByLabel(target, /^city$/i, id.city || '', log);
   await fillByLabel(target, /^state$|state \/ province|state\/province/i, id.state || '', log);
@@ -670,7 +693,10 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
     /* "immigration sponsorship" is the wording Affirm and Smartsheet use, and
        it matched none of the visa patterns -- thirteen postings across those two
        employers stopped on a question the profile already answers. */
-    [/require sponsorship|visa sponsorship|sponsorship for a visa|require employment visa|immigration sponsorship|sponsorship for work/i, 'No'],
+    /* sponsors?hip is deliberate. Headway's own form reads "require visa
+       sponsorhip", and the correct spelling matched nothing, blocking five of
+       their postings. */
+    [/require .{0,14}sponsors?hip|visa sponsors?hip|sponsors?hip for a visa|require employment visa|immigration sponsors?hip|sponsors?hip for (work|employment)/i, 'No'],
     [/non[- ]compete|post[- ]employment restriction|employment agreements|post[- ]employment,? contractual|contractual or other restrictions|restrictive covenant/i, 'No'],
     /* Relationship-to-the-employer gates. All are No for him: he has no prior
        tie to any of these companies and is not a customer or partner of one. */
@@ -678,7 +704,9 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
     [/current user of|used .{0,20}in the past 12 months|been employed by a partner or customer|customer or partner of/i, 'No'],
     /* Consent and contact-preference gates. Declining these blocks the submit
        on some boards and helps on none. */
-    [/applicant privacy notice|privacy notice|^i consent|data privacy (policy|notice)/i, 'Yes'],
+    /* "I understand and agree that Headway may contact additional references"
+       and a bare "Consent" label both blocked submits. */
+    [/applicant privacy notice|privacy notice|^i consent|data privacy (policy|notice)|i understand and agree|understand and agree|^\s*consent\s*\*?\s*$/i, 'Yes'],
     [/would like to be contacted about future|future .{0,25}(employment )?opportunities|add me to .{0,20}talent/i, 'Yes'],
     /* Experience gates. Two years with the PM title plus the Amex years running
        the role as an Engineering Manager clear a 5+ bar; see narrative.local.md
@@ -691,13 +719,13 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
     /* "ever been previously employed by Spotify" matched none of the original
        alternatives -- they required the word "been" before "employed" and the
        word "ever" immediately before the verb. Cover the plain forms too. */
-    [/previously,? ?(worked|applied|been employed|employed|consulted)|ever (been )?(previously )?(worked|interviewed|applied|employed)|interviewed at|employed by (us|this company)/i, 'No'],
+    [/previously,? ?(worked|applied|been employed|employed|consulted)|ever (been )?(previously )?(worked|interviewed|applied|employed)|interviewed at|employed by (us|this company)|worked at .{0,40} in the past|have you worked (at|for)/i, 'No'],
     [/open to relocat|willing to relocat|require relocation/i, 'No'],
     [/open to working in[- ]person|in the office|onsite|on-site|hybrid|willing to travel|open to travel/i, 'Yes'],
     /* Common gates seen on live Ashby/Greenhouse forms. "Are you over the age
        of 18?" blocked a Supabase submit with the resume already attached. */
     [/over the age of 18|at least 18|18 years or older|legally of age/i, 'Yes'],
-    [/read and (agree|accept)|agree to the (terms|privacy)|acknowledge/i, 'Yes'],
+    [/read and (agree|accept)|agree to the (terms|privacy)|acknowledge|i understand and agree|understand and agree|^\s*consent\s*\*?\s*$/i, 'Yes'],
     [/consent to (the )?(processing|storage|retention)|retain my (personal )?(information|data)/i, 'Yes'],
     [/currently (located|residing|living) in the united states|located in the us/i, 'Yes'],
   ];
@@ -1169,11 +1197,11 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
        clickYesNo) but Greenhouse renders the very same questions as unlabelled
        comboboxes, which no label-based matcher can reach. Answering them here
        by question text is what unblocked Anthropic. */
-    [/require (visa |employment visa )?sponsorship|sponsorship to work/i, 'No'],
+    [/require .{0,14}sponsors?hip|sponsors?hip to work|visa sponsors?hip|immigration sponsors?hip/i, 'No'],
     [/legally authorized|authorized to work|eligible to work/i, 'Yes'],
     [/open to relocat|willing to relocat/i, 'No'],
     [/open to working in[- ]person|in one of our offices|onsite|on-site|hybrid|willing to travel/i, 'Yes'],
-    [/ever interviewed|previously (worked|applied|interviewed)|interviewed at/i, 'No'],
+    [/ever interviewed|previously (worked|applied|interviewed)|interviewed at|worked at .{0,40} in the past|have you worked (at|for)/i, 'No'],
     [/non[- ]compete|post[- ]employment restriction|employment agreement/i, 'No'],
     [/over the age of 18|at least 18|18 years or older/i, 'Yes'],
     [/read and (agree|accept)|agree to the (terms|privacy)|acknowledge/i, 'Yes'],
@@ -1296,7 +1324,17 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
           const isChoiceGroup = !!(box && box.querySelector('button,[role="radio"],input[type="radio"],input[type="checkbox"]'))
             && e.getAttribute('role') !== 'combobox' && e.tagName !== 'SELECT';
           if (isChoiceGroup && box.querySelector('[aria-pressed="true"],[aria-checked="true"],[data-state="checked"],input:checked')) empty = false;
-          if (live && live.textContent.trim()) empty = false;
+          /* aria-controls on a combobox points at its POPUP, not at a rendered
+             answer. While the list is open that popup holds every option, so
+             this rescue marked an untouched dropdown as answered: Instacart's
+             required "How many years experience do you have in building ads
+             products?" scanned as complete with "Select..." still showing, and
+             the run reported 0 blocking on a form Greenhouse would have
+             rejected. Accept the referenced node only when it is not the
+             option list. */
+          const livePopup = !!live && (live.getAttribute('role') === 'listbox'
+            || !!live.querySelector('[role="option"]'));
+          if (live && !livePopup && live.textContent.trim()) empty = false;
         }
       }
       if (!empty) continue;
@@ -1468,6 +1506,12 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
   if (stillMissing.length !== unanswered.length) {
     console.log(`\n(${unanswered.length - stillMissing.length} field(s) reported empty but were answered via the listbox — not blocking)`);
   }
+
+  /* The 3b screenshot is taken BEFORE the resolver runs, so on a dry run the
+     only picture of the form was one that still had empty required fields in
+     it. Anything read off that image describes a state the run had already
+     moved past. Capture the settled form as well. */
+  await shot(page, '4-resolved');
 
   const post = await stopCheck(target);
   console.log('\nfilled:');
