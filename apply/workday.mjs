@@ -224,7 +224,7 @@ export async function wdErrors(page) {
     });
     (document.body.innerText || '').split(String.fromCharCode(10)).forEach(line => {
       const t = line.trim();
-      if (/^error/i.test(t) || /is required and must have a value|please (select|enter)/i.test(t)) {
+      if (/^error\b/i.test(t) || /is required and must have a value|please (select|enter)/i.test(t)) {
         if (t.length < 300) out.add(t.replace(/\s+/g, ' '));
       }
     });
@@ -322,8 +322,10 @@ export async function wdFieldGroups(page) {
 export async function wdAnswerGroup(page, grp, want, log) {
   const g = group(page, grp.field);
   if (grp.kind === 'select') return await wdSelect(page, grp.field, want, log);
-  if (grp.kind === 'radio') {
-    const r = g.locator('input[type=radio]');
+  if (grp.kind === 'radio' || grp.kind === 'checkbox') {
+    /* Workday's EEO "check one of the boxes below" groups are checkboxes that
+       behave like radios, so the same label-matching walk has to cover both. */
+    const r = g.locator('input[type=radio], input[type=checkbox]');
     const n = await r.count().catch(() => 0);
     for (let i = 0; i < n; i++) {
       const lbl = await r.nth(i).evaluate(el => {
@@ -380,4 +382,46 @@ export async function wdSelectOptions(page, field) {
   await page.keyboard.press('Escape').catch(() => {});
   await page.waitForTimeout(500);
   return opts;
+}
+
+/**
+ * Open a Workday single-select once, let the caller choose from what is
+ * actually on offer, click it, and CONFIRM the trigger no longer reads
+ * "Select One". Opening the list twice (once to read, once to pick) left the
+ * popup covering the trigger, so the second open was swallowed and the field
+ * stayed empty while the caller believed it had answered.
+ * @param {import('playwright').Page} page
+ * @param {string} field formField-<name> suffix
+ * @param {(labels:string[])=>(string|null)} choose
+ * @param {string[]} [log]
+ * @returns {Promise<{ok:boolean,labels:string[],picked:string|null}>}
+ */
+export async function wdSelectChoose(page, field, choose, log) {
+  const g = group(page, field);
+  if (!(await g.count().catch(() => 0))) return { ok: false, labels: [], picked: null };
+  const btn = g.locator('button[aria-haspopup="listbox"], button').first();
+  if (!(await btn.count().catch(() => 0))) return { ok: false, labels: [], picked: null };
+  const before = (await btn.innerText().catch(() => '')).trim();
+  if (before && !/^select one$/i.test(before)) return { ok: true, labels: [], picked: before };
+  if (!(await wdClick(btn))) {
+    if (log) log.push(`wd: could not open the ${field} dropdown`);
+    return { ok: false, labels: [], picked: null };
+  }
+  await page.waitForTimeout(1100);
+  const list = page.locator(`[role="option"], ${A('promptOption')}`);
+  const labels = await list.allInnerTexts()
+    .then(a => a.map(t => t.replace(/\s+/g, ' ').trim()).filter(t => t && !/^select one$/i.test(t)))
+    .catch(() => []);
+  const picked = choose(labels);
+  if (!picked) {
+    await page.keyboard.press('Escape').catch(() => {});
+    if (log) log.push(`wd: no usable option for ${field}; offered: ${labels.slice(0, 15).join(' / ').slice(0, 200)}`);
+    return { ok: false, labels, picked: null };
+  }
+  await list.filter({ hasText: picked }).first().click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(900);
+  const after = (await btn.innerText().catch(() => '')).trim();
+  const ok = !!after && !/^select one$/i.test(after);
+  if (log) log.push(`wd: ${field} = ${picked} (${ok ? 'confirmed' : 'NOT confirmed'})`);
+  return { ok, labels, picked };
 }

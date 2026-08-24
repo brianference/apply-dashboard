@@ -78,7 +78,9 @@ const TERMINAL = new Set(['submitted-unconfirmed', 'needs-input', 'no-submit-but
   'captcha-blocked',
   /* The board emailed a one-time code and will not accept the application
      until a human types it in. Retrying just sends another email. */
-  'needs-email-code']);
+  'needs-email-code',
+  /* The employer caps applications per candidate. No retry clears it. */
+  'employer-rate-limit']);
 
 /** @returns {Record<string,string|boolean>} */
 function args() {
@@ -454,6 +456,16 @@ while (processed < SAFETY_CAP) {
   /* Ashby rate-limits per IP. When a run comes back throttled, stop pushing for
      a while -- going wider makes the whole batch slower, not faster, because
      every worker then collects 429s. */
+  /* An employer cap applies to the CANDIDATE, not the posting, so every other
+     role at that company is blocked too. Headway limits applicants to two
+     applications across ALL roles per 60 days; without this the batch worked
+     through five more of their postings collecting the same refusal. */
+  if (state === 'employer-rate-limit') {
+    const c = String(j.company || '').toLowerCase();
+    SKIP_COMPANIES[c] = 'employer caps applications per candidate; hit on ' + new Date().toISOString().slice(0, 10);
+    console.log(`        ${j.company} caps applications per candidate - skipping their remaining roles this run`);
+  }
+
   if (/HTTP 429/.test(out || '') || state === 'captcha-blocked') {
     console.log('        throttled by the board, pausing 90s before the next posting');
     await new Promise(r => setTimeout(r, 90000));
