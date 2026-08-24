@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import {
   tenantCredentials, wdClick, wdFill, wdSelect, wdPromptPick,
-  wdErrors, wdPageInfo, wdDebug, wdFieldGroups, wdAnswerGroup,
+  wdErrors, wdPageInfo, wdDebug, wdFieldGroups, wdAnswerGroup, markCredentialVerified, wdSelectOptions,
 } from './workday.mjs';
 
 const A = id => `[data-automation-id="${id}"]`;
@@ -35,8 +35,19 @@ async function openApplyManually(page, url, log) {
     .or(page.getByRole('button', { name: /^apply$/i })).first()
     .click({ timeout: 20000 }).catch(() => {});
   await page.waitForTimeout(3500);
-  await page.getByRole('button', { name: /apply manually/i }).first().click({ timeout: 15000 }).catch(() => {});
-  await page.waitForTimeout(5000);
+  /* Take the "Autofill with Resume" path, not "Apply Manually". Stricter
+     tenants (Autodesk) make Job Title / Company / From / To required on My
+     Experience, and nothing in the profile carries structured employment
+     history. Workday parses his real resume PDF into those fields itself, which
+     is the only source for them that is not invented. Both routes land on the
+     same Create Account / Sign In page. */
+  const entry = page.getByRole('button', { name: /autofill with resume/i }).first();
+  if (await entry.count().catch(() => 0)) {
+    await entry.click({ timeout: 15000 }).catch(() => {});
+  } else {
+    await page.getByRole('button', { name: /apply manually/i }).first().click({ timeout: 15000 }).catch(() => {});
+  }
+  await page.waitForTimeout(6000);
   return (await page.locator(A('email')).count().catch(() => 0)) > 0
       || (await page.locator(A('formField-source')).count().catch(() => 0)) > 0;
 }
@@ -48,42 +59,56 @@ async function openApplyManually(page, url, log) {
  * @param {string[]} log
  * @returns {Promise<'signed-in'|'blocked'>}
  */
-async function authenticate(page, cred, log) {
-  const onCreate = async () => (await page.locator(A('verifyPassword')).count().catch(() => 0)) > 0;
-  const onSignIn = async () => (await page.locator(A('signInSubmitButton')).count().catch(() => 0)) > 0;
+async function authenticate(page, cred, applyUrl, log) {
+  const A_ = A;
+  const onCreate = async () => (await page.locator(A_('verifyPassword')).count().catch(() => 0)) > 0;
+  const onSignIn = async () => (await page.locator(A_('signInSubmitButton')).count().catch(() => 0)) > 0;
+  /* The ONLY trustworthy "we are signed in" signal is the utility menu, which
+     carries the account email. An earlier version treated "the create-account
+     form vanished" as success — NVIDIA bounces a fresh account straight to a
+     standalone /login page, so the run marched into the wizard loop
+     unauthenticated and reported a bogus wd-stuck. */
+  /* NOT just "a utilityMenuButton exists": Autodesk renders a language picker
+     with that same automation id on the signed-OUT create-account page, so the
+     bare presence check returned true for an anonymous visitor and the run
+     marched into the wizard unauthenticated. The account menu is the one whose
+     label is the candidate's email address. */
+  const signedIn = async () => await page.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-automation-id="utilityMenuButton"]'))
+      .some(e => (e.innerText || '').includes('@'))).catch(() => false);
 
   if (cred.fresh && await onCreate()) {
-    await page.locator(A('email')).first().fill(cred.email);
-    await page.locator(A('password')).first().fill(cred.password);
-    await page.locator(A('verifyPassword')).first().fill(cred.password);
-    const agree = page.locator(A('createAccountCheckbox')).first();
+    await page.locator(A_('email')).first().fill(cred.email);
+    await page.locator(A_('password')).first().fill(cred.password);
+    await page.locator(A_('verifyPassword')).first().fill(cred.password);
+    const agree = page.locator(A_('createAccountCheckbox')).first();
     if (await agree.count().catch(() => 0)) await agree.check({ force: true }).catch(() => {});
-    await wdClick(page.locator(A('createAccountSubmitButton')));
-    await page.waitForTimeout(8000);
+    await wdClick(page.locator(A_('createAccountSubmitButton')));
+    await page.waitForTimeout(9000);
+    if (await signedIn()) { log.push('wd: created candidate account'); return 'signed-in'; }
     const errs = await wdErrors(page);
-    if (errs.some(e => /already (exists|in use)|account with this email/i.test(e))) {
-      log.push('wd: account already existed, falling back to sign in');
-    } else if (!(await onCreate())) {
-      log.push('wd: created candidate account');
-      return 'signed-in';
-    } else {
-      log.push(`wd: account creation refused: ${errs.join(' | ').slice(0, 200)}`);
-      return 'blocked';
-    }
+    log.push(`wd: create-account did not sign us in${errs.length ? ` (${errs.join(' | ').slice(0, 160)})` : ''}; trying sign-in`);
   }
 
-  for (let i = 0; i < 4 && !(await onSignIn()); i++) {
-    await wdClick(page.locator(A('signInLink')));
+  for (let i = 0; i < 4 && !(await onSignIn()) && !(await signedIn()); i++) {
+    await wdClick(page.locator(A_('signInLink')));
     await page.waitForTimeout(2500);
   }
+  if (await signedIn()) { log.push('wd: already signed in'); return 'signed-in'; }
   if (!(await onSignIn())) { log.push('wd: could not reach the sign-in form'); return 'blocked'; }
-  await page.locator(A('email')).first().fill(cred.email);
-  await page.locator(A('password')).first().fill(cred.password);
-  await wdClick(page.locator(A('signInSubmitButton')));
+  await page.locator(A_('email')).first().fill(cred.email);
+  await page.locator(A_('password')).first().fill(cred.password);
+  await wdClick(page.locator(A_('signInSubmitButton')));
   await page.waitForTimeout(9000);
-  if (await onSignIn()) {
+  if (!(await signedIn())) {
     log.push(`wd: sign-in failed: ${(await wdErrors(page)).join(' | ').slice(0, 200)}`);
     return 'blocked';
+  }
+  /* Signing in on the tenant's standalone /login page lands on the careers home,
+     not back in the wizard. Go to the application URL explicitly. */
+  if (!/\/apply\//.test(page.url())) {
+    await page.goto(applyUrl, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
+    await page.waitForTimeout(6000);
   }
   log.push('wd: signed in');
   return 'signed-in';
@@ -100,7 +125,13 @@ async function fillMyInformation(page, profile, log) {
   /* "Online job board" is the answer bank's value. The leaf list is per tenant,
      so prefer the generic "Other" under Job Boards over naming a specific board
      that nothing in the profile says he used. */
-  await wdPromptPick(page, 'source', /job board/i, [/^other$/i, /^linkedin$/i, /^indeed$/i], log);
+  const picked = await wdPromptPick(
+    page, 'source',
+    [/job board/i, /job (site|search)/i, /online/i, /^other$/i, /social/i],
+    [/^other$/i, /^other job board/i, /^linkedin$/i, /^indeed$/i, /company (web ?site|career)/i],
+    log,
+  );
+  if (!picked) log.push('wd: WARNING - "How Did You Hear About Us" left empty');
   await wdSelect(page, 'country', /United States of America/i, log);
   await wdFill(page, 'legalName--firstName', id.firstName, log);
   await wdFill(page, 'legalName--lastName', id.lastName, log);
@@ -128,14 +159,18 @@ async function fillMyInformation(page, profile, log) {
  * @param {string[]} log
  */
 async function attachResume(page, resumePath, log) {
+  const name = resumePath.split(/[\/]/).pop();
+  if ((await page.locator('body').innerText().catch(() => '')).includes(name)) return false;
   const inputs = page.locator('input[type=file]');
   const n = await inputs.count().catch(() => 0);
+  if (!n) return false;
   for (let i = 0; i < n; i++) {
-    const f = inputs.nth(i);
-    await f.setInputFiles(resumePath).catch(() => {});
-    await page.waitForTimeout(4000);
+    await inputs.nth(i).setInputFiles(resumePath).catch(() => {});
+    await page.waitForTimeout(5000);
   }
-  if (n) log.push(`wd: attached resume to ${n} file input(s)`);
+  const landed = (await page.locator('body').innerText().catch(() => '')).includes(name);
+  log.push(landed ? `wd: attached ${name}` : `wd: RESUME UPLOAD NOT CONFIRMED`);
+  return landed;
 }
 
 
@@ -148,16 +183,21 @@ async function attachResume(page, resumePath, log) {
  * @type {[RegExp,RegExp][]}
  */
 const WD_QUESTIONS = [
-  [/require (visa |immigration |employment )?sponsorship|need sponsorship|sponsorship (now or )?in the future|will you (now or in the future )?require/i, /^no$/i],
-  [/legally authoriz|authoriz(ed|ation) to work|eligible to work|legally (entitled|permitted) to work|right to work/i, /^yes$/i],
-  [/currently (working|employed|engaged).{0,60}(contractor|contingent|vendor|temporary|agency)/i, /^no$/i],
-  [/(worked|employed|been employed).{0,60}(in the past|previously|before)|previously (worked|been employed|applied)|former (employee|worker)/i, /^no$/i],
+  /* Sponsorship first: the sponsorship question and the work-authorisation
+     question both talk about working legally, and they take opposite answers.
+     Real wording seen in the queue: "Will you now or at any point in the future
+     require Alteryx to commence 'sponsor' an immigration case or initiate a
+     visa transfer in order to employ you". */
+  [/sponsor|immigration case|visa transfer|work (permit|visa)/i, /^no$/i],
+  [/authoriz(ed|ation)|legally (entitled|permitted|eligible)|eligible to work|right to work/i, /^yes$/i],
+  [/age of (18|eighteen)|at least (18|eighteen)|over (the age of )?(18|eighteen)|are you (18|eighteen)/i, /^yes$/i],
+  [/(work(ed)?|employed|engaged).{0,90}(temporar|consultant|contingent|contractor|vendor|agency|intern|subsidiar|affiliate|in the past|previously|before)/i, /^no$/i],
+  [/(relative|family member|related to|friend).{0,80}(work|employ)/i, /^no$/i],
+  [/referred by|employee referral/i, /^no$/i],
   [/non-?compete|restrictive covenant|post-?employment restriction/i, /^no$/i],
-  [/(related to|family member|relative).{0,40}(employee|director|officer)/i, /^no$/i],
-  [/referred by (an|a current) employee|employee referral/i, /^no$/i],
-  [/are you (at least )?(18|eighteen)/i, /^yes$/i],
-  [/have you read and (agree|accept)|do you (agree|consent|acknowledge)/i, /^yes$/i],
+  [/(agree|consent|acknowledge).{0,90}(terms|privacy|policy|statement|notice)|have you read and/i, /^yes$/i],
 ];
+
 
 /**
  * Answer the tenant-specific questions on an Application Questions page.
@@ -167,9 +207,19 @@ const WD_QUESTIONS = [
  * @param {string[]} log
  * @returns {Promise<string[]>} unanswered question wordings
  */
-async function answerQuestions(page, log) {
+async function answerQuestions(page, profile, answerBank, log) {
   const unanswered = [];
   for (const grp of await wdFieldGroups(page)) {
+    if (/salary|compensation|base pay|pay expectation/i.test(grp.text)) {
+      if (await answerSalary(page, grp, profile, log)) continue;
+      unanswered.push(grp.text.slice(0, 120));
+      continue;
+    }
+    if (grp.kind === 'text' || grp.kind === 'textarea') {
+      if (await answerFreeText(page, grp, answerBank, log)) continue;
+      if (/\*/.test(grp.text)) unanswered.push(grp.text.slice(0, 120));
+      continue;
+    }
     if (!['select', 'radio'].includes(grp.kind)) continue;
     const hit = WD_QUESTIONS.find(([q]) => q.test(grp.text));
     if (!hit) { unanswered.push(grp.text.slice(0, 120)); continue; }
@@ -177,6 +227,78 @@ async function answerQuestions(page, log) {
     if (!ok) unanswered.push(grp.text.slice(0, 120));
   }
   return unanswered;
+}
+
+/**
+ * Answer a salary-expectation question. Tenants render it either as a free-text
+ * box or as a list of bands, so the band has to be chosen from what is offered.
+ * Profile rule: aim for targetUsd, never answer below floorUsd, never take the
+ * top of a posted range.
+ * @param {import('playwright').Page} page
+ * @param {{field:string,kind:string,text:string}} grp
+ * @param {object} profile
+ * @param {string[]} log
+ * @returns {Promise<boolean>}
+ */
+async function answerSalary(page, grp, profile, log) {
+  const { floorUsd, targetUsd, answerTemplate } = profile.compensation;
+  if (grp.kind === 'text' || grp.kind === 'textarea') {
+    const ok = await wdFill(page, grp.field, answerTemplate, log);
+    if (ok) log.push('wd: salary expectation answered from the profile template');
+    return ok;
+  }
+  if (grp.kind !== 'select') return false;
+  const opts = await wdSelectOptions(page, grp.field);
+  log.push(`wd: salary bands offered: ${opts.join(' / ').slice(0, 220)}`);
+  /** @type {{label:string,lo:number,hi:number}[]} */
+  const bands = [];
+  for (const label of opts) {
+    const k = /k/i.test(label);
+    const nums = (label.match(/\d[\d,]*/g) || [])
+      .map(n => Number(n.replace(/,/g, '')))
+      .map(v => (k && v < 1000 ? v * 1000 : v))
+      .filter(v => v >= 1000);
+    if (!nums.length) continue;
+    /* "Under $50K" is an open BOTTOM and "$400K+" an open TOP. Treating both as
+       [n, Infinity] made "Under $50K" look like it contained a $200K target,
+       and it is the first option in the list. */
+    if (nums.length === 1) {
+      if (/under|less than|below|up to/i.test(label)) bands.push({ label, lo: 0, hi: nums[0] });
+      else bands.push({ label, lo: nums[0], hi: Infinity });
+    } else {
+      bands.push({ label, lo: nums[0], hi: nums[nums.length - 1] });
+    }
+  }
+  if (!bands.length) return false;
+  /* Highest band whose floor is still at or below the target, and whose ceiling
+     clears the profile's floor. Profile rule: aim for targetUsd, never below
+     floorUsd, never the top of a posted range. */
+  const chosen = bands
+    .filter(b => b.lo <= targetUsd && b.hi >= floorUsd)
+    .sort((a, b) => b.lo - a.lo)[0];
+  if (!chosen) return false;
+  const ok = await wdSelect(page, grp.field, chosen.label, log);
+  if (ok) log.push(`wd: salary band = ${chosen.label}`);
+  return ok;
+}
+
+/**
+ * Fill a free-text application question from the answer bank, matching on the
+ * question wording. Nothing is generated here: every answer is pre-written in
+ * apply/answers.general.local.json.
+ * @param {import('playwright').Page} page
+ * @param {{field:string,text:string}} grp
+ * @param {Record<string,string>} bank
+ * @param {string[]} log
+ * @returns {Promise<boolean>}
+ */
+async function answerFreeText(page, grp, bank, log) {
+  const q = grp.text.toLowerCase();
+  const key = Object.keys(bank).filter(k => k !== '_comment').find(k => q.includes(k.toLowerCase()));
+  if (!key) return false;
+  const ok = await wdFill(page, grp.field, bank[key], log);
+  if (ok) log.push(`wd: answered "${key.slice(0, 44)}" (${bank[key].length} chars)`);
+  return ok;
 }
 
 /**
@@ -213,12 +335,13 @@ async function fillDisclosures(page, profile, log) {
  * @param {string} opts.url posting url
  * @param {string} opts.root repo root
  * @param {object} opts.profile
+ * @param {Record<string,string>} [opts.answerBank] pre-written free-text answers
  * @param {boolean} opts.submit
  * @param {(step:string)=>Promise<string>} opts.shot screenshot helper
  * @param {string[]} opts.log
  * @returns {Promise<{state:string,detail?:string}>}
  */
-export async function runWorkday({ page, url, root, profile, submit, shot, log }) {
+export async function runWorkday({ page, url, root, profile, answerBank = {}, submit, shot, log }) {
   const host = new URL(url).host;
   const cred = tenantCredentials(root, host, profile.identity.email);
   log.push(`wd: tenant ${host}, credentials ${cred.fresh ? 'generated' : 'reused'}`);
@@ -228,9 +351,14 @@ export async function runWorkday({ page, url, root, profile, submit, shot, log }
     return { state: 'wd-no-apply-path' };
   }
   await shot('wd-1-account');
+  const applyUrl = page.url();
 
-  const auth = await authenticate(page, cred, log);
-  if (auth === 'blocked') { await shot('wd-2-auth-blocked'); return { state: 'wd-auth-blocked' }; }
+  const auth = await authenticate(page, cred, applyUrl, log);
+  markCredentialVerified(root, host, auth === 'signed-in');
+  if (auth === 'blocked') {
+    await shot('wd-2-auth-blocked');
+    return { state: 'wd-auth-blocked', detail: 'candidate account could not be created or signed in for this tenant' };
+  }
   await shot('wd-2-signed-in');
 
   const seen = [];
@@ -258,9 +386,12 @@ export async function runWorkday({ page, url, root, profile, submit, shot, log }
     await shot(`wd-p${step + 1}`);
 
     if (/my information/i.test(name)) await fillMyInformation(page, profile, log);
-    if (/my experience/i.test(name)) await attachResume(page, profile.documents.resume, log);
+    /* The resume input appears on My Experience on the manual route and on a
+       dedicated upload page on the autofill route, so attach wherever an empty
+       file input shows up rather than keying on the step name. */
+    await attachResume(page, profile.documents.resume, log);
     if (/application question|additional question|questionnaire/i.test(name)) {
-      const missed = await answerQuestions(page, log);
+      const missed = await answerQuestions(page, profile, answerBank, log);
       if (missed.length) {
         await shot(`wd-p${step + 1}-unanswered`);
         return { state: 'wd-unknown-question', detail: missed.join(' | ').slice(0, 400) };

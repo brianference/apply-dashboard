@@ -112,7 +112,7 @@ export async function wdFill(page, field, value, log) {
  * Choose an option from a Workday single-select dropdown.
  * @param {import('playwright').Page} page
  * @param {string} field formField-<name> suffix
- * @param {RegExp} want option text to select
+ * @param {RegExp|string} want option text to select (string = substring match)
  * @param {string[]} [log]
  * @returns {Promise<boolean>}
  */
@@ -125,15 +125,16 @@ export async function wdSelect(page, field, want, log) {
   if (current && !/^select one$/i.test(current)) return true;
   if (!(await wdClick(btn))) return false;
   await page.waitForTimeout(900);
+  const label = want instanceof RegExp ? want.source : String(want);
   const opt = page.locator(`[role="option"], ${A('promptOption')}`).filter({ hasText: want }).first();
   if (!(await opt.count().catch(() => 0))) {
     await page.keyboard.press('Escape').catch(() => {});
-    if (log) log.push(`wd: no option matching ${want.source} in ${field}`);
+    if (log) log.push(`wd: no option matching ${label} in ${field}`);
     return false;
   }
   const ok = await opt.click({ timeout: 8000 }).then(() => true).catch(() => false);
   await page.waitForTimeout(700);
-  if (ok && log) log.push(`wd: selected ${want.source} in ${field}`);
+  if (log) log.push(`wd: ${ok ? 'selected' : 'FAILED to select'} ${label} in ${field}`);
   return ok;
 }
 
@@ -151,35 +152,58 @@ export async function wdSelect(page, field, want, log) {
  * @param {string[]} [log]
  * @returns {Promise<boolean>}
  */
-export async function wdPromptPick(page, field, category, leaves, log) {
+export async function wdPromptPick(page, field, categories, leaves, log) {
   const g = group(page, field);
   if (!(await g.count().catch(() => 0))) return false;
-  if (/[1-9]\d* items? selected/i.test(await g.innerText().catch(() => ''))) return true;
+  const selected = async () => /[1-9]\d* items? selected/i.test(await g.innerText().catch(() => ''));
+  if (await selected()) return true;
   const input = g.locator('input').first();
   if (!(await input.count().catch(() => 0))) return false;
-  await input.click({ timeout: 8000 }).catch(() => {});
-  await page.waitForTimeout(1500);
 
   const opts = () => page.locator(A('promptOption'));
-  const cat = opts().filter({ hasText: category }).first();
-  if (await cat.count().catch(() => 0)) {
-    await cat.click({ timeout: 8000 }).catch(() => {});
+  const listOptions = async () => await opts().allInnerTexts()
+    .then(a => a.map(t => t.replace(/\s+/g, ' ').trim()).filter(Boolean))
+    .catch(() => []);
+
+  const tryLeaves = async () => {
+    for (const leaf of leaves) {
+      const o = opts().filter({ hasText: leaf }).first();
+      if (!(await o.count().catch(() => 0))) continue;
+      if (!(await o.click({ timeout: 8000 }).then(() => true).catch(() => false))) continue;
+      await page.waitForTimeout(1200);
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(600);
+      if (await selected()) {
+        if (log) log.push(`wd: ${field} = ${leaf.source}`);
+        return true;
+      }
+      await input.click({ timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(1200);
+    }
+    return false;
+  };
+
+  await input.click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  const top = await listOptions();
+
+  /* Some tenants list the values flat; most nest them one level under a
+     category. Try flat first, then each candidate category. */
+  if (await tryLeaves()) return true;
+  for (const cat of categories) {
+    const c = opts().filter({ hasText: cat }).first();
+    if (!(await c.count().catch(() => 0))) continue;
+    await c.click({ timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(1800);
-  }
-  for (const leaf of leaves) {
-    const o = opts().filter({ hasText: leaf }).first();
-    if (!(await o.count().catch(() => 0))) continue;
-    const ok = await o.click({ timeout: 8000 }).then(() => true).catch(() => false);
-    if (!ok) continue;
-    await page.waitForTimeout(1200);
+    if (await tryLeaves()) return true;
+    /* Back out to the category list before trying the next one. */
     await page.keyboard.press('Escape').catch(() => {});
     await page.waitForTimeout(600);
-    const filled = /[1-9]\d* items? selected/i.test(await g.innerText().catch(() => ''));
-    if (log) log.push(`wd: ${field} = ${leaf.source} (${filled ? 'confirmed' : 'NOT confirmed'})`);
-    if (filled) return true;
+    await input.click({ timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(1500);
   }
   await page.keyboard.press('Escape').catch(() => {});
-  if (log) log.push(`wd: could not pick a value for ${field}`);
+  if (log) log.push(`wd: could not pick ${field}; options offered: ${top.slice(0, 20).join(' / ')}`);
   return false;
 }
 
@@ -316,4 +340,44 @@ export async function wdAnswerGroup(page, grp, want, log) {
     return false;
   }
   return false;
+}
+
+/**
+ * Record whether a stored tenant password has actually been proven to sign in.
+ * A fresh "Create Account" that silently bounces to the sign-in page leaves an
+ * unproven password behind, and the next run would reuse it forever.
+ * @param {string} root repo root
+ * @param {string} host tenant host
+ * @param {boolean} verified
+ * @returns {void}
+ */
+export function markCredentialVerified(root, host, verified) {
+  const file = accountStorePath(root);
+  if (!fs.existsSync(file)) return;
+  const store = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (!store[host]) return;
+  if (verified) { store[host].verifiedAt = new Date().toISOString(); delete store[host].unverified; }
+  else store[host].unverified = true;
+  fs.writeFileSync(file, JSON.stringify(store, null, 2));
+}
+
+/**
+ * Read the option labels a Workday single-select offers, then close it again.
+ * Used where the right answer depends on what is on offer (salary bands).
+ * @param {import('playwright').Page} page
+ * @param {string} field
+ * @returns {Promise<string[]>}
+ */
+export async function wdSelectOptions(page, field) {
+  const g = group(page, field);
+  if (!(await g.count().catch(() => 0))) return [];
+  const btn = g.locator('button[aria-haspopup="listbox"], button').first();
+  if (!(await wdClick(btn))) return [];
+  await page.waitForTimeout(1000);
+  const opts = await page.locator(`[role="option"], ${A('promptOption')}`).allInnerTexts()
+    .then(a => a.map(t => t.replace(/\s+/g, ' ').trim()).filter(t => t && !/^select one$/i.test(t)))
+    .catch(() => []);
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(500);
+  return opts;
 }
