@@ -60,7 +60,7 @@ function slug(s) {
 
 /** Stop conditions, checked against the live page. */
 const CAPTCHA_SEL = 'iframe[src*="recaptcha/api2/anchor"], iframe[src*="hcaptcha"], iframe[src*="challenges.cloudflare.com"], .g-recaptcha:not([data-size="invisible"])';
-const WALL_TEXT = /performing security verification|checking your browser|verify you are human|unusual traffic|sign in to (apply|continue|view)|create an account to apply/i;
+const WALL_TEXT = /performing security verification|checking your browser|verify you are human|unusual traffic|sign in to (apply|continue|view)|create an account to apply|verification required|slide right to secure|we detected unusual activity/i;
 
 /**
  * Employer careers sites that are a skin over a Greenhouse board. The posting
@@ -631,7 +631,18 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
      /<board>/jobs/<id> URL back to that same page -- so 28 queued postings
      looked unapplyable. The embed endpoint serves the real form standalone. */
   const ghForm = await greenhouseEmbedUrl(landing);
-  if (ghForm) console.log(`greenhouse: ${ghForm.why}`);
+  if (ghForm) {
+    /* Go to the bare embed form rather than the employer page. Both render the
+       same Greenhouse application, but they do not submit the same. Clicking
+       Submit inside the iframe on Instacart's careers page fires no request at
+       all -- measured: zero application POSTs, RESULT submit-no-request -- while
+       the same form loaded directly does POST and comes back with an answer we
+       can act on (a 428 asking for the emailed security code). A stop we can
+       explain beats a click that quietly does nothing. */
+    landing = ghForm.url;
+    console.log(`greenhouse: ${ghForm.why}`);
+    console.log(`greenhouse: going to the application form at ${landing}`);
+  }
 
   if (/jobs\.lever\.co/i.test(landing) && !/\/apply\/?$/.test(landing)) {
     landing = landing.replace(/\/+$/, '') + '/apply';
@@ -680,12 +691,19 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
     }
   }
 
-  // reveal the form where the ATS hides it behind an Apply button
-  for (const rx of [/^apply for this job$/i, /^apply now$/i, /^apply$/i]) {
-    const btn = page.getByRole('button', { name: rx }).first();
-    if (await btn.count().catch(() => 0) && await btn.isVisible().catch(() => false)) {
-      await btn.click().catch(() => {});
-      await page.waitForTimeout(2500);
+  /* Reveal the form where the ATS hides it behind an Apply button.
+     SmartRecruiters does not use the word "apply" at all -- ServiceNow's
+     posting offers a green "I'm interested" LINK, so a button-only search for
+     /^apply$/ found nothing, the page kept its search box and cookie inputs,
+     and the zero-form guard (which counts inputs, not form inputs) let the run
+     report dry-run-ok having filled nothing at all. Match links too. */
+  const APPLY_CTA = [/^apply for this job$/i, /^apply now$/i, /^apply$/i, /^i'?m interested$/i, /^apply for this position$/i];
+  for (const rx of APPLY_CTA) {
+    const cta = page.getByRole('button', { name: rx }).or(page.getByRole('link', { name: rx })).first();
+    if (await cta.count().catch(() => 0) && await cta.isVisible().catch(() => false)) {
+      await cta.click().catch(() => {});
+      await page.waitForTimeout(3000);
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
       log.push(`clicked ${rx}`);
       break;
     }
@@ -698,18 +716,16 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
      any posting that isn't using this pattern. */
   let target = await getFormFrame(page);
 
-  /* Stripe, Samsara, Coinbase, Pinterest and Instacart run their careers site
-     as a skin over Greenhouse, and some of them render nothing but marketing
-     copy -- Greenhouse even 302s its own /<board>/jobs/<id> URL back to that
-     page -- so 28 queued postings looked unapplyable. Go to the bare embed
-     form only when the employer page produced no form. Pinterest and Samsara
-     load their iframe as embed/job_app?for=<board>&validityToken=<...>, which
-     the bare embed URL has no way to mint; whether Greenhouse checks that at
-     submit time is untested, so prefer the employer page and keep the bare
-     URL as the fallback rather than the default. */
+  /* Second chance at the embed form. The landing step above already redirects
+     a known vanity board there, so this only fires when that lookup was
+     skipped or the page turned out to carry no form after all. Pinterest and
+     Samsara serve their own iframe as embed/job_app?for=<board>&validityToken
+     =<...> rather than &token=<id>; both render the same application, and a
+     Pinterest submit was refused the same way through either one, so the
+     token is not what decides it. */
   if (ghForm) {
     const onPage = await page.locator('input,select,textarea').count().catch(() => 0);
-    if (target === page && onPage < 4) {
+    if (target === page && onPage < 4 && page.url() !== ghForm.url) {
       console.log(`greenhouse: no form on the employer page, falling back to ${ghForm.url}`);
       log.push('greenhouse: employer page had no form, used the embed URL');
       await page.goto(ghForm.url, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
@@ -1635,12 +1651,42 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
     await shot(page, 'stop-captcha');
     return await finish(ctx, !!args.batch, { state: 'captcha', unanswered, log });
   }
+  /* The client-side scan is NOT the authority on whether the form is complete.
+     It over-reports: a react-select holding a value keeps its input blank, a
+     Greenhouse question ships a phantom second input, an Ashby file widget
+     clears .value once the upload lands. In one day it stopped 39 postings
+     before they ever reached the submit button, ten of them over a single
+     supposed blocker, and several of those fields were already answered.
+
+     The rejection banner names the missing fields exactly, and a rejected
+     submit creates nothing: the server answers with errorMessages and no
+     application. So attempt the submit and let the form arbitrate. The loop
+     below repairs whatever the banner names and resubmits, and still reports
+     needs-input when it cannot.
+
+     APPLY_STRICT=1 restores the old refuse-to-try behaviour. */
   if (stillMissing.length) {
-    console.log('\nSTOP: required fields this profile has no answer for. Not submitting. Browser left open.');
+    if (process.env.APPLY_STRICT === '1') {
+      console.log('\nSTOP: required fields this profile has no answer for. Not submitting.');
+      await shot(page, 'stop-unanswered');
+      return await finish(ctx, !!args.batch, { state: 'needs-input', unanswered: stillMissing, log });
+    }
+    console.log('\n' + stillMissing.length + ' field(s) still scan as empty. Submitting anyway and letting the form decide:');
+    stillMissing.slice(0, 6).forEach(u => console.log('  ?', u));
     await shot(page, 'stop-unanswered');
-    return await finish(ctx, !!args.batch, { state: 'needs-input', unanswered: stillMissing, log });
   }
   if (!args.submit) {
+    /* "0 required fields still empty" is also what a page with no form at all
+       looks like. ServiceNow's SmartRecruiters posting reported dry-run-ok
+       with an empty fill log, because the input count that guards this counts
+       every input on the page -- a search box and a cookie toggle are enough
+       to clear it. A run that put no value anywhere has not filled a form. */
+    const wroteSomething = log.some(l => /^(filled|picked|typed|ticked|attached|auto:|EEO )/.test(l));
+    if (!wroteSomething) {
+      console.log('\nSTOP: nothing was filled in. There is no application form here, only page furniture.');
+      await shot(page, 'stop-empty-fill');
+      return await finish(ctx, !!args.batch, { state: 'needs-account-or-wizard', log });
+    }
     console.log('\nDRY RUN complete — form is filled and NOT submitted. Re-run with --submit to send it.');
     return await finish(ctx, !!args.batch, { state: 'dry-run-ok', unanswered, log });
   }

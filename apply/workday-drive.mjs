@@ -418,11 +418,24 @@ export async function runWorkday({ page, url, root, profile, answerBank = {}, su
       return { state: confirmed ? 'submitted' : 'submitted-unconfirmed', detail: after.replace(/\s+/g, ' ').slice(0, 300) };
     }
 
+    /* "Save and Continue" does not always take on the first click - the button
+       is an aria-hidden <button> under a click_filter overlay, and a click that
+       lands while Workday is still re-rendering the page is dropped silently.
+       A fully valid page with no error banner that simply did not move is that,
+       not a blocker, so retry before giving up. */
     const before = page.url() + '|' + info.step;
-    await wdClick(page.locator(A('pageFooterNextButton')));
-    await page.waitForTimeout(6000);
-    const errs = await wdErrors(page);
-    const nowInfo = await wdPageInfo(page);
+    let errs = [];
+    let nowInfo = info;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await wdClick(page.locator(A('pageFooterNextButton')));
+      await page.waitForTimeout(6000);
+      errs = await wdErrors(page);
+      nowInfo = await wdPageInfo(page);
+      if (page.url() + '|' + nowInfo.step !== before) break;
+      if (errs.length) break;
+      log.push(`wd: Save and Continue did not take on attempt ${attempt}, retrying`);
+      await page.waitForTimeout(2500);
+    }
     if (nowInfo.step === info.step && errs.length) {
       await shot(`wd-p${step + 1}-errors`);
       return { state: 'wd-validation-blocked', detail: errs.join(' | ').slice(0, 400) };

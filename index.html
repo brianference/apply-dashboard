@@ -258,6 +258,14 @@
   }
   .apply:hover { filter: brightness(1.08); }
   .apply.ghost { background: transparent; color: var(--primary); }
+  .apply.manual,
+  a.apply.manual {
+    background: var(--warn-bg); border-color: transparent; color: var(--warn);
+    text-decoration: none; display: inline-flex; align-items: center;
+    height: 26px; padding: 0 10px; border-radius: 7px; font: 600 12px/26px inherit;
+    white-space: nowrap;
+  }
+  .apply.manual:hover { text-decoration: underline; }
   .apply.done {
     background: var(--success-bg); border: 1px solid transparent; color: var(--success);
     cursor: default; font: 600 12px/26px inherit; padding: 0 10px; border-radius: 7px;
@@ -348,7 +356,7 @@
       <div class="stat"><b id="s-ft">&mdash;</b><span>Full-time</span></div>
       <div class="stat"><b id="s-pt">&mdash;</b><span>PT / C2C</span></div>
       <div class="stat good"><b id="s-sub">&mdash;</b><span>Applied</span></div>
-      <div class="stat"><b id="s-dir">&mdash;</b><span>Direct ATS</span></div>
+      <div class="stat"><b id="s-dir">&mdash;</b><span>Direct form</span></div>
     </div>
   </div>
 </header>
@@ -367,7 +375,8 @@
         <button type="button" class="chip" data-kind="ft" aria-pressed="false">Full-time</button>
         <button type="button" class="chip" data-kind="ptc2c" aria-pressed="false">PT/C2C</button>
         <button type="button" class="chip" data-kind="submitted" aria-pressed="false">Applied</button>
-        <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="Postings on a real ATS - no login wall, no captcha">Direct ATS <span id="ndirect"></span></button>
+        <button type="button" class="chip" data-kind="manual" aria-pressed="false" title="Auto-apply could not finish these - they need you">Needs you <span id="nmanual"></span></button>
+        <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="The company's own application form - no login wall, no bot check">Direct form <span id="ndirect"></span></button>
       </div>
     </div>
     <p class="err" id="err" hidden></p>
@@ -380,9 +389,9 @@
 
 <div class="wrap">
   <p class="legend" id="legend" hidden>
-    <span class="pair"><span class="ats direct">GREENHOUSE</span> direct ATS &#8212; the real form, no wall</span>
-    <span class="pair"><span class="ats wall">INDEED</span> login or captcha wall likely</span>
-    <span class="pair"><span class="ats board">NOMADS</span> aggregator &#8212; redirects to the real form</span>
+    <span class="pair"><span class="ats direct">GREENHOUSE</span> the company&#8217;s own form &#8212; apply straight through</span>
+    <span class="pair"><span class="ats wall">INDEED</span> sign-in or bot check first</span>
+    <span class="pair"><span class="ats board">NOMADS</span> job board &#8212; bounces you to the real form</span>
   </p>
 </div>
 
@@ -565,6 +574,26 @@
     });
   }
 
+  /**
+   * Plain-English explanation of why auto-apply could not finish a posting.
+   * @param {object} j
+   * @returns {string}
+   */
+  function blockedLabel(j) {
+    var map = {
+      "needs-input": "asks something only you can answer",
+      "no-submit-button": "no submit button (posting may be closed)",
+      "needs-account-or-wizard": "needs an account / multi-step form",
+      "captcha": "captcha", "wall": "sign-in required",
+      "location-ineligible": "location not eligible",
+      "needs-consent-decision": "consent question",
+      "upload-failed": "resume upload failed",
+      "submitted-unconfirmed": "form rejected the submit",
+      "crashed": "page failed to load", "posting-closed": "posting closed"
+    };
+    return map[String(j.blocked_reason || "")] || String(j.blocked_reason || "");
+  }
+
   /* ---------- one compact row ---------- */
   function rowHtml(j) {
     var a = atsOf(j), applied = isApplied(j);
@@ -586,11 +615,19 @@
         + '<button type="button" class="yes" data-yes="' + k + '" title="Yes - record it as submitted">Yes</button>'
         + '<button type="button" class="no" data-no="' + k + '" title="No - put it back in the queue">No</button>'
         + "</span>";
+    } else if (j.blocked_reason) {
+      /* Auto-apply could not finish this one. Offer a manual path and say why,
+         rather than showing an Apply button that cannot work. */
+      /* Manual opens the posting AND arms the same "Sent?" confirmation the
+         Apply button uses, so a posting the runner could not finish still ends
+         up recorded and off the list once Brian has done it by hand. */
+      btn = '<button type="button" class="apply manual" data-manual="' + k + '"'
+        + ' title="' + esc(blockedLabel(j) + (j.blocked_detail ? " - " + j.blocked_detail : "")) + '">Manual &#8599;</button>';
     } else {
       btn = '<button type="button" class="apply' + (a.cls === "direct" ? "" : " ghost") + '" data-k="' + k + '"'
         + (j.url ? "" : " disabled") + ' title="' + (a.cls === "wall"
             ? "Opens " + esc(a.label) + " - expect a sign-in or bot-check first"
-            : "Opens the " + esc(a.label) + " posting and copies your details")
+            : "Opens the " + esc(a.label) + " form and copies your details")
         + '">' + (a.cls === "direct" ? "Apply" : "Open") + "</button>";
     }
     /* One .ats element only. On desktop .meta is `display: contents`, so .who and
@@ -643,7 +680,7 @@
   var COLS = [
     { id: "match",   label: "%",              value: function (j) { return matchBucket(j.match_pct); }, align: "right" },
     { id: "company", label: "Role / Company", value: function (j) { return clean(j.company) || "(none)"; } },
-    { id: "ats",     label: "ATS",            value: function (j) { return atsOf(j).label; } },
+    { id: "ats",     label: "Apply via",      value: function (j) { return atsOf(j).label; } },
     { id: "loc",     label: "Location",       value: function (j) { return shortLoc(j.work_type) || "(none)"; } }
   ];
   var colSel = { match: null, company: null, ats: null, loc: null };
@@ -722,7 +759,8 @@
   function render() {
     var s = (document.getElementById("q").value || "").trim().toLowerCase();
     var vis = all.filter(function (j) {
-      if (kind === "direct") { if (atsOf(j).cls !== "direct") return false; }
+      if (kind === "manual") { if (!j.blocked_reason || isApplied(j)) return false; }
+      else if (kind === "direct") { if (atsOf(j).cls !== "direct") return false; }
       else if (kind !== "all" && kind !== bucketOf(j)) return false;
       if (!passesColumns(j)) return false;
       if (!s) return true;
@@ -739,6 +777,9 @@
     document.getElementById("s-sub").textContent = nSub;
     document.getElementById("s-dir").textContent = nDirect;
     document.getElementById("ndirect").textContent = nDirect ? String(nDirect) : "";
+    var nManual = all.filter(function (j) { return j.blocked_reason && !isApplied(j); }).length;
+    var mEl = document.getElementById("nmanual");
+    if (mEl) mEl.textContent = nManual ? String(nManual) : "";
 
     document.getElementById("main").innerHTML = SECTIONS.map(function (sec) {
       var jobs = sortJobs(vis.filter(function (j) { return bucketOf(j) === sec.id; }));
@@ -939,6 +980,23 @@
       delete pending[no.getAttribute("data-no")];
       savePending(); render();
       toast("Left in the queue.");
+      return;
+    }
+
+    var man = ev.target.closest("button.apply.manual");
+    if (man) {
+      var mk = man.getAttribute("data-manual");
+      var mjob = jobByKey(mk);
+      if (!mjob || !mjob.url) return;
+      window.open(mjob.url, "_blank", "noopener");
+      pending[mk] = Date.now();
+      savePending();
+      render();
+      copy(packet(mjob)).then(function () {
+        toast("Opened it for you — details copied. Say whether you submitted when you are back.");
+      }).catch(function () {
+        toast("Opened it — the clipboard was blocked.");
+      });
       return;
     }
 
