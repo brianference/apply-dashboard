@@ -61,7 +61,13 @@ const DIRECT = /ashbyhq\.com|greenhouse\.io|lever\.co|workable\.com|smartrecruit
    Greenhouse stays paused: every tenant tested gates the submit behind a
    one-time code emailed to the applicant, and each new attempt invalidates the
    previous code, so unattended volume is impossible there. */
-const PAUSED_HOSTS = /greenhouse\.io/i;
+/* Paused because a human has to finish them, not because the runner cannot
+   fill them. Greenhouse and its nine vanity front-ends email Brian a
+   one-time code per application; Lever serves an hCaptcha image challenge.
+   Every one of these rows carries a blocked_reason so the dashboard shows a
+   Manual badge with the reason and a link, and the Sent? prompt records it
+   when he finishes one by hand. */
+const PAUSED_HOSTS = /greenhouse\.io|gh_jid|lever\.co|stripe\.com|samsara\.com|coinbase\.com|pinterestcareers\.com|instacart\.careers|fivetran\.com|cribl\.io|upstart\.com|elastic\.co/i;
 
 /** States worth one automatic retry — a real crash, not a real blocker. */
 /* upload-failed is TRANSIENT, not a property of the posting. Ashby drops the

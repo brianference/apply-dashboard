@@ -447,6 +447,64 @@ async function fillWorkExperience(page, profile, log) {
 }
 
 /**
+ * Clear and retype every field a validation error names.
+ *
+ * Brian's observation, and it holds generally: Workday will insist a field is
+ * required while showing the value that is in it. Its validator watches for
+ * events a programmatic fill does not always raise, so deleting the value and
+ * typing it again clears the complaint. Salesforce does this with "How Did You
+ * Hear About Us?" and several tenants do it with first and last name.
+ *
+ * @param {import('playwright').Page} page
+ * @param {string[]} errs error strings from wdErrors
+ * @param {object} profile
+ * @param {object} answerBank
+ * @param {string[]} log
+ * @returns {Promise<number>} how many fields were re-driven
+ */
+async function retypeNamedFields(page, errs, profile, answerBank, log) {
+  const id = profile.identity;
+  const blob = errs.join(' ').toLowerCase();
+  let fixed = 0;
+
+  /** @param {string} auto @param {string} value */
+  const redo = async (auto, value) => {
+    if (!value) return;
+    const box = page.locator(A(auto)).first();
+    if (!(await box.count().catch(() => 0))) return;
+    const input = box.locator('input, textarea').first();
+    const el = (await input.count().catch(() => 0)) ? input : box;
+    await el.click().catch(() => {});
+    await el.fill('').catch(() => {});
+    await page.waitForTimeout(150);
+    await el.type(String(value), { delay: 45 }).catch(() => {});
+    await page.waitForTimeout(200);
+    fixed++;
+    log.push(`wd: retyped ${auto}`);
+  };
+
+  if (/first name|legal name/.test(blob)) await redo('legalName--firstName', id.firstName);
+  if (/last name|legal name/.test(blob)) await redo('legalName--lastName', id.lastName);
+  if (/address/.test(blob)) await redo('addressSection_addressLine1', id.street);
+  if (/postal|zip/.test(blob)) await redo('addressSection_postalCode', id.postalCode);
+  if (/phone/.test(blob)) await redo('phone-number', id.phone);
+  if (/email/.test(blob)) await redo('email', id.email);
+
+  /* "How Did You Hear About Us?" is a hierarchical prompt, not a text box, so
+     retyping cannot help: it has to be re-driven through the picker. */
+  if (/how did you hear/.test(blob)) {
+    const picked = await wdPromptPick(
+      page, 'source',
+      [/job board/i, /job (site|search)/i, /online/i, /^other$/i, /social/i, /referral/i, /career/i],
+      [/^other$/i, /^other job board/i, /^linkedin$/i, /^indeed$/i, /company (web ?site|career)/i, /^job board/i],
+      log,
+    );
+    if (picked) { fixed++; log.push('wd: re-drove How Did You Hear About Us'); }
+  }
+  return fixed;
+}
+
+/**
  * Drive the whole Workday application.
  * @param {object} opts
  * @param {import('playwright').Page} opts.page
@@ -559,6 +617,22 @@ export async function runWorkday({ page, url, root, profile, answerBank = {}, su
       await page.waitForTimeout(2500);
     }
     if (nowInfo.step === info.step && errs.length) {
+      /* Brian's fix, and it generalises: when Workday complains about a field
+         that visibly HAS a value, clearing it and retyping makes the complaint
+         go away. Workday's own validator misses a programmatic fill that did not
+         fire the events it watches for. Re-drive every field the errors name,
+         then try Next once more before giving up. */
+      const retyped = await retypeNamedFields(page, errs, profile, answerBank, log);
+      if (retyped) {
+        await wdClick(page.locator(A('pageFooterNextButton')));
+        await page.waitForTimeout(6000);
+        errs = await wdErrors(page);
+        nowInfo = await wdPageInfo(page);
+        if (nowInfo.step !== info.step || !errs.length) {
+          log.push(`wd: cleared ${retyped} field(s) by retyping and moved on`);
+          continue;
+        }
+      }
       await shot(`wd-p${step + 1}-errors`);
       return { state: 'wd-validation-blocked', detail: errs.join(' | ').slice(0, 400) };
     }
