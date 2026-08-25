@@ -897,7 +897,10 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
        alternatives -- they required the word "been" before "employed" and the
        word "ever" immediately before the verb. Cover the plain forms too. */
     [/previously,? ?(worked|applied|been employed|employed|consulted)|ever (been )?(previously )?(worked|interviewed|applied|employed)|interviewed at|employed by (us|this company)|worked at .{0,40} in the past|have you worked (at|for)/i, 'No'],
-    [/open to relocat|willing to relocat|require relocation/i, 'No'],
+    /* "Do you live in or are you able to commute to the Kansas City metro for
+       this role?" is a relocation question in disguise. He is in Arizona and
+       every posting in this queue is remote. */
+    [/open to relocat|willing to relocat|require relocation|able to commute to|live in or are you able to commute|commute to the .{0,30}(metro|area|office)/i, 'No'],
     /* OpenAI asks "Are you able to work from our US office three days per
        week?", which matched none of these: it says "from our US office", not
        "in the office". Brian's standing answer is yes to occasional onsite. */
@@ -929,7 +932,15 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
      match, so every Yes/No path skipped it and the server rejected the submit
      naming that field on five of their postings. When the question reads as a
      consent and the group holds exactly one option, ticking it IS the answer. */
-  const CONSENT_Q = /i understand and agree|understand and agree|^\s*consent\s*\*?\s*$|i acknowledge|i agree|applicant privacy notice/i;
+  /* Widened to the wordings that were blocking real submits. MeridianLink says
+     "I understand that as permitted by law, MeridianLink will conduct an
+     investigative consumer report" and 1Password "I understand that offers of
+     employment are conditional on satisfactory...". Neither contains "I
+     understand AND AGREE", so both fell through to the banner repair - and on
+     Ashby a rejected submit returns a fresh FormRender that wipes the form, so
+     a repair applied after a rejection is erased by the next one. These have to
+     be answered BEFORE the first submit. */
+  const CONSENT_Q = /i understand|understand and agree|^\s*consent\s*\*?\s*$|i acknowledge|i agree|i hereby certify|i certify|applicant privacy notice|permitted by law|conditional on satisfactory|background (check|screening)|investigative consumer report/i;
   const consents = await target.evaluate((src) => {
     const rx = new RegExp(src, 'i');
     let n = 0;
@@ -1991,6 +2002,23 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
         await el.setInputFiles(resume).catch(() => {});
         log.push(`banner-fix: re-attached resume for "${name.slice(0, 34)}"`);
         fixedAny = true;
+      } else if (kind.type === 'checkbox' || kind.type === 'radio') {
+        /* An attestation rendered as a lone checkbox. MeridianLink's "I
+           understand that as permitted by law..." and 1Password's "offers of
+           employment are conditional on satisfactory..." are both this shape,
+           and the repair had no branch for it: it fell through to fill(), which
+           does nothing to a checkbox, so the banner named them every round.
+           Only tick when the question reads as something to agree to. */
+        const AGREE = /understand|agree|acknowledge|consent|certify|authorize|permitted by law|conditional on/i;
+        if (AGREE.test(name)) {
+          await el.check({ force: true }).catch(async () => { await el.click({ force: true }).catch(() => {}); });
+          const on = await el.isChecked().catch(() => false);
+          log.push(`banner-fix: ${on ? 'ticked' : 'FAILED to tick'} "${name.slice(0, 34)}"`);
+          console.log(`  [submit] ${on ? 'ticked' : 'could not tick'} "${name.slice(0, 46)}"`);
+          if (on) fixedAny = true;
+        } else {
+          console.log(`  [submit] "${name.slice(0, 46)}" is a checkbox but not an agreement; leaving it`);
+        }
       } else if (kind.role === 'combobox' || kind.tag === 'SELECT') {
         /* Ashby's autocomplete needs a real choice from the popup: typed text
            alone leaves it unset, which is why "In which state do you
