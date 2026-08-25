@@ -513,7 +513,11 @@ while (processed < SAFETY_CAP) {
   ledger[j.dedupe_key] = {
     company: j.company, title: j.title, url: j.url,
     state, recordedInD1: recorded, blockers: why,
-    crashCount: state === 'crashed' ? priorCrashes + 1 : priorCrashes,
+    /* Count EVERY retryable outcome, not just 'crashed'. wd-stuck is retryable
+       and never incremented this, so the cap at two never applied to it and
+       Warner Bros was attempted four times in one supervised run while the rest
+       of the Workday queue waited. */
+    crashCount: RETRYABLE.has(state) ? priorCrashes + 1 : priorCrashes,
     at: new Date().toISOString()
   };
   saveLedger(ledger);
