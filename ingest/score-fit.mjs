@@ -81,7 +81,16 @@ export function scoreJob(j) {
 
   if (j.link_status && j.link_status !== 'live') { score -= 25; why.push(`link is ${j.link_status} (-25)`); }
 
-  score = Math.max(0, Math.min(99, Math.round(score)));
+  /* Normalise against the best a posting can actually score rather than
+     clamping at 99. Three roles came out tied at 99 because their raw scores
+     were 100, 104 and 100 and the clamp hid that Reddit was the strongest of
+     them. Scaling keeps the ordering and stops the top of the list collapsing
+     into a tie.
+
+     BEST is the sum of every positive component: 40 base + 18 AI role + 12
+     principal + 14 top band + 8 remote + 6 shape + 8 favourite + 6 fresh. */
+  const BEST = 112;
+  score = Math.max(0, Math.min(99, Math.round((score / BEST) * 99)));
   return { score, why };
 }
 
