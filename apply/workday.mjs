@@ -202,6 +202,29 @@ export async function wdPromptPick(page, field, categories, leaves, log) {
     await input.click({ timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(1500);
   }
+  /* Last resort: take whatever the prompt offers. "How Did You Hear About Us?"
+     is required on Circle and Salesforce and their category names matched none
+     of the patterns, so four postings stopped on a field whose answer does not
+     matter to the application. Walk the first category and take its first leaf;
+     if the list is flat, take the first entry. Logged either way. */
+  await input.click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  for (let depth = 0; depth < 2; depth++) {
+    const first = opts().first();
+    if (!(await first.count().catch(() => 0))) break;
+    const label = (await first.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+    await first.click({ timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(500);
+    if (await selected()) {
+      if (log) log.push(`wd: ${field} = "${label}" (took the first option offered)`);
+      return true;
+    }
+    await input.click({ timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+  }
+
   await page.keyboard.press('Escape').catch(() => {});
   if (log) log.push(`wd: could not pick ${field}; options offered: ${top.slice(0, 20).join(' / ')}`);
   return false;
