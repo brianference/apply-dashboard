@@ -34,10 +34,10 @@ const REMOTE = /\bremote\b|work from home|\bwfh\b|anywhere|distributed|telecommu
 const US_WIDE = /\busa?\b|u\.s\.|united states|nationwide|anywhere|worldwide/i;
 
 /** A remote role fenced to somewhere he is not. */
-const FENCED = /remote[^a-z0-9]{0,4}\(([^)]*)\)|remote\s*[-–—:]\s*([a-z .,]+)/i;
+const FENCED = /remote[^a-z0-9]{0,4}\(([^)]*)\)|remote\s*[-–—:]\s*([a-z .,]+)|remote only,\s*([a-z .,]+)|remote\s+in\s+([a-z .,]+)/i;
 
 /** Countries and regions that exclude a US-based candidate. */
-const NOT_US = /\b(canada|toronto|vancouver|montreal|ottawa|india|philippines|mexico|brazil|argentina|colombia|united kingdom|england|london|ireland|dublin|france|paris|germany|berlin|munich|spain|portugal|lisbon|poland|netherlands|amsterdam|australia|sydney|melbourne|singapore|japan|tokyo|china|hong kong|korea|israel|tel aviv|dubai|uae|south africa|nigeria|kenya|egypt|emea|apac|latam)\b/i;
+const NOT_US = /\b(canada|toronto|vancouver|montreal|ottawa|calgary|edmonton|winnipeg|quebec|india|bangalore|bengaluru|hyderabad|pune|chennai|mumbai|delhi|gurgaon|noida|kolkata|philippines|manila|indonesia|jakarta|vietnam|hanoi|thailand|bangkok|malaysia|kuala lumpur|mexico|guadalajara|brazil|sao paulo|argentina|buenos aires|colombia|bogota|chile|santiago|peru|lima|costa rica|united kingdom|england|london|manchester|edinburgh|ireland|dublin|france|paris|germany|berlin|munich|hamburg|frankfurt|spain|madrid|barcelona|portugal|lisbon|porto|italy|milan|rome|netherlands|amsterdam|utrecht|rotterdam|belgium|brussels|poland|warsaw|krakow|czech|prague|hungary|budapest|romania|bucharest|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|estonia|tallinn|latvia|lithuania|switzerland|zurich|geneva|austria|vienna|greece|athens|turkey|istanbul|russia|ukraine|kyiv|israel|tel aviv|dubai|uae|abu dhabi|saudi|qatar|south africa|cape town|johannesburg|nigeria|lagos|kenya|nairobi|egypt|cairo|singapore|japan|tokyo|osaka|korea|seoul|china|shanghai|beijing|shenzhen|hong kong|taiwan|taipei|australia|sydney|melbourne|brisbane|perth|new zealand|auckland|emea|apac|latam|anz)\b/i;
 
 /** A US place that is not his, used only when no remote wording appears. */
 const US_ELSEWHERE = /\b(new york|nyc|brooklyn|san francisco|bay area|palo alto|mountain view|sunnyvale|san jose|santa clara|cupertino|oakland|los angeles|san diego|seattle|bellevue|redmond|portland|denver|boulder|austin|dallas|houston|chicago|boston|cambridge|atlanta|miami|orlando|tampa|charlotte|raleigh|durham|nashville|detroit|minneapolis|philadelphia|pittsburgh|washington|arlington|mclean|reston|baltimore|salt lake|las vegas|kansas city|columbus|cleveland|indianapolis|milwaukee|omaha|new jersey|connecticut|virginia|maryland|colorado|california|oregon|texas|florida|georgia|illinois|massachusetts|north carolina|pennsylvania|ohio|michigan|minnesota|missouri|tennessee|utah|nevada|new mexico|idaho|montana|wyoming|iowa|kansas|nebraska|oklahoma|arkansas|louisiana|mississippi|alabama|kentucky|indiana|wisconsin|west virginia|delaware|rhode island|vermont|maine|new hampshire|alaska|hawaii|\bca\b|\bny\b|\bnc\b|\bwa\b|\btx\b|\bfl\b|\bil\b|\bma\b|\bco\b|\bga\b|\bva\b|\bpa\b|\boh\b|\bmi\b|\bmn\b|\bor\b|\but\b|\bnv\b)\b/i;
@@ -71,7 +71,10 @@ export function locationEligible(workType, title) {
   }
 
   const fence = text.match(FENCED);
-  const inside = fence ? (fence[1] || fence[2] || '').trim() : '';
+  /* Wellfound writes "Remote only, San Francisco", meaning remote SCOPED to the
+     Bay Area. Without this the Felicis posting would have been added straight
+     after Brian complained about exactly that shape. */
+  const inside = fence ? (fence[1] || fence[2] || fence[3] || fence[4] || '').trim() : '';
   if (inside) {
     if (HOME.test(inside)) return { ok: true, why: 'remote, Arizona' };
     if (US_WIDE.test(inside)) return { ok: true, why: 'remote, US' };
