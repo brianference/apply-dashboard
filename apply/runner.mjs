@@ -875,7 +875,11 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
     [/have you (used|been a user of) .{0,40}(product|platform|app)|used (our|a) .{0,25}product in the last/i, 'No'],
     /* Background-check and reference consents. Refusing these blocks the submit
        and helps on nothing. 1Password asks four postings the same question. */
-    [/offers of employment are conditional|conditional on satisfactory|background (check|screening|investigation)|investigative consumer report|consumer report/i, 'Yes'],
+    /* MeridianLink words it "I understand that as permitted by law, MeridianLink
+       will conduct an investigative consumer report", and OpenAI uses "I hereby
+       certify that I have not knowingly withheld". Both are attestations the
+       submit will not proceed without. */
+    [/offers of employment are conditional|conditional on satisfactory|background (check|screening|investigation)|investigative consumer report|consumer report|i understand that as permitted by law|i hereby certify|have not knowingly withheld|certify that .{0,40}(true|accurate|complete)/i, 'Yes'],
     /* Conflict-of-interest screens. He has no relative or partner at any of
        these companies. */
     [/close personal relationship|family members?, domestic|relative(s)? (who )?(work|employed)|conflict of interest/i, 'No'],
@@ -894,7 +898,10 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
        word "ever" immediately before the verb. Cover the plain forms too. */
     [/previously,? ?(worked|applied|been employed|employed|consulted)|ever (been )?(previously )?(worked|interviewed|applied|employed)|interviewed at|employed by (us|this company)|worked at .{0,40} in the past|have you worked (at|for)/i, 'No'],
     [/open to relocat|willing to relocat|require relocation/i, 'No'],
-    [/open to working in[- ]person|in the office|onsite|on-site|hybrid|willing to travel|open to travel/i, 'Yes'],
+    /* OpenAI asks "Are you able to work from our US office three days per
+       week?", which matched none of these: it says "from our US office", not
+       "in the office". Brian's standing answer is yes to occasional onsite. */
+    [/open to working in[- ]person|in the office|onsite|on-site|hybrid|willing to travel|open to travel|work from our .{0,20}office|able to work from (the|our)|days per week in|in[- ]office \d+ days/i, 'Yes'],
     /* Common gates seen on live Ashby/Greenhouse forms. "Are you over the age
        of 18?" blocked a Supabase submit with the resume already attached. */
     [/over the age of 18|at least 18|18 years or older|legally of age/i, 'Yes'],
