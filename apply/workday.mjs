@@ -218,9 +218,18 @@ export async function wdErrors(page) {
     /* Workday's field-level errors carry no role=alert and no "errorMessage"
        automation id, so an earlier version reported zero errors on a page that
        was visibly refusing to advance. Match the rendered error text too. */
+    /* role=alert is also how Workday announces SUCCESS. The resume upload toast
+       reads "BrianFerence_Resume_August.pdf successfully uploaded", and taking
+       it as an error stopped NVIDIA as wd-validation-blocked on a page that had
+       filled correctly and had nothing wrong with it. A success notice is not a
+       validation failure. */
+    const SUCCESS_NOTICE = /successfully|uploaded|saved|complete|no error/i;
+    const REAL_ERROR = /error|required|must have a value|please (select|enter|correct|fix)|invalid|not valid/i;
     document.querySelectorAll('[data-automation-id*="rror"], [role="alert"]').forEach(e => {
       const t = (e.innerText || '').trim();
-      if (t && t.length < 300) out.add(t.replace(/\s+/g, ' '));
+      if (!t || t.length >= 300) return;
+      if (SUCCESS_NOTICE.test(t) && !REAL_ERROR.test(t)) return;
+      out.add(t.replace(/\s+/g, ' '));
     });
     (document.body.innerText || '').split(String.fromCharCode(10)).forEach(line => {
       const t = line.trim();
