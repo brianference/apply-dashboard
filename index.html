@@ -278,6 +278,18 @@
     white-space: nowrap;
   }
   .apply.manual:hover { text-decoration: underline; }
+
+  /* "I already applied to this myself." Deliberately quiet -- it sits beside
+     the main action on every unrecorded row, and it should never compete with
+     it for attention or be hit by accident. */
+  .did {
+    appearance: none; cursor: pointer; margin-right: 6px;
+    border: 1px solid var(--line, rgba(0,0,0,.14)); background: transparent;
+    color: var(--muted); border-radius: 7px; height: 26px; width: 26px;
+    font: 600 13px/1 inherit; padding: 0;
+  }
+  .did:hover { color: var(--success); border-color: var(--success); background: var(--success-bg); }
+  .act { display: inline-flex; align-items: center; }
   .apply.done {
     background: var(--success-bg); border: 1px solid transparent; color: var(--success);
     cursor: default; font: 600 12px/26px inherit; padding: 0 10px; border-radius: 7px;
@@ -332,6 +344,23 @@
   }
   .legend span.pair { display: inline-flex; align-items: center; gap: 5px; }
   .legend .ats { display: inline-block; }
+  /* The unsynced-marks warning. Deliberately impossible to miss: the previous
+     version of this warning was one line of grey text in a screen-reader-only
+     status region, and jobs Brian had marked applied kept being applied to
+     again for days without anything visible saying why. */
+  .stale {
+    margin: 10px 14px 0; padding: 10px 12px; border-radius: 8px;
+    background: var(--warn-bg); border: 1px solid var(--warn);
+    color: var(--warn); font: 500 13px/1.45 inherit;
+  }
+  .stale strong { font-weight: 700; }
+  .stale button {
+    margin-left: 8px; cursor: pointer; border: 1px solid var(--warn);
+    background: transparent; color: var(--warn);
+    border-radius: 6px; padding: 3px 10px; font: 600 12px/1 inherit;
+  }
+  .stale button:hover { background: var(--warn); color: var(--bg, #fff); }
+
   .toast {
     position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
     background: var(--text); color: var(--bg); padding: 9px 15px;
@@ -409,6 +438,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <span class="sr" id="live" role="status" aria-live="polite"></span>
+<div id="stale" class="stale" role="alert" hidden></div>
 
 <script>
 (function () {
@@ -543,6 +573,10 @@
   var all = [], kind = "all", sortBy = "applyable";
   var localApplied = {};
   try { localApplied = JSON.parse(localStorage.getItem("apply-applied") || "{}") || {}; } catch (e) {}
+  /* Which local marks are known to have reached D1. Without this, reconcile
+     would re-POST every mark on every load. */
+  var pushed = {};
+  try { pushed = JSON.parse(localStorage.getItem("apply-pushed") || "{}") || {}; } catch (e) {}
   /* rows whose posting has been opened but whose outcome is not yet confirmed */
   var pending = {};
   try { pending = JSON.parse(sessionStorage.getItem("apply-pending") || "{}") || {}; } catch (e) {}
@@ -665,6 +699,17 @@
             : "Opens the " + esc(a.label) + " form and copies your details")
         + '">' + (a.cls === "direct" ? "Apply" : "Open") + "</button>";
     }
+    /* A one-click "I applied to this myself" control, on EVERY row that is not
+       already recorded. Brian applies by hand in Chrome while the runner works,
+       and until now the only way to record that was to click Manual first --
+       which reopens the posting he has just finished. Twice he had to tell me
+       by hand that a job was already done. Marking it writes status=submitted
+       to D1, which is also what the runner's pre-submit guard reads, so it can
+       never be applied to again. */
+    var markBtn = applied ? "" :
+      '<button type="button" class="did" data-did="' + k + '"'
+      + ' title="I already applied to this myself - record it and take it off the list">&#10003;</button>';
+
     /* One .ats element only. On desktop .meta is `display: contents`, so .who and
        .ats become grid items in their own columns; on mobile .meta is a flex line. */
     return '<div class="row" data-k="' + k + '">'
@@ -686,7 +731,7 @@
               : "")
           + "</span>"
       + "</span>"
-      + '<span class="act">' + btn + "</span>"
+      + '<span class="act">' + markBtn + btn + "</span>"
       + "</div>";
   }
 
@@ -804,6 +849,10 @@
   function render() {
     var s = (document.getElementById("q").value || "").trim().toLowerCase();
     var vis = all.filter(function (j) {
+      /* A posting that fails his location or role rule is not a job he can take,
+         so it does not belong on the list at all. Showing it with a badge still
+         put "San Francisco, CA" in front of him. */
+      if (j.blocked_reason === "location-ineligible" && !isApplied(j)) return false;
       if (kind === "manual") { if (!j.blocked_reason || isApplied(j)) return false; }
       else if (kind === "direct") { if (atsOf(j).cls !== "direct") return false; }
       else if (kind !== "all" && kind !== bucketOf(j)) return false;
@@ -991,29 +1040,100 @@
     try { localStorage.setItem("apply-applied", JSON.stringify(localApplied)); } catch (e) {}
     render();
 
+    pushMark(job, true);
+  }
+
+  /* Send one "I applied to this" to D1, and make absolutely sure the caller
+     knows if it did not land.
+     ------------------------------------------------------------------------
+     This is the repair for the worst bug this dashboard has had. Marking a job
+     applied wrote to localStorage and then, with no write token in the browser,
+     returned silently after setting one line of grey text: "Recorded in this
+     browser only." D1 never learned, so the runner kept seeing the posting as
+     queued and applied to it AGAIN. Brian marked jobs for days and watched them
+     come back. A confirmation that only the confirming browser can see is not a
+     confirmation.
+     @param {object} job
+     @param {boolean} interactive whether to ask for the token if it is missing
+     @returns {Promise<boolean>} whether D1 accepted it */
+  function pushMark(job, interactive) {
     var tok = writeToken();
-    if (!tok) {
-      document.getElementById("live").textContent = "Recorded in this browser only.";
-      return;
+    if (!tok && interactive) {
+      askToken();
+      tok = writeToken();
     }
-    var headers = { "content-type": "application/json", "x-apply-token": tok };
-    fetch("/api/apply", {
+    if (!tok) { markStale(); return Promise.resolve(false); }
+    return fetch("/api/apply", {
       method: "POST",
-      headers: headers,
+      headers: { "content-type": "application/json", "x-apply-token": tok },
       body: JSON.stringify({ dedupe_key: job.dedupe_key, status: "submitted" })
     }).then(function (r) {
-      if (r.status === 401) throw new Error("token rejected — set it again with the key button");
-      if (r.status === 503) throw new Error("writes disabled on this deployment");
+      if (r.status === 401) throw new Error("the write token was rejected");
+      if (r.status === 503) throw new Error("writes are disabled on this deployment");
       if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
-    }).then(function () {
-      document.getElementById("live").textContent = "Recorded in D1.";
+      /* Remember that THIS one is safely in D1, so reconcile stops retrying it. */
+      pushed[keyOf(job)] = true;
+      try { localStorage.setItem("apply-pushed", JSON.stringify(pushed)); } catch (e) {}
+      markStale();
+      return true;
     }).catch(function (e) {
-      toast("Recorded locally only — " + e.message);
+      toast("NOT recorded — " + e.message + ". The runner may apply to this again.");
+      markStale();
+      return false;
+    });
+  }
+
+  /* Anything marked applied in this browser that D1 still shows as queued.
+     These are the jobs the runner will apply to a second time. */
+  function unsynced() {
+    return Object.keys(localApplied).filter(function (k) {
+      if (pushed[k]) return false;
+      var j = jobByKey(k);
+      return j && !(j.status === "submitted" || laneOf(j) === "submitted");
+    });
+  }
+
+  /* A loud, permanent banner. The old warning was one line of grey text in a
+     status region, which is exactly why this went unnoticed for days. */
+  function markStale() {
+    var n = unsynced().length;
+    var el = document.getElementById("stale");
+    if (!el) return;
+    if (!n) { el.hidden = true; el.textContent = ""; return; }
+    el.hidden = false;
+    el.innerHTML = "<strong>" + n + " job" + (n === 1 ? "" : "s") + " you marked applied "
+      + "did not reach the database.</strong> The runner can still apply to "
+      + (n === 1 ? "it" : "them") + " again. "
+      + '<button type="button" id="fixstale">Record them now</button>';
+  }
+
+  /* Push every unsynced mark. Runs on load and from the banner, so marks made
+     before the token was set are repaired rather than lost. */
+  function reconcile(interactive) {
+    var keys = unsynced();
+    if (!keys.length) { markStale(); return Promise.resolve(0); }
+    if (!writeToken()) {
+      if (!interactive) { markStale(); return Promise.resolve(0); }
+      askToken();
+      if (!writeToken()) { markStale(); return Promise.resolve(0); }
+    }
+    var done = 0;
+    return keys.reduce(function (chain, k) {
+      return chain.then(function () {
+        var j = jobByKey(k);
+        if (!j) return;
+        return pushMark(j, false).then(function (ok) { if (ok) done += 1; });
+      });
+    }, Promise.resolve()).then(function () {
+      if (done) toast("Recorded " + done + " previously-local mark" + (done === 1 ? "" : "s") + " in the database.");
+      markStale();
+      render();
+      return done;
     });
   }
 
   document.addEventListener("click", function (ev) {
+    if (ev.target.id === "fixstale") { reconcile(true); return; }
     var sec = ev.target.closest(".sechead");
     if (sec) {
       var id = sec.getAttribute("data-sec");
@@ -1038,6 +1158,18 @@
       delete pending[no.getAttribute("data-no")];
       savePending(); render();
       toast("Left in the queue.");
+      return;
+    }
+
+    /* "I applied to this myself." Records it straight away - no confirmation
+       step, because the click IS the confirmation. */
+    var did = ev.target.closest("button.did");
+    if (did) {
+      var dk = did.getAttribute("data-did");
+      var djob = jobByKey(dk);
+      if (!djob) return;
+      delete pending[dk]; savePending();
+      markApplied(djob);
       return;
     }
 
@@ -1127,6 +1259,7 @@
     loadJobs().then(function (d) {
       all = Array.isArray(d.jobs) ? d.jobs : all;
       render();
+      markStale();
     }).catch(function () { /* keep showing the last good data */ });
   }, 60000);
   document.addEventListener("visibilitychange", function () {
@@ -1134,12 +1267,16 @@
     loadJobs().then(function (d) {
       all = Array.isArray(d.jobs) ? d.jobs : all;
       render();
+      markStale();
     }).catch(function () { /* keep showing the last good data */ });
   });
 
   loadJobs().then(function (d) {
     all = Array.isArray(d.jobs) ? d.jobs : [];
     document.getElementById("err").hidden = true;
+    /* Repair anything marked applied in this browser that never reached D1.
+       Silent when there is nothing to do, and never prompts on load. */
+    setTimeout(function () { reconcile(false); }, 300);
     markTokenState();
     render();
   }).catch(function (e) {

@@ -251,7 +251,7 @@ export async function wdSelect(page, field, want, log) {
      while the right option is sitting there. Only relax the TAIL -- keeping ^
      means "No" can never match "Do you know...". */
   if (k < 0 && want instanceof RegExp && /\$$/.test(want.source)) {
-    const relaxed = new RegExp(want.source.replace(/\$$/, '\b'), want.flags);
+    const relaxed = relaxTail(want);
     k = labels.findIndex(t => relaxed.test(t));
   }
   if (k < 0) {
@@ -525,8 +525,24 @@ export async function wdAnswerGroup(page, grp, want, log) {
       }).catch(() => '');
       if (want.test(lbl)) {
         await r.nth(i).check({ force: true }).catch(() => {});
-        if (log) log.push(`wd: ${grp.field} radio = ${lbl.slice(0, 30)}`);
-        return true;
+        await page.waitForTimeout(250);
+        /* READ IT BACK. check() was reported as success without ever
+           confirming, so a box the click_filter overlay swallowed counted as
+           answered and the caller skipped its fallbacks -- HPE's
+           conflict-of-interest question was "answered" on four runs and the
+           page refused to advance every time. */
+        let on = await r.nth(i).isChecked().catch(() => false);
+        if (!on) {
+          const id = await r.nth(i).getAttribute('id').catch(() => null);
+          const label = id ? page.locator(`label[for="${id}"]`).first() : null;
+          if (label && (await label.count().catch(() => 0))) await wdClick(label);
+          else await wdClick(r.nth(i));
+          await page.waitForTimeout(500);
+          on = await r.nth(i).isChecked().catch(() => false);
+        }
+        if (log) log.push(`wd: ${grp.field} ${grp.kind} = ${lbl.slice(0, 30)}${on ? '' : ' (DID NOT TAKE)'}`);
+        if (on) return true;
+        return false;
       }
     }
     return false;
@@ -667,7 +683,42 @@ export async function readOpenOptions(page, btnHandle) {
   }, '[role="option"], [data-automation-id="promptOption"], [data-automation-label], li').catch(() => []);
 }
 
+/**
+ * Relax a fully-anchored answer pattern so it also matches a QUALIFIED answer.
+ *
+ * Tenants answer yes/no questions with "No, never" (ServiceTitan), "No, I have
+ * not" (Salesforce) and "Yes, currently", so an anchored /^no$/ finds nothing
+ * while the right option is on screen. Only the TAIL is relaxed: keeping ^
+ * means "No" can never match "Do you know...".
+ *
+ * This lives in ONE place and is exported so the test can exercise the real
+ * thing. Two copies of it existed before, both written as '\b' inside a JS
+ * string -- which is a BACKSPACE, not a word boundary -- so the relax matched
+ * nothing at all, while a test carrying its own third copy reported success.
+ * A regex holding a control character prints as /^no/i with nothing visibly
+ * wrong.
+ *
+ * @param {RegExp} want
+ * @returns {RegExp}
+ */
+export function relaxTail(want) {
+  if (!(want instanceof RegExp) || !/\$$/.test(want.source)) return want;
+  return new RegExp(want.source.replace(/\$$/, '\\b'), want.flags);
+}
+
 export async function wdSelectByKeyboard(page, field, want, max = 14, log) {
+  /* Same tail-relax wdSelect uses, and for the same reason. ServiceTitan
+     answers "Have you ever worked at PwC?" with "Yes, currently / Yes,
+     previously / No, never": the walk SAW "No, never", tested it against an
+     anchored /^no$/ and reported finding nothing. Only the tail is relaxed --
+     keeping ^ means "No" can never match "Do you know...". */
+  const match = (t) => {
+    if (want.test(t)) return true;
+    if (want instanceof RegExp && /\$$/.test(want.source)) {
+      return relaxTail(want).test(t);
+    }
+    return false;
+  };
   const g = group(page, field);
   if (!(await g.count().catch(() => 0))) return null;
   const btn = g.locator('button').first();
@@ -696,7 +747,7 @@ export async function wdSelectByKeyboard(page, field, want, max = 14, log) {
       await page.waitForTimeout(600);
       const now = (await btn.innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
       if (!now || /^select one$/i.test(now)) continue;
-      if (want.test(now)) {
+      if (match(now)) {
         if (log) log.push(`wd: ${field} = "${now}" (chosen by keyboard, ${step} x ${key})`);
         return now;
       }

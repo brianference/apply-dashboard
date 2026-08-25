@@ -305,7 +305,8 @@ async function fillMyInformation(page, profile, log) {
   let picked = await wdPromptPick(
     page, 'source',
     [/job board/i, /job (site|search)/i, /online/i, /^other$/i, /social/i],
-    [/^other$/i, /^other job board/i, /^linkedin$/i, /^indeed$/i, /company (web ?site|career)/i],
+    [/third[- ]?part/i, /job board/i, /^linkedin$/i, /social media/i, /^indeed$/i,
+     /job alert/i, /company (web ?site|career|marketing)/i, /^other$/i],
     log,
   );
   if (!picked) {
@@ -321,11 +322,44 @@ async function fillMyInformation(page, profile, log) {
       picked = await wdPromptPick(
         page, byLabel.field,
         [/job board/i, /job (site|search)/i, /online/i, /^other$/i, /social/i, /career/i],
-        [/^other$/i, /^other job board/i, /^linkedin$/i, /^indeed$/i, /company (web ?site|career)/i],
+        /* Real wordings read off the tenants that stopped here. ServiceTitan
+           offers "Company marketing / In person event / Job Alert / Social
+           Media / Third-party job board" and matched none of the old leaves,
+           so a required field was left empty and the posting stopped. Third-
+           party job board is the accurate answer -- that is where these
+           postings come from. */
+        [/third[- ]?part/i, /job board/i, /^linkedin$/i, /social media/i, /^indeed$/i,
+         /job alert/i, /company (web ?site|career|marketing)/i, /^other$/i, /^other job board/i],
         log,
       );
       if (!picked && byLabel.kind === 'select') {
         picked = await wdSelect(page, byLabel.field, /job board|online|other|linkedin|indeed|career/i, log);
+      }
+      /* Keyboard walk, aimed at any of the answers that are true. This is a
+         required field on ServiceTitan and it stopped the posting after the
+         auth wall had finally been cleared. Aimed, so it cannot leave a wrong
+         value: wdSelectByKeyboard only keeps a readback that matches. */
+      if (!picked) {
+        picked = !!(await wdSelectByKeyboard(
+          page, byLabel.field, /linkedin|job board|company (web ?site|career)|online|other|indeed/i, 25, log));
+      }
+      /* Last resort: type into it. These prompts are typeaheads, and typing the
+         real answer then taking the suggestion is how a person answers one. */
+      if (!picked) {
+        const input = page.locator(`[data-automation-id="formField-${byLabel.field}"] input`).first();
+        if (await input.count().catch(() => 0)) {
+          await input.click({ timeout: 8000 }).catch(() => {});
+          await input.fill('LinkedIn').catch(() => {});
+          await page.waitForTimeout(1800);
+          const opt = page.locator('[data-wd-opt], [role="option"], [data-automation-id="promptOption"]').first();
+          if (await opt.count().catch(() => 0)) {
+            await wdClick(opt);
+            await page.waitForTimeout(1000);
+            picked = /[1-9]\d* items? selected|linkedin/i.test(
+              await page.locator(`[data-automation-id="formField-${byLabel.field}"]`).innerText().catch(() => ''));
+            if (picked) log.push('wd: How Did You Hear About Us = LinkedIn (typed)');
+          }
+        }
       }
     }
   }
@@ -502,6 +536,49 @@ const WD_QUESTIONS = [
   /* Momentive asks this for state pay-transparency reasons. He lives in
      Arizona. */
   [/resident of alaska or hawaii|do you (currently )?reside in (alaska|hawaii)/i, /^no$/i],
+  /* He ran Scrum at SRP and has been a PM since; Jira and Confluence are the
+     tooling of that job. */
+  [/user stories in jira|jira and confluence|experience (with|using) (jira|confluence|azure devops)|agile ceremonies/i, /^yes/i],
+  /* State residency questions, asked for pay-transparency reasons. Arizona. */
+  [/resident of (california|colorado|new york|washington|illinois|alaska or hawaii)|do you (currently )?reside in/i, /^no$/i],
+  /* The rest of HPE's conflict block, read off the rendered page. Every one of
+     these is No: SRP ended in 2019 and Arizona Game and Fish in 2010, both
+     outside a five-year window as of 2026, and neither was one of the listed
+     officer/procurement roles. */
+  [/employed or engaged within the past five years by any federal, state or local government|this policy does not apply to part-time student employees/i, /^no$/i],
+  [/would be engaging in any of the above listed situations or activities/i, /^no$/i],
+  [/served or are serving in a government or public body that has regulatory authority/i, /^no$/i],
+  [/is a current .{0,20}employee; or .{0,30}is a government official with regulatory authority/i, /^no$/i],
+  /* Notice period rendered as a PICK LIST rather than a text box. Two weeks,
+     the same figure the availability date uses, so one application cannot
+     contradict itself. */
+  [/how much notice|notice period|notice would you (need|require) to give/i, /2 weeks|two weeks|14 days|2-4 weeks/i],
+  /* Highest level of education. He holds an MBA and a BS in Information
+     Technology, both from University of Phoenix. */
+  [/highest level of education|education level (completed|attained)|highest degree/i, /master|mba|graduate degree|post-?graduate/i],
+  /* ServiceTitan sells to home-services contractors and asks whether you have
+     worked in those trades. He has not -- his background is fintech, cloud and
+     insurance education. */
+  [/experience in the trade|trades industr|home services industr|hvac|plumbing|electrical contracting/i, /^no$/i],
+  /* ServiceTitan asks about its auditor. He has never worked there. */
+  [/ever worked at pricewaterhouse|worked (at|for) (pwc|deloitte|kpmg|ernst)/i, /^no$/i],
+  /* Relocation. Every posting in this queue is remote and he is not moving. */
+  [/willing to relocate|able to relocate|would you relocate|open to relocation/i, /^no$/i],
+  /* Residency / citizenship. He is a US citizen working in the US. */
+  [/valid residency permit|residency permit in the country|are you a citizen of the (united states|us)|us citizen/i, /^yes/i],
+  /* Travel. Normal for a product role and he has no constraint against it. */
+  [/willing to travel|able to travel|travel requirement/i, /^yes/i],
+  /* Pronouns is an EEO-style question with a decline option on every tenant
+     that asks it; the profile's standing policy is to decline. */
+  [/select your pronouns|what are your pronouns|preferred pronouns/i, /decline|prefer not|do not wish|not to (answer|disclose)|^other/i],
+  /* Export-control citizenship lists. He is a US citizen and holds no other
+     citizenship, so every one of these is No. Matched on the sanctioned-country
+     roll call rather than on the word "citizen", which also appears in the
+     work-authorisation question that takes the opposite answer. */
+  [/citizen of (cuba|iran|north korea|syria)|cuba, iran|iran, north korea|sanctioned countr/i, /^no$/i],
+  /* KeyBank's restriction question, which is another non-compete in different
+     words. He is under no such restriction. */
+  [/are you subject to any restriction|subject to any (non-?compete|agreement|covenant)|any restrictions? (that|which) (would|may) (affect|limit|prevent)/i, /^no$/i],
   [/legal age to work|of legal age/i, /^yes$/i],
   [/willing to submit (to )?a? ?background (check|screening)|consent to a background/i, /^yes$/i],
   /* Every posting in this queue is US-remote and he will not relocate, so "can
@@ -568,7 +645,18 @@ const WD_QUESTIONS = [
 async function answerQuestions(page, profile, answerBank, log) {
   const unanswered = [];
   for (const grp of await wdFieldGroups(page)) {
-    if (/salary|compensation|base pay|pay expectation/i.test(grp.text)) {
+    /* "Minimum Pay Desired" is a salary question that says neither "salary" nor
+       "expectation", so it fell through to the yes/no table. It is a number. */
+    /* A question is a salary question when it ASKS FOR AN AMOUNT, not merely
+       because the word "compensation" appears in it. HPE's conflict-of-interest
+       disclosure says "receiving compensation from a customer, business partner,
+       supplier, or competitor" and was routed here, where the band chooser found
+       "Yes / No" on offer and reported no usable option -- so a required yes/no
+       question sat unanswered on four separate runs. */
+    const asksAnAmount = /salary|compensation|base pay|pay/i.test(grp.text)
+      && /expectation|expected|desired|requirement|minimum|range|how much|what is your|target/i.test(grp.text)
+      && !/prohibit|conflict|policy|receiving compensation from|financial interest/i.test(grp.text);
+    if (asksAnAmount) {
       if (await answerSalary(page, grp, profile, log)) continue;
       unanswered.push(grp.text.slice(0, 300));
       continue;
@@ -576,7 +664,12 @@ async function answerQuestions(page, profile, answerBank, log) {
     /* "When are you available to start?" is a DATE, not a select and not free
        text: the group reads "current value is MM/DD/YYYY MM / DD / YYYY".
        answerFreeText types a sentence into a segment box and achieves nothing. */
-    if (/available to start|start date|earliest (start|available)|when (can|could) you start|availability date/i.test(grp.text)) {
+    /* A notice-period question mentions "start date" too, and this branch was
+       swallowing it: "how much notice or transition time would you require
+       before your start date?" is not a date field, and answerStartDate could
+       only fail on it. */
+    if (/available to start|start date|earliest (start|available)|when (can|could) you start|availability date/i.test(grp.text)
+        && !/how much notice|notice period|transition time|notice would you/i.test(grp.text)) {
       if (await answerStartDate(page, grp, log)) continue;
       unanswered.push(grp.text.slice(0, 300));
       continue;
@@ -602,7 +695,20 @@ async function answerQuestions(page, profile, answerBank, log) {
       if (/\*/.test(grp.text)) unanswered.push(grp.text.slice(0, 300));
       continue;
     }
-    if (!['select', 'radio'].includes(grp.kind)) continue;
+    /* A rule that matched deserves an attempt whatever the control is. HPE's
+       conflict-of-interest disclosure matched its rule and was still reported
+       unanswered, because the group came back as neither select nor radio nor
+       checkbox and the loop walked straight past it. */
+    if (!['select', 'radio'].includes(grp.kind)) {
+      const hitAny = WD_QUESTIONS.find(([q]) => q.test(grp.text));
+      if (hitAny) {
+        if (await wdAnswerGroup(page, grp, hitAny[1], log)) continue;
+        if (await wdSelect(page, grp.field, hitAny[1], log)) continue;
+        if (await wdSelectByKeyboard(page, grp.field, hitAny[1], 14, log)) continue;
+        if (/\*/.test(grp.text)) unanswered.push(grp.text.slice(0, 300));
+      }
+      continue;
+    }
     /* An EEO question can turn up on an Application Questions page. Decline it
        here with the same rule the disclosures page uses rather than reporting
        it unanswered. */
@@ -799,8 +905,18 @@ async function answerYears(page, grp, log) {
 async function answerSalary(page, grp, profile, log) {
   const { floorUsd, targetUsd, answerTemplate } = profile.compensation;
   if (grp.kind === 'text' || grp.kind === 'textarea') {
-    const ok = await wdFill(page, grp.field, answerTemplate, log);
-    if (ok) log.push('wd: salary expectation answered from the profile template');
+    /* A question that asks for a MINIMUM gets the floor, not the target.
+       Answering $200,000 to "Minimum Pay Desired" states something he has not
+       said: his floor is $180,000 and that is the number that is true of a
+       minimum. A numeric-looking box also gets digits, not "$200,000". */
+    const wantsMinimum = /minimum|lowest|floor/i.test(grp.text);
+    const amount = wantsMinimum ? floorUsd : targetUsd;
+    const numericOnly = /pay|salary|compensation/i.test(grp.text)
+      && !/expectation|describe|explain|comment/i.test(grp.text)
+      && /desired|minimum|requirement|amount/i.test(grp.text);
+    const value = numericOnly ? String(amount) : (wantsMinimum ? `$${amount.toLocaleString('en-US')}` : answerTemplate);
+    const ok = await wdFill(page, grp.field, value, log);
+    if (ok) log.push(`wd: ${wantsMinimum ? 'minimum pay' : 'salary expectation'} = ${value}`);
     return ok;
   }
   if (grp.kind !== 'select') return false;
@@ -847,6 +963,22 @@ async function answerSalary(page, grp, profile, log) {
  */
 async function answerFreeText(page, grp, bank, log) {
   const q = grp.text.toLowerCase();
+  /* A free-text question that tells you what to write when it does not apply.
+     HPE's sponsorship box says "If this does not apply, indicate not applicable
+     (N/A)" and was getting the word "No", which is not one of the answers it
+     offered. He needs sponsorship nowhere. */
+  if (/indicate all locations or countries|require sponsorship for employment/i.test(grp.text)
+      && /not applicable|n\/a/i.test(grp.text)) {
+    const ok = await wdFill(page, grp.field, 'N/A', log);
+    if (ok) { log.push('wd: sponsorship locations = N/A'); return true; }
+  }
+  /* Notice period. Two weeks is the answer he would give and the same figure
+     the availability date uses, so the two cannot contradict each other on one
+     application. */
+  if (/how much notice|notice period|notice would you (need|require)|how soon (could|can) you start/i.test(grp.text)) {
+    const ok = await wdFill(page, grp.field, 'Two weeks', log);
+    if (ok) { log.push('wd: notice period = Two weeks'); return true; }
+  }
   const key = Object.keys(bank).filter(k => k !== '_comment').find(k => q.includes(k.toLowerCase()));
   if (!key) return false;
   const ok = await wdFill(page, grp.field, bank[key], log);
@@ -1094,6 +1226,9 @@ async function fillWorkExperience(page, profile, log) {
       await page.waitForTimeout(120);
     };
     await put('jobTitle', job.title);
+    /* KeyBank makes Role Description required. Use what the resume actually
+       says about the role -- never invented copy. */
+    if (job.summary || job.description) await put('roleDescription', job.summary || job.description);
     /* KeyBank makes the per-row Location required. Where he did the work is a
        fact about him, not a guess about the employer: he has been in the
        Phoenix metro throughout, so his own city and state is the truthful
@@ -1658,7 +1793,20 @@ export async function runWorkday({ page, url, root, profile, answerBank = {}, su
      the session and there is no sign-in form to reach. Running authenticate
      anyway reported wd-auth-blocked on Adobe while the candidate was in fact
      signed in and standing on step 1 of 7. */
-  const alreadyIn = log.some(l => l === 'wd: already signed in, landed on the wizard');
+  /* Trust the cookie only if the page still shows a signed-in account menu.
+     Adobe ended two runs on a signed-out job-search page carrying a
+     create-account form: the wizard was reachable from a stale session that
+     dropped partway through, and the submit went nowhere. */
+  let alreadyIn = log.some(l => l === 'wd: already signed in, landed on the wizard');
+  if (alreadyIn) {
+    const reallyIn = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-automation-id="utilityMenuButton"]'))
+        .some(e => (e.innerText || '').includes('@'))).catch(() => false);
+    if (!reallyIn) {
+      log.push('wd: the wizard was reachable but no account menu is present - signing in properly');
+      alreadyIn = false;
+    }
+  }
   const auth = alreadyIn ? 'signed-in' : await authenticate(page, cred, applyUrl, log, root, host);
   markCredentialVerified(root, host, auth === 'signed-in');
   if (auth === 'needs-email-verification') {
@@ -1744,11 +1892,22 @@ export async function runWorkday({ page, url, root, profile, answerBank = {}, su
          modal and a My Applications row reading Under Review, August 25, 2026.
          Truncating the evidence is not the same as not having it. */
       const after = await page.locator('body').innerText().catch(() => '');
-      const CONFIRMED = /you have (already )?(applied|submitted)|thank you for (applying|submitting your application)|application (was |has been )?(submitted|received)|we('| ha)ve received your application|under review/i;
+      const CONFIRMED = /you have (already )?(applied|submitted)|thank you for (applying|submitting your application)|application (was |has been )?(submitted|received)|we('| ha)ve received your application/i;
       /* A My Applications table listing this application with a submitted date
          is confirmation in its own right, and it survives the modal closing. */
       const listed = /my applications/i.test(after) && /active \(\s*[1-9]/i.test(after);
-      const confirmed = CONFIRMED.test(after) || listed;
+      /* "Under review" ONLY inside a My Applications table. On its own it is
+         not evidence -- it appears in job listings and marketing copy, and a
+         bare match would have recorded an application that never went in. */
+      const reviewing = /my applications/i.test(after) && /under review/i.test(after);
+      /* A page offering Sign In or Create Account is a SIGNED-OUT page, and a
+         signed-out page cannot be a confirmation whatever else it says. Adobe
+         ended two runs on a job-search page with a create-account form and a
+         "Congratulations!" marketing modal over it. */
+      const signedOut = /create account/i.test(after)
+        && /verify new password|password requirements/i.test(after);
+      const confirmed = !signedOut && (CONFIRMED.test(after) || listed || reviewing);
+      if (signedOut) log.push('wd: the page after submit is SIGNED OUT - not a confirmation');
       const evidence = (after.match(CONFIRMED) || [''])[0] || (listed ? 'listed under My Applications' : '');
       log.push(`wd: submit ${confirmed ? `confirmed by "${evidence}"` : 'NOT confirmed on the page'}`);
       return { state: confirmed ? 'submitted' : 'submitted-unconfirmed', detail: after.replace(/\s+/g, ' ').slice(0, 300) };
