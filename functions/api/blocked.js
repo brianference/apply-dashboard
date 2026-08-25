@@ -26,7 +26,21 @@ const ALLOWED = new Set([
   "needs-email-code",    // board emailed a one-time code; a human must finish
   "code-unconfirmed",    // code entered, board still did not confirm
   "employer-rate-limit", // e.g. Kit: no more than 2 applications per 60 days
-  "off-criteria"         // excluded by CRITERIA.md or a standing instruction
+  "off-criteria",        // excluded by CRITERIA.md or a standing instruction
+  /* Added 2026-08-25. The Workday driver reports its own states and NONE of
+     them were listed, so every wd-* record was rejected by this fail-closed
+     allowlist and all 31 Workday rows sat on the dashboard with a null
+     blocked_reason, looking untouched. Six of them were waiting on nothing
+     more than Brian clicking a verification link in his inbox, and there was
+     no way for him to know. This is the second time this allowlist has
+     silently swallowed a whole class of reason. */
+  "wd-email-verification",   // account created, tenant emailed a verification link
+  "wd-auth-blocked",         // could not sign in or create an account
+  "wd-validation-blocked",   // a required field the driver could not satisfy
+  "wd-unknown-question",     // a tenant question with no rule
+  "wd-no-apply-path",        // no Apply control, or the posting is gone
+  "wd-stuck",                // a valid page that would not advance
+  "wd-review-reached-dry-run"
 ]);
 
 /**
