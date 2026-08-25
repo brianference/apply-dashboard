@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import {
   tenantCredentials, wdClick, wdFill, wdSelect, wdPromptPick,
-  wdErrors, wdPageInfo, wdDebug, wdFieldGroups, wdAnswerGroup, markCredentialVerified, wdSelectChoose,
+  wdErrors, wdPageInfo, wdDebug, wdFieldGroups, wdAnswerGroup, markCredentialVerified, wdSelectChoose, wdSelectOptions,
 } from './workday.mjs';
 
 const A = id => `[data-automation-id="${id}"]`;
@@ -332,18 +332,87 @@ async function answerFreeText(page, grp, bank, log) {
  * @param {string[]} log
  */
 async function fillDisclosures(page, profile, log) {
-  const DECLINE = /decline to (self[- ]identify|answer|specify)|prefer not to (answer|say|disclose)|(do not|don't) (wish|want) to (answer|self[- ]identify|disclose)|i do not wish|choose not to (answer|disclose)/i;
+  /* "Decline to State" is NVIDIA's wording and it matched none of the original
+     alternatives, so a field that DID offer a decline fell through to the
+     answer-anyway fallback. It is the same intent, so match it first. */
+  const DECLINE = /decline to (self[- ]identify|answer|specify|state)|prefer not to (answer|say|disclose|state)|(do not|don't) (wish|want) to (answer|self[- ]identify|disclose)|i do not wish|choose not to (answer|disclose)|not disclosed?$/i;
   for (const grp of await wdFieldGroups(page)) {
     /* The disability form's "Please check one of the boxes below" is a checkbox
        group, not a select or a radio group, so an earlier version left the one
        required field on the page untouched and the wizard refused to advance.
        Leaving an EEO field blank is the profile's documented fallback when no
        decline option exists, so a miss here is not an error. */
-    if (grp.kind === 'select') await wdSelect(page, grp.field, DECLINE, log);
-    else if (grp.kind === 'radio' || grp.kind === 'checkbox') await wdAnswerGroup(page, grp, DECLINE, log);
+    const declined = grp.kind === 'select'
+      ? await wdSelect(page, grp.field, DECLINE, log)
+      : await wdAnswerGroup(page, grp, DECLINE, log);
+    if (declined) continue;
+
+    /* Brian's instruction, 2026-08-24: decline where the form allows it, and
+       where it does not, answer anyway so the application can go through.
+       Workday makes gender and ethnicity REQUIRED with no decline option on
+       several tenants, which stopped NVIDIA and Warner Bros at page 5 of 6.
+       The order below is deterministic rather than random, so what went out is
+       auditable: prefer anything that reads as not-disclosing, then anything
+       that reads as unknown or other, and only then the last option offered. */
+    /* Brian instruction, 2026-08-24: decline where the form allows it, and
+       where it does not, answer anyway so the application can go through.
+       Workday makes gender and ethnicity REQUIRED with no decline option on
+       several tenants, which stopped NVIDIA and Warner Bros at page 5 of 6.
+
+       wdSelectChoose opens the list ONCE and hands over what is on offer.
+       Opening it repeatedly with different regexes left the widget
+       unresponsive, so gender stayed empty while ethnicity went through even
+       though both are the same kind of control. The order is deterministic
+       rather than random so what went out is auditable, and the choice is
+       logged with the full list of options that were offered. */
+    /* An agreement checkbox is not an EEO question and has no decline option by
+       design. NVIDIA words it "By selecting the checkbox, you agree to our Terms
+       and Conditions and Applicant Privacy Policy" and makes it required, and it
+       was the last thing standing between a fully filled form and a submit. */
+    if (/you agree to|terms and conditions|privacy (policy|notice)|i (agree|acknowledge|consent)/i.test(grp.text)
+      && (grp.kind === 'checkbox' || grp.kind === 'radio')) {
+      const ticked = await wdAnswerGroup(page, grp, /.*/, log);
+      log.push(ticked ? 'wd: agreed to the terms checkbox' : 'wd: FAILED to tick the terms checkbox');
+      continue;
+    }
+    if (!/gender|ethnic|race|hispanic|latino|disab|veteran/i.test(grp.text)) continue;
+    const res = await wdSelectChoose(page, grp.field, (labels) => {
+      const find = (rx) => labels.find(l => rx.test(l));
+      return find(/prefer not|not disclos|unknown|not specified|undisclosed|decline/i)
+        || find(/^other$|two or more/i)
+        || labels[labels.length - 1]
+        || null;
+    }, log);
+    log.push(res.ok
+      ? 'wd: EEO "' + grp.text.slice(0, 40) + '" had no decline option, chose "' + res.picked + '" per Brian instruction'
+      : 'wd: EEO "' + grp.text.slice(0, 40) + '" could not be answered; offered: ' + res.labels.slice(0, 8).join(' / '));
   }
   const terms = page.locator('[data-automation-id="agreementCheckbox"], [data-automation-id*="termsAndConditions"] input[type=checkbox], input[type=checkbox][id*="gree"]').first();
   if (await terms.count().catch(() => 0)) { await terms.check({ force: true }).catch(() => {}); log.push('wd: ticked terms acknowledgement'); }
+
+  /* NVIDIA words it "By selecting the checkbox, you agree to our Terms and
+     Conditions and Applicant Privacy Policy" and gives it none of the automation
+     ids above, so the required box stayed unticked and the page refused to
+     advance. Find any remaining unticked checkbox whose own text is an agreement
+     and tick it. */
+  const agreed = await page.evaluate(() => {
+    const rx = /you agree to|terms and conditions|privacy (policy|notice)|i (agree|acknowledge|consent)/i;
+    let n = 0;
+    for (const box of document.querySelectorAll('input[type=checkbox]')) {
+      if (box.checked) continue;
+      const scope = box.closest('[data-automation-id^="formField-"], fieldset, div');
+      if (!scope || !rx.test(scope.innerText || '')) continue;
+      box.setAttribute('data-wd-agree', '1');
+      n++;
+    }
+    return n;
+  }).catch(() => 0);
+  for (let i = 0; i < agreed; i++) {
+    const b = page.locator('[data-wd-agree="1"]').first();
+    await b.check({ force: true }).catch(() => {});
+    await b.evaluate(e => e.removeAttribute('data-wd-agree')).catch(() => {});
+    log.push('wd: ticked an agreement checkbox');
+  }
   // The disability form asks for name and today's date.
   await wdFill(page, 'name', profile.identity.fullName, log);
   const today = new Date();
