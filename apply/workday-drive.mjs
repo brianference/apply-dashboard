@@ -579,6 +579,8 @@ const WD_QUESTIONS = [
   /* KeyBank's restriction question, which is another non-compete in different
      words. He is under no such restriction. */
   [/are you subject to any restriction|subject to any (non-?compete|agreement|covenant)|any restrictions? (that|which) (would|may) (affect|limit|prevent)/i, /^no$/i],
+  /* KeyBank asks about candidacy for public office. He is not running. */
+  [/currently running for (public )?office|candidate for (public )?office|hold (any )?public office/i, /^no$/i],
   [/legal age to work|of legal age/i, /^yes$/i],
   [/willing to submit (to )?a? ?background (check|screening)|consent to a background/i, /^yes$/i],
   /* Every posting in this queue is US-remote and he will not relocate, so "can

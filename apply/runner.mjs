@@ -1915,17 +1915,33 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
         const btn = btns.find(b => b.dataset.option === ans);
         if (!btn) continue;
         btn.setAttribute('data-yn-fix', '1');
+        const other = btns.find(b => b !== btn);
+        if (other) other.setAttribute('data-yn-other', '1');
         return true;
       }
       return false;
     }, { label, answer }).catch(() => false);
     if (!ok) return false;
     const btn = target.locator('[data-yn-fix="1"]').first();
+    /* If the wanted option is ALREADY pressed, clicking it again toggles it
+       OFF. That is why six Delinea submits failed: the banner named the
+       sponsorship question, the form showed "No" selected, this re-clicked
+       "No", the answer came off, and the next submit was rejected for the same
+       field. Ashby's validator wants a real state CHANGE, so go via the other
+       option and come back -- that fires the events it is listening for. */
+    const already = (await btn.getAttribute('aria-pressed').catch(() => null)) === 'true';
+    if (already) {
+      const other = target.locator('[data-yn-other="1"]').first();
+      if (await other.count().catch(() => 0)) {
+        await other.click().catch(() => {});
+        await page.waitForTimeout(350);
+      }
+    }
     await btn.click().catch(() => {});
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
     const pressed = await btn.getAttribute('aria-pressed').catch(() => null);
-    await target.evaluate(() => document.querySelectorAll('[data-yn-fix]')
-      .forEach(e => e.removeAttribute('data-yn-fix'))).catch(() => {});
+    await target.evaluate(() => document.querySelectorAll('[data-yn-fix],[data-yn-other]')
+      .forEach(e => { e.removeAttribute('data-yn-fix'); e.removeAttribute('data-yn-other'); })).catch(() => {});
     return pressed === 'true';
   };
 
@@ -2106,6 +2122,13 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
      The apostrophe is deliberately optional: pages use both ' and the curly
      U+2019. */
   const SUCCESS = /thank you( for applying)?|application (was |has been )?(received|submitted|sent)|we ?[''’]?ve? (successfully )?received|successfully (applied|submitted|received|sent)|received your application|your application (has been|was|is)|application complete/i;
+  /* "You have already submitted an application." is Ashby refusing a DUPLICATE,
+     which means the earlier attempt SUCCEEDED. Six Delinea applications were
+     real, were recorded as submitted-unconfirmed because the confirmation text
+     did not match, and were then retried -- at which point the board said so in
+     plain words and the runner still called it unconfirmed. An employer telling
+     you the application is already in is the strongest confirmation there is. */
+  const ALREADY_IN = /you have already (submitted|applied)|already submitted an application|already applied (to|for) this|duplicate application/i;
   const FAILURE = /form needs corrections|missing entry for required|please (correct|complete|fix)|there (was|were) (an )?error/i;
   /* Greenhouse can gate the submit behind an emailed one-time code: the form
      stays on screen with an empty "Security code" field, the Submit button goes
@@ -2119,11 +2142,16 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
   let after = '';
   while (Date.now() < deadline) {
     after = await target.evaluate(() => (document.body ? document.body.innerText : '').replace(/\s+/g, ' ')).catch(() => '');
-    if (SUCCESS.test(after) || FAILURE.test(after)) break;
+    if (SUCCESS.test(after) || FAILURE.test(after) || ALREADY_IN.test(after)) break;
     await page.waitForTimeout(1000);
   }
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-  const confirmed = SUCCESS.test(after) && !FAILURE.test(after) && !EMAIL_CODE.test(after);
+  /* An "already submitted" answer counts as confirmed: the application is in,
+     whichever run put it there. */
+  const alreadyIn = ALREADY_IN.test(after);
+  const confirmed = alreadyIn
+    || (SUCCESS.test(after) && !FAILURE.test(after) && !EMAIL_CODE.test(after));
+  if (alreadyIn) log.push('the board says an application is already on file for this posting');
   /* Greenhouse answers the form POST with 428 when it wants the emailed code,
      and the page sometimes re-renders to the plain job description with no code
      UI in the text at all -- Anthropic did exactly that, yet still sent Brian a

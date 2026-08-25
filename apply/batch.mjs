@@ -490,7 +490,20 @@ while (processed < SAFETY_CAP) {
          dedupe_key; a URL-only test would miss a posting he has just finished
          if the stored URL differs by a query string or a source tag. */
       const isDone = (f) => f.lane === 'submitted' || f.status === 'submitted';
-      const clash = fresh.find(f => isDone(f) && (f.url === j.url || f.dedupe_key === j.dedupe_key));
+      /* Aggressive: an exact key or URL match is not enough. The same job is
+         listed under different keys when a title picks up or loses a suffix
+         ("(Remote Eligible)", "- US", "II"), or when a company name is written
+         two ways, and an exact test would let the second copy through and send
+         a duplicate application. Compare on a NORMALISED company and title:
+         punctuation dropped, and the decorations that vary between boards
+         removed. Brian's rule, 2026-08-25: aggressively prevent duplicates. */
+      const norm = (v) => String(v || '').toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/(remote|eligible|hybrid|onsite|on site|us|usa|united states|full time|contract)/g, ' ')
+        .replace(/\s+/g, ' ').trim();
+      const sameJob = (f) => norm(f.company) === norm(j.company) && norm(f.title) === norm(j.title);
+      const clash = fresh.find(f => isDone(f)
+        && (f.url === j.url || f.dedupe_key === j.dedupe_key || sameJob(f)));
       if (clash) {
         console.log(`[skip] ${j.company} — already applied to this posting as "${clash.company} | ${clash.title}"\n`);
         ledger[j.dedupe_key] = {
