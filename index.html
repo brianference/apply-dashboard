@@ -1056,10 +1056,37 @@
   });
 
   /* ---------- load ---------- */
-  fetch("/api/jobs", { cache: "no-store" }).then(function (r) {
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    return r.json();
-  }).then(function (d) {
+  /* A cache-busting query on top of no-store. The Function sets no-store and
+     _headers repeats it, but a proxy or an extension between Brian and
+     Cloudflare can still answer from its own cache, and a stale render shows a
+     posting as queued after it has been applied to - which is how a duplicate
+     application happens. A unique URL cannot be served from any cache. */
+  function loadJobs() {
+    return fetch("/api/jobs?t=" + Date.now(), { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+
+  /* Re-read D1 on a timer and whenever the tab regains focus. The runner is
+     submitting while this page is open, so a page loaded twenty minutes ago is
+     showing twenty-minute-old truth. */
+  setInterval(function () {
+    if (document.hidden) return;
+    loadJobs().then(function (d) {
+      all = Array.isArray(d.jobs) ? d.jobs : all;
+      render();
+    }).catch(function () { /* keep showing the last good data */ });
+  }, 60000);
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    loadJobs().then(function (d) {
+      all = Array.isArray(d.jobs) ? d.jobs : all;
+      render();
+    }).catch(function () { /* keep showing the last good data */ });
+  });
+
+  loadJobs().then(function (d) {
     all = Array.isArray(d.jobs) ? d.jobs : [];
     document.getElementById("err").hidden = true;
     markTokenState();

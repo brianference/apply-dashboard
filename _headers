@@ -1,0 +1,29 @@
+# Cloudflare Pages header rules.
+#
+# The dashboard is a live view of D1 that changes every few minutes while the
+# apply runner works, and Brian applies by hand from the same page. A stale
+# render is worse than a slow one: it shows a posting as still queued after it
+# has been applied to, which is exactly how a duplicate application happens.
+#
+# index.html shipped as "public, max-age=0, must-revalidate", which still lets a
+# browser or an edge node answer from cache after a 304. no-store removes that
+# path entirely, so every load fetches the current page.
+#
+# /api/* already sets no-store in the Function itself; it is repeated here so
+# the rule survives someone editing the Function.
+
+/
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Pragma: no-cache
+
+/index.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Pragma: no-cache
+
+/api/*
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Pragma: no-cache
+
+# The marks are content-addressed by name and never change, so they may cache.
+/*.png
+  Cache-Control: public, max-age=86400
