@@ -446,6 +446,13 @@
     [/(^|\.)gusto\.com$/,                       "GUSTO",        "wall"],
     [/(^|\.)startup\.jobs$/,                    "STARTUP.JOBS", "wall"],
     [/(^|\.)workingnomads\.com$/,               "NOMADS",       "board"],
+    /* These fell through to the unrecognised-host default, which assumes an
+       employer careers page and labels it "direct". They are aggregators, so 22
+       adverts were being counted in the Direct form total as though they were
+       application forms. WeWorkRemotely puts most postings behind
+       apply-btn--locked and Himalayas behind /signup/talent. */
+    [/(^|\.)weworkremotely\.com$/,              "WWR",          "board"],
+    [/(^|\.)himalayas\.app$/,                   "HIMALAYAS",    "board"],
     [/(^|\.)wellfound\.com$|(^|\.)angel\.co$/,  "WELLFOUND",    "board"],
     [/(^|\.)builtin\.com$/,                     "BUILTIN",      "board"],
     [/(^|\.)trueup\.io$/,                       "TRUEUP",       "board"],
