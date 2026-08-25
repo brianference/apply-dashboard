@@ -1975,7 +1975,12 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
         }
         return false;
       }, name).catch(() => false);
-      if (!tagged) continue;
+      if (!tagged) {
+        /* Say so. A silent continue here is why the same field was reported
+           missing round after round with no sign of an attempt in the log. */
+        console.log(`  [submit] could not locate the control for "${name.slice(0, 60)}"`);
+        continue;
+      }
 
       const el = target.locator('[data-apfix="1"]').first();
       if (!(await el.count().catch(() => 0))) continue;
@@ -1987,21 +1992,47 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
         log.push(`banner-fix: re-attached resume for "${name.slice(0, 34)}"`);
         fixedAny = true;
       } else if (kind.role === 'combobox' || kind.tag === 'SELECT') {
-        await el.click().catch(() => {});
-        await el.fill('').catch(() => {});
-        await el.type(value, { delay: 40 }).catch(() => {});
-        await page.waitForTimeout(1600);
-        const opts = target.locator('[role="option"]:visible, [role="listbox"] li:visible');
-        const n = Math.min(await opts.count().catch(() => 0), 12);
-        for (let k = 0; k < n; k++) {
-          const t = (await opts.nth(k).innerText().catch(() => '')).trim();
-          if (t && new RegExp(escapeRx(value.split(',')[0]), 'i').test(t)) {
-            await opts.nth(k).click().catch(() => {});
-            log.push(`banner-fix: "${name.slice(0, 30)}" = ${t.slice(0, 30)}`);
-            fixedAny = true;
+        /* Ashby's autocomplete needs a real choice from the popup: typed text
+           alone leaves it unset, which is why "In which state do you
+           permanently reside?" came back on every round with no sign of an
+           attempt. Give the popup time, try a shorter query if the full one
+           offers nothing, and fall back to the keyboard, which selects the
+           highlighted row on widgets that render no clickable option. */
+        const queries = [value, value.split(',')[0].trim()].filter((q, i, a) => q && a.indexOf(q) === i);
+        let picked = false;
+        for (const q of queries) {
+          await el.click().catch(() => {});
+          await el.fill('').catch(() => {});
+          await el.type(q, { delay: 55 }).catch(() => {});
+          await page.waitForTimeout(2200);
+          const opts = target.locator('[role="option"]:visible, [role="listbox"] li:visible, [class*="autocomplete"] [role="option"]');
+          const n = Math.min(await opts.count().catch(() => 0), 15);
+          for (let k = 0; k < n; k++) {
+            const t = (await opts.nth(k).innerText().catch(() => '')).trim();
+            if (t && new RegExp(escapeRx(q.split(',')[0]), 'i').test(t)) {
+              await opts.nth(k).click().catch(() => {});
+              log.push(`banner-fix: "${name.slice(0, 30)}" = ${t.slice(0, 30)}`);
+              console.log(`  [submit] picked "${t.slice(0, 40)}" for "${name.slice(0, 40)}"`);
+              picked = true;
+              break;
+            }
+          }
+          if (picked) break;
+          /* No clickable row. Some widgets highlight a match and commit on Enter. */
+          await page.keyboard.press('ArrowDown').catch(() => {});
+          await page.waitForTimeout(250);
+          await page.keyboard.press('Enter').catch(() => {});
+          await page.waitForTimeout(600);
+          const now = (await el.inputValue().catch(() => '')).trim();
+          if (now && !/^select/i.test(now)) {
+            log.push(`banner-fix: "${name.slice(0, 30)}" = ${now.slice(0, 30)} (keyboard)`);
+            console.log(`  [submit] committed "${now.slice(0, 40)}" by keyboard for "${name.slice(0, 40)}"`);
+            picked = true;
             break;
           }
         }
+        if (picked) fixedAny = true;
+        else console.log(`  [submit] "${name.slice(0, 50)}" offered no option matching "${value.slice(0, 24)}"`);
       } else {
         await el.fill(value).catch(() => {});
         log.push(`banner-fix: "${name.slice(0, 30)}" = ${value.slice(0, 30)}`);
@@ -2020,7 +2051,17 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
      screenshotted while the button still showed its spinner, so a completed
      submission was reported as unconfirmed. Poll until the page shows either a
      success message or a validation error. */
-  const SUCCESS = /thank you|application (was )?(received|submitted)|we have received|successfully (applied|submitted)|your application (has been|was)/i;
+  /* Angi confirms with "Success - We've successfully received your
+     application!" and the form is gone from the page. None of the original
+     alternatives covered it: "successfully received" is neither "successfully
+     submitted" nor "we have received", and "received your application" is not
+     "application received". The run was reported unconfirmed on an application
+     that had gone through, which is worse than a missed application because the
+     posting then looks available and gets applied to again.
+
+     The apostrophe is deliberately optional: pages use both ' and the curly
+     U+2019. */
+  const SUCCESS = /thank you( for applying)?|application (was |has been )?(received|submitted|sent)|we ?[''’]?ve? (successfully )?received|successfully (applied|submitted|received|sent)|received your application|your application (has been|was|is)|application complete/i;
   const FAILURE = /form needs corrections|missing entry for required|please (correct|complete|fix)|there (was|were) (an )?error/i;
   /* Greenhouse can gate the submit behind an emailed one-time code: the form
      stays on screen with an empty "Security code" field, the Submit button goes
