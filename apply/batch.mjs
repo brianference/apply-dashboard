@@ -78,7 +78,11 @@ const PAUSED_HOSTS = /greenhouse\.io|gh_jid|lever\.co|stripe\.com|samsara\.com|c
    "Save and Continue" button is an aria-hidden <button> under a click_filter
    overlay, and a click that lands mid-re-render is dropped silently, so this
    clears on a retry rather than describing the posting. */
-const RETRYABLE = new Set(['crashed', 'upload-failed', 'wd-stuck']);
+/* wd-stuck is NOT retryable. It ate a whole supervised run: Warner Bros never
+   reaches the wizard at all - its page 1 reports no step - and it was picked
+   five times while thirty other Workday postings waited. A wizard that will not
+   start does not start on the next attempt either. */
+const RETRYABLE = new Set(['crashed', 'upload-failed']);
 /* A form that rejected the submit is blocked on a field the profile cannot
    answer. Retrying it produces the same rejection, so it is recorded once and
    never attempted again - that is what "skip and move on" means in practice. */
@@ -89,6 +93,8 @@ const TERMINAL = new Set(['submitted-unconfirmed', 'needs-input', 'no-submit-but
   /* The board emailed a one-time code and will not accept the application
      until a human types it in. Retrying just sends another email. */
   'needs-email-code',
+  /* The Workday wizard never started on this posting. */
+  'wd-stuck',
   /* The employer caps applications per candidate. No retry clears it. */
   'employer-rate-limit',
   /* Workday blockers that a retry cannot clear. wd-auth-blocked means Brian
