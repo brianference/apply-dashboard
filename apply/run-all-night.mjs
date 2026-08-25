@@ -57,9 +57,19 @@ function run(cmd, args, { ms = BATCH_MS, env = {}, out = null } = {}) {
   return new Promise((resolve) => {
     const child = spawn(cmd, args, { cwd: ROOT, env: { ...process.env, ...env } });
     let done = false;
-    const finish = (code) => { if (done) return; done = true; clearTimeout(timer); resolve(code); };
+    const finish = (code) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(killed || code === null ? -1 : code);
+    };
+    /* A SIGKILLed child closes with code null, and the close handler fires
+       before the fallback, so the caller saw null rather than -1 and could not
+       tell "killed" from "exited". Mark it, then normalise in finish. */
+    let killed = false;
     const timer = setTimeout(() => {
-      say(`  step exceeded ${Math.round(ms / 60000)}m, killing it`);
+      killed = true;
+      say(`  step exceeded ${ms < 60000 ? Math.round(ms / 1000) + 's' : Math.round(ms / 60000) + 'm'}, killing it`);
       try { child.kill('SIGKILL'); } catch { /* already gone */ }
       setTimeout(() => finish(-1), 8000);
     }, ms);
@@ -91,6 +101,12 @@ async function sweep() {
 const countFor = (list, host) => list.filter(j => j.status === 'queued' && new RegExp(host, 'i').test(j.url || '')).length;
 const submitted = (list) => list.filter(j => j.status === 'submitted').length;
 
+/* Importing this file must not start a run. The simulation below exercises the
+   helpers directly, and a test that boots the real overnight loop would be a
+   test that applies to real jobs. */
+const IS_MAIN = !!(process.argv[1] && process.argv[1].split('\\').join('/').endsWith('apply/run-all-night.mjs'));
+export { run, sweep, jobs, say };
+if (!IS_MAIN) { /* imported for testing */ } else {
 let idle = 0;
 let round = 0;
 const first = await jobs();
@@ -135,3 +151,4 @@ while (round < MAX_ROUNDS) {
 
 const last = await jobs();
 say(`finished after ${round} round(s): ${last ? submitted(last) : '?'} submitted`);
+}
