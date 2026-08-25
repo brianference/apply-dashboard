@@ -247,6 +247,18 @@
     border: 1px solid transparent;
   }
   .ats.direct { color: var(--success); background: var(--success-bg); }
+
+  /* Why a row could not be applied to automatically. Muted by default so it
+     reads as context, and highlighted only for the one state that is a task
+     for Brian rather than a defect for me. */
+  .why {
+    display: block;
+    font: 500 10.5px/1.35 "IBM Plex Sans", system-ui, sans-serif;
+    color: var(--muted); opacity: .85;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .why.act-now { color: var(--warn, #b45309); opacity: 1; font-weight: 600; }
   .ats.wall   { color: var(--warn);    background: var(--warn-bg); }
   .ats.board  { color: var(--muted);   background: var(--bg); border-color: var(--border); }
   .act { display: flex; justify-content: flex-end; gap: 4px; }
@@ -596,7 +608,23 @@
       "needs-consent-decision": "consent question",
       "upload-failed": "resume upload failed",
       "submitted-unconfirmed": "form rejected the submit",
-      "crashed": "page failed to load", "posting-closed": "posting closed"
+      "crashed": "page failed to load", "posting-closed": "posting closed",
+      /* Added 2026-08-25 with the Workday driver. Without these the badge fell
+         back to the raw state string, and the one that needs Brian -- an
+         emailed account verification -- read "wd-email-verification". */
+      "wd-email-verification": "check your email and click the verification link",
+      "wd-auth-blocked": "could not sign in to this employer's site",
+      "wd-validation-blocked": "a required field the runner could not fill",
+      "wd-unknown-question": "a question with no answer on file",
+      "wd-no-apply-path": "no Apply button (posting may be gone)",
+      "wd-stuck": "the form would not advance",
+      /* These were reaching the page as raw state strings. */
+      "needs-email-code": "employer emails a one-time code",
+      "code-unconfirmed": "code entered, not confirmed",
+      "captcha-blocked": "bot check blocked the submit",
+      "employer-rate-limit": "employer limits how often you can apply",
+      "duplicate-posting": "same job listed elsewhere",
+      "off-criteria": "outside your criteria"
     };
     return map[String(j.blocked_reason || "")] || String(j.blocked_reason || "");
   }
@@ -645,8 +673,18 @@
         + '</span><span class="co">' + esc(j.company || "") + "</span></span>"
       + '<span class="meta">'
         + '<span class="ats ' + a.cls + '">' + esc(a.label) + "</span>"
+        /* The reason goes INSIDE .who. On desktop .meta is `display: contents`,
+           so a sibling here becomes a third grid item in a two-column grid --
+           it pushed the action column off the row and clipped every Manual
+           button against the left edge. Caught by the screenshot, invisible in
+           the markup. */
         + '<span class="who"><span class="conly">' + esc(j.company || "") + (loc ? " · " : "")
-          + "</span>" + esc(loc) + "</span>"
+          + "</span>" + esc(loc)
+          + (!applied && j.blocked_reason
+              ? '<span class="why' + (j.blocked_reason === "wd-email-verification" ? " act-now" : "")
+                + '">' + esc(blockedLabel(j)) + "</span>"
+              : "")
+          + "</span>"
       + "</span>"
       + '<span class="act">' + btn + "</span>"
       + "</div>";
@@ -771,8 +809,21 @@
       else if (kind !== "all" && kind !== bucketOf(j)) return false;
       if (!passesColumns(j)) return false;
       if (!s) return true;
-      return [j.company, j.title, j.url, j.source, j.status, j.work_type]
-        .map(clean).join(" ").toLowerCase().indexOf(s) !== -1;
+      /* Match at a WORD START, not anywhere in the string. "cisco" is a
+         substring of "san-francisco", so a plain indexOf returned 44 rows of
+         Stripe, Mercury, Circle and Adobe - the city appears in the URL and
+         again in work_type. Dropping those fields was not the fix, because the
+         next term with an unlucky substring would do the same thing. A boundary
+         before the term keeps every field searchable and still finds "cisco",
+         "Cloud Platform" or "AI". */
+      var hay = [j.company, j.title, j.source, j.work_type, j.url].map(clean).join(" ").toLowerCase();
+      var idx = hay.indexOf(s);
+      while (idx !== -1) {
+        var prev = idx === 0 ? " " : hay.charAt(idx - 1);
+        if (!/[a-z0-9]/.test(prev)) return true;
+        idx = hay.indexOf(s, idx + 1);
+      }
+      return false;
     });
 
     var nSub = all.filter(isApplied).length;

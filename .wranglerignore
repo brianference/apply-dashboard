@@ -1,0 +1,17 @@
+# Chrome profile directories the apply runner creates per run. They are locked
+# while a run is in flight, and wrangler walking into one fails the whole deploy
+# with "EBUSY: resource busy or locked" -- which is what happened while the
+# Workday lane was running.
+.apply-session-*
+.hold-session
+# Run artefacts: screenshots, runlogs, ledgers. Nothing here belongs on the site
+# and the directory is large.
+evidence/
+node_modules/
+.git/
+apply/
+ingest/
+*.local.*
+*.local.json
+*.local.mjs
+APPLY_TOKEN.local.txt

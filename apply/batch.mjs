@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
@@ -26,6 +27,26 @@ const APPLY_API = 'https://apply-dashboard.pages.dev/api/apply';
    a domain that does not exist. Every blocked record silently went nowhere,
    which is why no posting ever carried a runner-recorded reason. */
 const BLOCKED_API = 'https://apply-dashboard.pages.dev/api/blocked';
+
+/**
+ * Fingerprint of the code that actually drives a form.
+ *
+ * A ledger entry records what the driver of the day could do. Every Workday
+ * posting in the queue carried a terminal wd-* state recorded before the
+ * education panel, the option-matching relax and the click ladder existed, so
+ * an improved driver was handed an empty queue and reported "queue exhausted"
+ * after a single posting. A recorded failure is only evidence about the code
+ * that produced it -- when that code changes, the failure is a stale verdict,
+ * not a property of the posting.
+ */
+const DRIVER_FILES = ['runner.mjs', 'workday.mjs', 'workday-drive.mjs'];
+const DRIVER_HASH = (() => {
+  const h = crypto.createHash('sha1');
+  for (const f of DRIVER_FILES) {
+    try { h.update(fs.readFileSync(path.join(ROOT, 'apply', f))); } catch { h.update(f); }
+  }
+  return h.digest('hex').slice(0, 12);
+})();
 let LEDGER = path.join(ROOT, 'evidence', 'apply', 'batch-ledger.json');
 let ISSUES = path.join(ROOT, 'evidence', 'apply', 'ISSUES.md');
 const ANSWERS = path.join(ROOT, 'apply', 'answers.general.local.json');
@@ -209,10 +230,15 @@ function runOne(url, submit) {
       ps.on('error', () => settle('crashed'));
       void tag;
       setTimeout(() => settle('crashed'), 15000); // settle even if the sweep itself hangs
-    }, 300000);   /* 150s killed slow-but-healthy postings under parallel load;
-                     Linear completed fine in ~200s standalone, was killed at
-                     150s in-batch, recorded as "crashed", and then retried
-                     forever. */
+    }, /myworkdayjobs\.com/i.test(url || '') ? 900000 : 300000);
+    /* 150s killed slow-but-healthy postings under parallel load; Linear
+       completed fine in ~200s standalone, was killed at 150s in-batch,
+       recorded as "crashed", and then retried forever.
+       Workday gets 15 minutes of its own: it is a seven-page wizard with a
+       sign-in, a resume parse, up to seven work-experience rows each carrying
+       two segmented dates, and a disclosures page. The Splunk posting was
+       killed at 300s while filling row 5 and recorded as a crash, which says
+       nothing about the posting. */
 
     child.on('close', () => {
       const m = out.match(/RESULT:\s*"?([a-z-]+)"?/i);
@@ -413,8 +439,16 @@ while (processed < SAFETY_CAP) {
        dozens of attempts and starved the whole campaign. Allow at most two
        crash retries per posting, then treat it as permanently blocked. */
     if (attempted) {
-      if (!RETRYABLE.has(attempted.state)) return false;
-      if ((attempted.crashCount || 0) >= 2) return false;
+      /* A driver-specific block recorded by a DIFFERENT build of the driver is
+         a stale verdict. Re-open it once per driver change; the new entry it
+         writes carries the new hash, so it cannot loop. Never re-open a real
+         submission or a decision made about the POSTING rather than the code. */
+      const staleBlock = /^wd-/.test(String(attempted.state || ''))
+        && attempted.driver !== DRIVER_HASH;
+      if (!staleBlock) {
+        if (!RETRYABLE.has(attempted.state)) return false;
+        if ((attempted.crashCount || 0) >= 2) return false;
+      }
     }
     return true;
   });
@@ -515,6 +549,13 @@ while (processed < SAFETY_CAP) {
   }
 
   const why = (out.match(/^\s+! .+$/gm) || []).map(s => s.trim().slice(2, 80)).slice(0, 4);
+  /* The Workday driver reports its blocker on a WORKDAY: line, which is not in
+     the "  ! " shape this scrape looks for, so every Workday row reached the
+     dashboard with an empty reason and looked untouched. The whole point of
+     recording a blocker is that Brian can see what to do about it -- an
+     emailed account verification is one click, and it was invisible. */
+  const wdWhy = (out.match(/^WORKDAY:\s*[a-z-]+\s*-\s*(.+)$/mi) || [])[1];
+  if (wdWhy && !why.length) why.push(wdWhy.trim().slice(0, 300));
   const priorCrashes = (ledger[j.dedupe_key] || {}).crashCount || 0;
   ledger[j.dedupe_key] = {
     company: j.company, title: j.title, url: j.url,
@@ -524,6 +565,7 @@ while (processed < SAFETY_CAP) {
        Warner Bros was attempted four times in one supervised run while the rest
        of the Workday queue waited. */
     crashCount: RETRYABLE.has(state) ? priorCrashes + 1 : priorCrashes,
+    driver: DRIVER_HASH,
     at: new Date().toISOString()
   };
   saveLedger(ledger);

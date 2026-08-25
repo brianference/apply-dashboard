@@ -483,8 +483,18 @@ async function answerYesNo(page, question, answer, log) {
  * so every state closes; leaving the browser open per posting is exactly what
  * piled up 20+ orphaned Chrome processes and stalled an unattended run. */
 const HUMAN_TURN_STATES = new Set([
+  /* The tenant created the account and emailed a verification link. One click
+     in Brian's inbox unblocks every posting on that tenant, so this is a human
+     turn, not a defect. */
+  'wd-email-verification',
   'wall', 'captcha', 'needs-input', 'needs-consent-decision',
-  'location-ineligible', 'no-submit-button'
+  'location-ineligible', 'no-submit-button',
+  /* Every one of these ends with a filled form that a human could finish in the
+     open window. They were missing, so a Workday run that stopped one field
+     short closed the browser on its way out and there was nothing left to look
+     at. Cisco stopped on "How Did You Hear About Us?" and vanished. */
+  'wd-validation-blocked', 'wd-unknown-question', 'wd-stuck', 'wd-auth-blocked',
+  'needs-email-code', 'code-unconfirmed', 'submitted-unconfirmed', 'captcha-blocked',
 ]);
 
 /**
@@ -498,7 +508,13 @@ const HUMAN_TURN_STATES = new Set([
  * @returns {Promise<object>}
  */
 async function finish(ctx, batchMode, result) {
-  const leaveOpen = !batchMode && HUMAN_TURN_STATES.has(result.state);
+  /* --keep-open decouples the browser's lifetime from the run's outcome. The
+     runner owning Chrome and disposing of it on exit is the reason every window
+     Brian tried to inspect disappeared mid-diagnosis: in batch mode leaveOpen
+     was false unconditionally, so not even a human-turn state kept it up. */
+  const keepOpen = process.argv.includes('--keep-open');
+  const leaveOpen = keepOpen || (!batchMode && HUMAN_TURN_STATES.has(result.state));
+  if (keepOpen) console.log('\n--keep-open: leaving the browser up. Close it yourself when done.');
   if (!leaveOpen) {
     await ctx.close().catch(() => {});
     /* Closing the context is not enough on Windows: Chrome's child processes
