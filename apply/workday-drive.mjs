@@ -95,8 +95,22 @@ async function openApplyManually(page, url, log) {
  * @param {string[]} log
  * @returns {Promise<'signed-in'|'blocked'>}
  */
-/** The second address Brian authorised for candidate accounts. */
-const ALT_EMAIL = 'brianference@gmail.com';
+/* The second address authorised for candidate accounts. Read from the
+   gitignored profile, never written here: this repository is public, and a real
+   personal email in its source is published to anyone who reads it. Absent, the
+   fallback attempt is simply skipped. */
+const ALT_EMAIL = (() => {
+  try {
+    const f = new URL('../apply-profile.local.json', import.meta.url);
+    const p = JSON.parse(fs.readFileSync(f, 'utf8'));
+    return (p.identity && (p.identity.altEmail || p.identity.secondaryEmail)) || '';
+  } catch (e) {
+    /* Say so. A silent '' here would skip the fallback account attempt on every
+       run and look like the tenant refusing it. */
+    console.log(`[wd] no alternate email in the profile (${e.message.slice(0, 60)})`);
+    return '';
+  }
+})();
 
 /**
  * Try one email/password against a tenant, either by signing in or by creating
@@ -408,7 +422,7 @@ async function fillMyInformation(page, profile, log) {
       if (await wdSelectByKeyboard(page, f, stateRx, 60, log)) break;
     }
   }
-  /* Country first. Adobe rejected "85331 is not a valid postal code for..." on
+  /* Country first. Adobe rejected "<zip> is not a valid postal code for..." on
      two postings: the ZIP is validated against whatever country the form is
      currently set to, and it is not always the United States by default. */
   for (const f of ['country', 'addressSection_country', 'countryRegionCountry']) {
@@ -417,8 +431,7 @@ async function fillMyInformation(page, profile, log) {
   await wdFill(page, 'addressSection_postalCode', id.postalCode, log);
   await wdFill(page, 'postalCode', id.postalCode, log);
   /* County is required on a few tenants (KeyBank stopped on it) and rendered
-     either as a text box or a picker. Cave Creek, Arizona is in Maricopa
-     County -- real, and the only value that belongs here. */
+     either as a text box or a picker. The home city is in a county the profile records -- real, and the only value that belongs here. */
   if (id.county) {
     const rx = new RegExp(`^${id.county}`, 'i');
     let done = false;
@@ -1049,7 +1062,7 @@ async function fillDisclosures(page, profile, log) {
        stayed on "Select One". Walking it by keyboard needs no visibility. */
     /* ONLY on a field that is actually an EEO question. fillDisclosures walks
        every group on the page, and letting the keyboard walker loose on all of
-       them set Adobe's STATE dropdown to Wyoming -- which then produced "85331
+       them set Adobe's STATE dropdown to Wyoming -- which then produced "<zip>
        is not a valid postal code for Wyoming". A matcher that changes nothing
        when it misses is safe to run everywhere; one that picks an option is
        not. */

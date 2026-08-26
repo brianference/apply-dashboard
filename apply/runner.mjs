@@ -197,8 +197,8 @@ async function tagNear(page, question, attr, sel) {
     /* NEVER pick a control that identifies itself as something else. Headway's
        sidebar carries its own "Location" heading; walking up from that reached a
        container holding the whole form, and querySelector returned the FIRST
-       input in it -- Full Name. The runner then wrote "Cave Creek, Arizona,
-       United States" into the candidate's name. Preferring an empty control was
+       input in it -- Full Name. The runner then wrote the home city, state and
+       country into the candidate's name. Preferring an empty control was
        not enough, because Full Name is empty at that point too. */
     const OWN_LABEL_IS_SOMETHING_ELSE = /(full |legal |first |last |preferred )?name|e-?mail|phone|resume|cv|linkedin|github|portfolio|website|url|salary|compensation|pronoun|company|employer|title/i;
     const labelOf = (c) => {
@@ -1019,14 +1019,14 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
     const loc = target.locator('[data-apply-loc="1"]').first();
     if (await loc.isVisible().catch(() => false)) {
       /* The option must actually name his city, state or country. Taking the
-         first row blind chose "Azerbaijan" for the query "Cave Creek, AZ". */
+         first row blind chose "Azerbaijan" for a query naming an AZ city. */
       const OK_LOC = new RegExp(
         `(${[id.city, id.state, 'United States'].filter(Boolean)
           .map(x => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'i');
       /* City alone first: the popup is a prefix search, and a probe against the
-         live Delinea form showed "Cave Creek" returns "Cave Creek, Arizona,
+         live Delinea form showed "<home city>" returns "<home city>, <state>,
          United States" as the active first row, while the comma-joined
-         "Cave Creek, Arizona" is not guaranteed to match anything. */
+         "<home city>, <state>" is not guaranteed to match anything. */
       let pickedLocation = false;
       for (const attempt of [id.city, `${id.city}, ${id.state}`, id.location, id.state, 'United States']) {
         if (!attempt) continue;
@@ -1332,7 +1332,7 @@ WORKDAY: ${wd.state}${wd.detail ? ' - ' + wd.detail : ''}`);
   }
 
   /* Resume, and the resume again where a cover letter upload is mandatory.
-     Under parallel load these uploads FAIL: Ashby showed "BrianFerence_Resume
+     Under parallel load these uploads FAIL: Ashby showed "<resume file>
      _August.pdf failed to upload" and then "We couldn't submit your
      application - There was a problem with the network connection." The submit
      was clicked on a form with no resume attached, so it never went through.

@@ -7,7 +7,7 @@ actually unblock it, so none of it has to be re-diagnosed.
 ## Needs Brian, and nothing else — 5 postings, ~3 minutes
 
 **Capital One (4 postings) and Vanguard (1)** are waiting on account
-verification emails sent to brianference@protonmail.com.
+verification emails sent to the owner's email address.
 
 The accounts EXIST and their passwords are stored in
 `apply/workday-accounts.local.json`. The tenant created them and then refused to
