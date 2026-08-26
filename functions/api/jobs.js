@@ -19,7 +19,8 @@ const COLUMNS = [
    lands in D1 but nothing downstream can read it. */
 const SELECT = `
   SELECT ${COLUMNS.join(", ")}, link_status, link_checked_at, blocked_reason, blocked_detail,
-         salary_min, salary_max, salary_source
+         salary_min, salary_max, salary_source,
+         rank_pct, fit_pct, success_pct, rank_why, jd_read
   FROM jobs
   ORDER BY
     CASE lane WHEN 'submitted' THEN 0 WHEN 'ft' THEN 1 ELSE 2 END,
@@ -27,9 +28,11 @@ const SELECT = `
     company COLLATE NOCASE
 `;
 
-/** Same query without the link-check columns, for a database not yet migrated. */
-const SELECT_LEGACY = SELECT
-  .replace(", link_status, link_checked_at, blocked_reason, blocked_detail,\n         salary_min, salary_max, salary_source", "");
+/** Same query without the later column groups, for a database not yet migrated.
+    Built by stripping from the first added group onward, so a newly added group
+    cannot be forgotten here and turn a fresh deploy against an old database
+    into a 500. */
+const SELECT_LEGACY = SELECT.replace(/,\s*link_status[\s\S]*?FROM jobs/, "\n  FROM jobs");
 
 const HEADERS = {
   "content-type": "application/json; charset=utf-8",

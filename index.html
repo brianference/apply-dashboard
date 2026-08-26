@@ -156,10 +156,29 @@
   }
   .rows[hidden] { display: none; }
 
+  /* Column widths live in variables so ONE drag moves the header and every row
+     together. A fixed location column clipped two-city strings and anything
+     carrying a salary, and no amount of shortening the TEXT fixes a column
+     that is simply too narrow for what Brian wants to read. */
+  :root { --w-pct: 42px; --w-ats: 96px; --w-loc: 240px; --w-pay: 92px; }
+
+  .colgrip {
+    position: absolute; top: 2px; bottom: 2px; right: -5px; width: 10px;
+    cursor: col-resize; z-index: 5; background: transparent;
+    border: 0; padding: 0; appearance: none;
+  }
+  .colgrip::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px;
+    background: var(--border); opacity: 0; transition: opacity .12s;
+  }
+  .colgrip:hover::after, .colgrip:focus-visible::after, body.resizing .colgrip::after { opacity: 1; }
+  .colgrip:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  body.resizing { cursor: col-resize; user-select: none; }
+
   /* ---- per-column filter header ---- */
   .colhead {
     display: grid; align-items: center; gap: 10px;
-    grid-template-columns: 42px minmax(0,1fr) 96px minmax(0,132px) 78px minmax(82px,auto);
+    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-ats) var(--w-loc) var(--w-pay) minmax(82px,auto);
     padding: 6px 10px; background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
@@ -171,6 +190,7 @@
     display: flex; align-items: center; gap: 5px; padding: 4px 6px;
     font: 600 10.5px/1 "IBM Plex Mono", monospace; letter-spacing: .05em;
     color: var(--muted); text-transform: uppercase; text-align: left;
+    position: relative;
   }
   .colbtn:hover { color: var(--text); border-color: var(--border); background: var(--surface); }
   .colbtn .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -218,7 +238,7 @@
     display: grid; align-items: center; gap: 10px;
     /* the action cell must be allowed to grow: the "Sent? Yes No" confirm is
        wider than an Apply button, and a fixed 82px made it overlap the location */
-    grid-template-columns: 42px minmax(0,1fr) 96px minmax(0,132px) 78px minmax(82px,auto);
+    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-ats) var(--w-loc) var(--w-pay) minmax(82px,auto);
     padding: 0 10px; height: 40px;
     border-top: 1px solid var(--border);
     font-size: 13px;
@@ -286,6 +306,10 @@
     text-align: right; white-space: nowrap;
   }
   .pay.over { color: var(--success); }
+  /* A keyword-only score is provisional -- it has not read the job description.
+     Showing it at the same weight as a real fit score is how a 100% that means
+     nothing ends up at the top of the list. */
+  .pct.unscored { opacity: .55; font-style: italic; }
   @media (max-width: 860px) { .pay { display: none; } }
 
   /* "I already applied to this myself." Deliberately quiet -- it sits beside
@@ -418,6 +442,8 @@
         <option value="applyable">Easiest to apply</option>
         <option value="match">Match %</option>
         <option value="company">Company</option>
+        <option value="pay-desc">Pay: high to low</option>
+        <option value="pay-asc">Pay: low to high</option>
         <option value="recent">Newest</option>
       </select>
       <div class="chips" role="group" aria-label="Filters">
@@ -569,7 +595,14 @@
        and never produce a doubled separator out of "Remote - USA" / "Remote, US". */
     t = t.replace(/^remote\s*[,|/-]?\s+(?=\S)/i, "Remote · ");
     t = t.replace(/·\s*[-,|/]\s*/, "· ");
-    if (t.length > 32) t = t.slice(0, 31) + "…";
+    /* The column is 240px, so a two-city location like
+       "New York, NY, San Francisco, CA" fits whole. Chopping at 32 hid the
+       second half of exactly the strings that decide whether a posting is a
+       CHOICE of cities (eligible) or a single ineligible one. */
+    /* No character cap. The column is resizable now, so the only thing a cap
+       can do is hide text Brian widened the column specifically to read. CSS
+       ellipsis handles whatever still does not fit, and the cell's title
+       attribute carries the whole string. */
     return t;
   }
   function shortDate(iso) {
@@ -601,9 +634,16 @@
     return "ft";
   }
   function keyOf(j) { return String(j.dedupe_key || j.url || j.title || ""); }
+  /* A local mark counts as applied ONLY once D1 has accepted it.
+     Trusting the local mark alone is what made a failed write invisible: the
+     row left Brian's list (so he believed it was done) while D1 still had it
+     queued (so the runner applied to it again). pushed[] is set only on a 200
+     from /api/apply, so an unsynced mark now leaves the row on the list, where
+     the banner and reconcile() can still repair it. */
   function isApplied(j) {
+    var k = keyOf(j);
     return !!j.submitted_at || String(j.status || "").toLowerCase() === "submitted"
-      || laneOf(j) === "submitted" || !!localApplied[keyOf(j)];
+      || laneOf(j) === "submitted" || (!!localApplied[k] && !!pushed[k]);
   }
   function bucketOf(j) { return isApplied(j) ? "submitted" : laneOf(j); }
 
@@ -676,8 +716,22 @@
   /* ---------- one compact row ---------- */
   function rowHtml(j) {
     var a = atsOf(j), applied = isApplied(j);
-    var pct = (j.match_pct == null || j.match_pct === "") ? "" : j.match_pct + "%";
-    var hi = j.match_pct != null && Number(j.match_pct) >= 70;
+    /* rank_pct is the real score: what the job asks for measured against what
+       Brian has actually done, plus how likely he is to win it. match_pct was
+       title keywords only -- "Principal Product Manager, AI Platform" scored
+       100 whether or not the job wanted ten years of ad tech. Fall back to
+       match_pct only where nothing has been ranked yet, and say which is which
+       on hover so a stale keyword score is never mistaken for a fit score. */
+    var scored = j.rank_pct != null && j.rank_pct !== "";
+    var shown = scored ? j.rank_pct : j.match_pct;
+    var pct = (shown == null || shown === "") ? "" : shown + "%";
+    var hi = shown != null && Number(shown) >= 70;
+    var pctWhy = scored
+      ? ("fit " + (j.fit_pct == null ? "not measured" : j.fit_pct + "%")
+         + " / likelihood " + j.success_pct + "%"
+         + (j.jd_read === "yes" ? " - read the job description" : " - description could not be read")
+         + (j.rank_why ? " — " + j.rank_why : ""))
+      : "keyword score only - the job description has not been read";
     var loc = shortLoc(j.work_type);
     /* pending is keyed on the raw dedupe_key. esc() is only for HTML attributes —
        looking up pending[esc(key)] misses any key that contains & < > ". */
@@ -723,7 +777,7 @@
     /* One .ats element only. On desktop .meta is `display: contents`, so .who and
        .ats become grid items in their own columns; on mobile .meta is a flex line. */
     return '<div class="row" data-k="' + k + '">'
-      + '<span class="pct' + (hi ? " hi" : "") + '">' + esc(pct) + "</span>"
+      + '<span class="pct' + (hi ? " hi" : "") + (scored ? "" : " unscored") + '" title="' + esc(pctWhy) + '">' + esc(pct) + "</span>"
       + '<span class="main"><span class="ttl">' + esc(j.title || "Untitled")
         + '</span><span class="co">' + esc(j.company || "") + "</span></span>"
       + '<span class="meta">'
@@ -733,7 +787,7 @@
            it pushed the action column off the row and clipped every Manual
            button against the left edge. Caught by the screenshot, invisible in
            the markup. */
-        + '<span class="who"><span class="conly">' + esc(j.company || "") + (loc ? " · " : "")
+        + '<span class="who" title="' + esc(clean(j.work_type) || "") + '"><span class="conly">' + esc(j.company || "") + (loc ? " · " : "")
           + "</span>" + esc(loc)
           + (!applied && j.blocked_reason
               ? '<span class="why' + (j.blocked_reason === "wd-email-verification" ? " act-now" : "")
@@ -746,12 +800,105 @@
       + "</div>";
   }
 
+  /* Which columns can be dragged, and the variable each one drives. Company is
+     the flexible 1fr column and takes whatever is left, so it has no grip. */
+  var RESIZABLE = { match: "--w-pct", ats: "--w-ats", loc: "--w-loc", pay: "--w-pay" };
+  var COLW_DEFAULTS = { match: 42, ats: 96, loc: 240, pay: 92 };
+  var COLW_MIN = 40, COLW_MAX = 640;
+
+  function loadWidths() {
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem("apply-colw") || "{}") || {}; } catch (e) {}
+    Object.keys(RESIZABLE).forEach(function (id) {
+      var px = Number(saved[id]);
+      if (px >= COLW_MIN && px <= COLW_MAX) {
+        document.documentElement.style.setProperty(RESIZABLE[id], px + "px");
+      }
+    });
+  }
+  function saveWidth(id, px) {
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem("apply-colw") || "{}") || {}; } catch (e) {}
+    saved[id] = px;
+    try { localStorage.setItem("apply-colw", JSON.stringify(saved)); } catch (e) {}
+  }
+  function currentWidth(id) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(RESIZABLE[id]);
+    return parseFloat(v) || COLW_DEFAULTS[id];
+  }
+  function setWidth(id, px) {
+    var clamped = Math.max(COLW_MIN, Math.min(COLW_MAX, Math.round(px)));
+    document.documentElement.style.setProperty(RESIZABLE[id], clamped + "px");
+    return clamped;
+  }
+
+  /* Drag the grip. The pointer is captured so leaving the button mid-drag does
+     not drop the drag. Arrow keys do the same job without a mouse, and
+     double-click restores the default width. */
+  document.addEventListener("pointerdown", function (ev) {
+    var grip = ev.target.closest && ev.target.closest(".colgrip");
+    if (!grip) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    var id = grip.getAttribute("data-grip");
+    var startX = ev.clientX;
+    var startW = currentWidth(id);
+    document.body.classList.add("resizing");
+    try { grip.setPointerCapture(ev.pointerId); } catch (e) {}
+    function move(e) { setWidth(id, startW + (e.clientX - startX)); }
+    function up() {
+      document.body.classList.remove("resizing");
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      grip.removeEventListener("pointercancel", up);
+      saveWidth(id, currentWidth(id));
+    }
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
+  });
+  document.addEventListener("dblclick", function (ev) {
+    var grip = ev.target.closest && ev.target.closest(".colgrip");
+    if (!grip) return;
+    ev.preventDefault(); ev.stopPropagation();
+    var id = grip.getAttribute("data-grip");
+    saveWidth(id, setWidth(id, COLW_DEFAULTS[id]));
+  });
+  document.addEventListener("keydown", function (ev) {
+    var el = document.activeElement;
+    var grip = el && el.closest ? el.closest(".colgrip") : null;
+    if (!grip) return;
+    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    ev.preventDefault();
+    var id = grip.getAttribute("data-grip");
+    saveWidth(id, setWidth(id, currentWidth(id) + (ev.key === "ArrowRight" ? 16 : -16)));
+  });
+
+  /* A posting's pay for sorting. An unpublished salary is UNKNOWN, not zero.
+     Sorting it as zero would bury good jobs at the bottom of "low to high" and
+     assert they pay nothing, which the data does not say. Unknown sorts last
+     in BOTH directions. */
+  function payValue(j) {
+    var v = Number(j.salary_max) || Number(j.salary_min) || 0;
+    return v > 0 ? v : null;
+  }
+
   function sortJobs(list) {
     var c = list.slice();
     if (sortBy === "match") {
-      c.sort(function (x, y) { return (y.match_pct || 0) - (x.match_pct || 0); });
+      var sc = function (j) { return Number(j.rank_pct != null ? j.rank_pct : j.match_pct) || 0; };
+      c.sort(function (x, y) { return sc(y) - sc(x); });
     } else if (sortBy === "company") {
       c.sort(function (x, y) { return clean(x.company).localeCompare(clean(y.company)); });
+    } else if (sortBy === "pay-desc" || sortBy === "pay-asc") {
+      var dir = sortBy === "pay-asc" ? 1 : -1;
+      c.sort(function (x, y) {
+        var a = payValue(x), b = payValue(y);
+        if (a === null && b === null) return (y.match_pct || 0) - (x.match_pct || 0);
+        if (a === null) return 1;
+        if (b === null) return -1;
+        return (a - b) * dir;
+      });
     } else if (sortBy === "recent") {
       c.sort(function (x, y) { return String(y.updated_at || "").localeCompare(String(x.updated_at || "")); });
     } else {
@@ -779,7 +926,7 @@
      "no filter on this column" — deliberately distinct from an empty Set,
      which would mean "everything is unticked, show nothing". */
   var COLS = [
-    { id: "match",   label: "%",              value: function (j) { return matchBucket(j.match_pct); }, align: "right" },
+    { id: "match",   label: "%",              value: function (j) { return matchBucket(j.rank_pct != null ? j.rank_pct : j.match_pct); }, align: "right" },
     { id: "company", label: "Role / Company", value: function (j) { return clean(j.company) || "(none)"; } },
     { id: "ats",     label: "Apply via",      value: function (j) { return atsOf(j).label; } },
     { id: "loc",     label: "Location",       value: function (j) { return shortLoc(j.work_type) || "(none)"; } },
@@ -883,6 +1030,12 @@
         + ' aria-label="Filter by ' + esc(c.id === "match" ? "match percentage" : c.label) + '">'
         + '<span class="lbl">' + esc(c.label) + (on ? " (" + n + ")" : "") + "</span>"
         + '<span class="fun" aria-hidden="true">' + (on ? "&#9660;&#9679;" : "&#9660;") + "</span>"
+        + (RESIZABLE[c.id]
+            ? '<span class="colgrip" data-grip="' + c.id + '" role="separator"'
+              + ' aria-orientation="vertical" tabindex="0"'
+              + ' title="Drag to resize, double-click to reset"'
+              + ' aria-label="Resize the ' + esc(c.label) + ' column"></span>'
+            : "")
         + "</button>";
     }).join("");
     return '<div class="colhead">' + cells + "<span></span></div>";
@@ -898,8 +1051,13 @@
          not a job he can take -- so it is off the list, not shown with a badge.
          Place kept reappearing with "The job you are looking for is no longer
          open" because only the location rule was hidden here. */
+      /* duplicate-posting belongs here too. It was the ONLY ruled-out reason
+         left visible, so a posting Brian had already applied to under another
+         URL stayed on his list and stayed applyable -- which is exactly how the
+         Reddit Ads Safety row kept coming back after he dealt with it. */
       if (!isApplied(j) && (j.blocked_reason === "location-ineligible"
         || j.blocked_reason === "posting-closed"
+        || j.blocked_reason === "duplicate-posting"
         || j.blocked_reason === "off-criteria")) return false;
       /* An applied job is off the working list. Marking one used to leave it in
          place with an "Applied" badge, so the row Brian had just dealt with was
@@ -1094,12 +1252,34 @@
   document.getElementById("token").addEventListener("click", askToken);
 
   /* ---------- apply ---------- */
-  function markApplied(job) {
-    localApplied[keyOf(job)] = new Date().toISOString();
+  function saveLocalApplied() {
     try { localStorage.setItem("apply-applied", JSON.stringify(localApplied)); } catch (e) {}
-    render();
+  }
 
-    pushMark(job, true);
+  /* Record an application, and TELL THE TRUTH about whether it landed.
+     ------------------------------------------------------------------------
+     isApplied() counts a local mark, so the row vanishes the instant this is
+     called. When the write to D1 then failed, the result was the worst of both
+     worlds: the job was off Brian's list (so he believed it was done) while D1
+     still had it queued (so the runner applied to it a second time). Measured
+     2026-08-26: he clicked "Sent? Yes" on Mercury - Senior Product Manager,
+     Dashboard Experience and D1 still read status=queued, submitted_at=null,
+     updated_at three days earlier.
+     A mark that did not reach the database now PUTS THE ROW BACK, because a
+     row he can still see is recoverable and one he cannot is not. */
+  function markApplied(job) {
+    var k = keyOf(job);
+    localApplied[k] = new Date().toISOString();
+    saveLocalApplied();
+    render();
+    return pushMark(job, true).then(function (ok) {
+      /* The mark is KEPT either way -- deleting it on failure also emptied
+         unsynced(), which silently disabled both the "did not reach the
+         database" banner and the reconcile() repair pass. isApplied() is what
+         decides whether the row hides, and it now requires pushed[]. */
+      render();
+      return ok;
+    });
   }
 
   /* Send one "I applied to this" to D1, and make absolutely sure the caller
@@ -1114,13 +1294,16 @@
      confirmation.
      @param {object} job
      @param {boolean} interactive whether to ask for the token if it is missing
+     @param {boolean} [retried] set on the one automatic retry, so it cannot loop
      @returns {Promise<boolean>} whether D1 accepted it */
-  function pushMark(job, interactive) {
-    /* NEVER prompt from a click. Brian marked Cribl applied and got a token
-       dialog in his face for his trouble -- clicking "I applied to this" should
-       make the row disappear, full stop. With no token the mark is kept locally
-       and the banner says so; the banner's own button is the only place that
-       ever asks, because the person clicked it. */
+  function pushMark(job, interactive, retried) {
+    /* NEVER prompt from a click. A token dialog in Brian's face when he marks a
+       job is a regression, and it was reintroduced once already on 2026-08-26
+       and rejected on sight. The silent-loss problem it was meant to solve is
+       fixed elsewhere and better: isApplied() now requires pushed[], so a mark
+       that did not reach D1 leaves the row ON the list with the banner up,
+       instead of hiding it. The banner's own button is the only place that ever
+       asks, because the person clicked it. */
     var tok = writeToken();
     if (!tok) { markStale(); return Promise.resolve(false); }
     return fetch("/api/apply", {
@@ -1137,7 +1320,15 @@
       markStale();
       return true;
     }).catch(function (e) {
-      toast("NOT recorded — " + e.message + ". The runner may apply to this again.");
+      /* One retry: a dropped request is not a rejected one, and losing a mark
+         to a flaky network is the same silent loss this whole function exists
+         to stop. A 401/503 is a real answer and is not retried. */
+      var retryable = !/token was rejected|writes are disabled/.test(e.message);
+      if (retryable && !retried) {
+        return new Promise(function (r) { setTimeout(r, 700); })
+          .then(function () { return pushMark(job, false, true); });
+      }
+      toast("NOT recorded — " + e.message + ". The row is back on your list so it is not lost.");
       markStale();
       return false;
     });
@@ -1330,6 +1521,10 @@
       markStale();
     }).catch(function () { /* keep showing the last good data */ });
   });
+
+  /* Restore the column widths BEFORE the first paint, so a resized location
+     column does not flash back to its default on every reload. */
+  loadWidths();
 
   loadJobs().then(function (d) {
     all = Array.isArray(d.jobs) ? d.jobs : [];

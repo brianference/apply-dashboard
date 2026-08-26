@@ -12,3 +12,11 @@ apply-profile.local.json
 .apply-session/
 evidence/apply/
 .apply-session*
+
+# D1 backups and ranking output. The repo is PUBLIC and these carry Brian's
+# actual job search -- which postings he has applied to, when, and how each
+# one scored. The job postings themselves are public; the pattern of his
+# applications is not.
+backups/
+ingest/out/
+.hold-session/

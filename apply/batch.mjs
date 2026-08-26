@@ -88,7 +88,35 @@ const DIRECT = /ashbyhq\.com|greenhouse\.io|lever\.co|workable\.com|smartrecruit
    Every one of these rows carries a blocked_reason so the dashboard shows a
    Manual badge with the reason and a link, and the Sent? prompt records it
    when he finishes one by hand. */
-const PAUSED_HOSTS = /greenhouse\.io|gh_jid|lever\.co|stripe\.com|samsara\.com|coinbase\.com|pinterestcareers\.com|instacart\.careers|fivetran\.com|cribl\.io|upstart\.com|elastic\.co/i;
+/* Split by WHAT the human has to do, because the two walls need different
+   sessions. A code-gated board needs Brian to read an email and paste eight
+   characters; a captcha-gated one needs him to click an image challenge in a
+   browser that is already open. Pausing them as one blob meant the supervised
+   code-relay session the comment above asks for could never reach a single
+   Greenhouse posting -- the first attempt at one reported "queue exhausted"
+   with 64 relayable postings sitting in D1. */
+const CODE_GATED = /greenhouse\.io|gh_jid|stripe\.com|samsara\.com|coinbase\.com|pinterestcareers\.com|instacart\.careers|fivetran\.com|cribl\.io|upstart\.com|elastic\.co/i;
+const CAPTCHA_GATED = /lever\.co/i;
+
+/**
+ * Is this posting on a board that is paused for THIS run?
+ * A wall only counts as a pause when nobody is standing by to clear it.
+ * @param {string} url
+ * @returns {boolean}
+ */
+function pausedHost(url) {
+  const u = String(url || '');
+  if (CODE_GATED.test(u)) return !A['wait-for-code'];
+  /* Lever stays paused unconditionally. There is no --wait-for-captcha to
+     match --wait-for-code: on a visible captcha the runner records `captcha`
+     and finish() closes the browser in batch mode unless --keep-open, so
+     "browser left open -- your turn" is not true of a batch run. A flag that
+     unpauses a lane nothing can finish is worse than no flag, because the
+     postings get attempted, retired, and look handled. Build the hold-open
+     relay first, then lift this the way CODE_GATED was lifted. */
+  if (CAPTCHA_GATED.test(u)) return true;
+  return false;
+}
 
 /** States worth one automatic retry — a real crash, not a real blocker. */
 /* upload-failed is TRANSIENT, not a property of the posting. Ashby drops the
@@ -201,11 +229,31 @@ function runOne(url, submit) {
   return new Promise((resolve) => {
     const argv = [path.join(ROOT, 'apply', 'runner.mjs'), '--url', url, '--answers', ANSWERS, '--batch'];
     if (submit) argv.push('--submit');
+    /* Boards that gate on an emailed one-time code need two things the default
+       run cannot give them: a browser profile that OUTLIVES the posting, so a
+       board that trusts a verified browser is not handed a virgin one every
+       time, and a way for Brian to hand the code back mid-run. Forward both.
+       Without --session every Greenhouse posting starts from a fresh throwaway
+       profile, which throws away whatever the previous code bought. */
+    if (A.session) argv.push('--session');
+    if (A['wait-for-code']) {
+      argv.push('--wait-for-code');
+      if (A['code-file']) argv.push('--code-file', String(A['code-file']));
+      if (A['code-timeout']) argv.push('--code-timeout', String(A['code-timeout']));
+    }
     const child = spawn(process.execPath, argv, { cwd: ROOT });
     let out = '';
     let settled = false;
-    child.stdout.on('data', d => { out += d; });
-    child.stderr.on('data', d => { out += d; });
+    /* A supervised run has to be WATCHABLE. The child's stdout is captured here
+       and only written to runlog-*.txt after the child exits, so the one line
+       that matters -- "WAITING for the code" -- did not exist anywhere until
+       the wait was already over. The first Arize relay held a filled form open
+       for the full fifteen minutes and timed out because the prompt was
+       structurally invisible while it mattered. Echo the child through when a
+       human is standing by. */
+    const echo = !!A['wait-for-code'];
+    child.stdout.on('data', d => { out += d; if (echo) process.stdout.write(d); });
+    child.stderr.on('data', d => { out += d; if (echo) process.stdout.write(d); });
 
     /* SIGKILL on the runner.mjs Node process does not reliably reach the
        Chrome subprocess tree it spawned on Windows — 24+ orphaned chrome.exe
@@ -230,7 +278,12 @@ function runOne(url, submit) {
       ps.on('error', () => settle('crashed'));
       void tag;
       setTimeout(() => settle('crashed'), 15000); // settle even if the sweep itself hangs
-    }, /myworkdayjobs\.com/i.test(url || '') ? 900000 : 300000);
+    /* A code relay run spends most of its life deliberately idle, waiting for
+       Brian to read an email. Killing it on the ordinary budget would throw
+       away a filled form and a code that is already in flight, so the child
+       gets the code timeout plus five minutes to fill and submit around it. */
+    }, A['wait-for-code'] ? Number(A['code-timeout'] || 900000) + 300000
+      : (/myworkdayjobs\.com/i.test(url || '') ? 900000 : 300000));
     /* 150s killed slow-but-healthy postings under parallel load; Linear
        completed fine in ~200s standalone, was killed at 150s in-batch,
        recorded as "crashed", and then retried forever.
@@ -316,7 +369,7 @@ async function fetchQueue() {
   const queue = jobs.filter(j =>
     j.status === 'queued' &&
     DIRECT.test(j.url || '') &&
-    !PAUSED_HOSTS.test(j.url || '') &&
+    !pausedHost(j.url) &&
     !alreadyAppliedUrls.has(j.url) &&
     (j.link_status === null || j.link_status === undefined || j.link_status === 'live')
   );
@@ -439,7 +492,7 @@ while (processed < SAFETY_CAP) {
        no idea they existed: it filtered on host and ledger only. A row marked
        location-ineligible on the dashboard was still a candidate here, which
        is how a New York / San Francisco hybrid posting got an application. */
-    const RULED_OUT = new Set(['location-ineligible', 'posting-closed', 'off-criteria']);
+    const RULED_OUT = new Set(['location-ineligible', 'posting-closed', 'off-criteria', 'duplicate-posting']);
     if (RULED_OUT.has(String(j.blocked_reason || ''))) return false;
     const attempted = ledger[j.dedupe_key];
     /* A crashing posting used to be retried forever: 'crashed' is retryable, so
@@ -451,8 +504,14 @@ while (processed < SAFETY_CAP) {
          a stale verdict. Re-open it once per driver change; the new entry it
          writes carries the new hash, so it cannot loop. Never re-open a real
          submission or a decision made about the POSTING rather than the code. */
-      const staleBlock = /^wd-/.test(String(attempted.state || ''))
-        && attempted.driver !== DRIVER_HASH;
+      /* A code wall is terminal only for a run with nobody watching. Under
+         --wait-for-code a human is relaying the code, so the very postings the
+         unattended run retired are the ones this run exists to finish. Without
+         this the relay lane reports "queue exhausted" and applies to nothing. */
+      const relayable = !!A['wait-for-code']
+        && ['needs-email-code', 'code-unconfirmed'].includes(String(attempted.state || ''));
+      const staleBlock = relayable
+        || (/^wd-/.test(String(attempted.state || '')) && attempted.driver !== DRIVER_HASH);
       if (!staleBlock) {
         if (!RETRYABLE.has(attempted.state)) return false;
         if ((attempted.crashCount || 0) >= 2) return false;
