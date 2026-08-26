@@ -169,9 +169,14 @@
   }
   .colgrip::after {
     content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px;
-    background: var(--border); opacity: 0; transition: opacity .12s;
+    background: var(--border); opacity: .55; transition: opacity .12s, background .12s;
   }
-  .colgrip:hover::after, .colgrip:focus-visible::after, body.resizing .colgrip::after { opacity: 1; }
+  /* Visible at rest. A handle that only appears once the pointer is already on
+     it cannot be discovered -- Brian reported column resizing missing while it
+     was shipped and working. */
+  .colgrip:hover::after, .colgrip:focus-visible::after, body.resizing .colgrip::after {
+    opacity: 1; background: var(--primary);
+  }
   .colgrip:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
   body.resizing { cursor: col-resize; user-select: none; }
 
@@ -197,6 +202,7 @@
   .colbtn .fun { margin-left: auto; opacity: .5; flex: 0 0 auto; }
   .colbtn[data-on="true"] { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
   .colbtn[data-on="true"] .fun { opacity: 1; }
+  .sarrow { margin-left: 4px; font-size: 9px; color: var(--primary); }
   .colbtn.right { justify-content: flex-end; }
   .colbtn.right .fun { margin-left: 4px; }
 
@@ -439,6 +445,7 @@
     <div class="toolbar">
       <input class="search" id="q" type="search" placeholder="Search title, company, source" autocomplete="off" aria-label="Search jobs"/>
       <select class="sortsel" id="sort" aria-label="Sort order">
+        <option value="__col" hidden>Sorted by column</option>
         <option value="match" selected>Best match</option>
         <option value="applyable">Easiest to apply</option>
         <option value="company">Company</option>
@@ -619,6 +626,11 @@
    which optimises the wrong thing -- a form he can submit to a job he will not
    get is not a better use of his morning. */
   var all = [], kind = "all", sortBy = "match";
+  /* Sorting by clicking a column header, which is where Brian looked for it.
+     The dropdown had "Pay: high to low" in it, but a table you cannot click to
+     order is not a sortable table -- he reported it missing twice while it was
+     shipped and working, which means it was in the wrong place. */
+  var sortCol = null, sortDir = "desc";
   var localApplied = {};
   try { localApplied = JSON.parse(localStorage.getItem("apply-applied") || "{}") || {}; } catch (e) {}
   /* Which local marks are known to have reached D1. Without this, reconcile
@@ -888,8 +900,34 @@
     return v > 0 ? v : null;
   }
 
+  /* The value a column sorts on. Strings compare with localeCompare, numbers
+     numerically, and an unknown number always sinks -- unknown pay is not low
+     pay, in either direction. */
+  function colValue(j, id) {
+    if (id === "match") return Number(j.rank_pct != null ? j.rank_pct : j.match_pct);
+    if (id === "pay") return payValue(j);
+    if (id === "company") return clean(j.company).toLowerCase();
+    if (id === "ats") return atsOf(j).label.toLowerCase();
+    if (id === "loc") return shortLoc(j.work_type).toLowerCase();
+    return "";
+  }
+
   function sortJobs(list) {
     var c = list.slice();
+    if (sortCol) {
+      var dir = sortDir === "asc" ? 1 : -1;
+      c.sort(function (x, y) {
+        var a = colValue(x, sortCol), b = colValue(y, sortCol);
+        var aMissing = (a === null || a === undefined || a === "" || (typeof a === "number" && !isFinite(a)));
+        var bMissing = (b === null || b === undefined || b === "" || (typeof b === "number" && !isFinite(b)));
+        if (aMissing && bMissing) return 0;
+        if (aMissing) return 1;          /* unknown sinks in BOTH directions */
+        if (bMissing) return -1;
+        if (typeof a === "number" && typeof b === "number") return (a - b) * dir;
+        return String(a).localeCompare(String(b)) * dir;
+      });
+      return c;
+    }
     if (sortBy === "match") {
       var sc = function (j) { return Number(j.rank_pct != null ? j.rank_pct : j.match_pct) || 0; };
       c.sort(function (x, y) { return sc(y) - sc(x); });
@@ -1031,9 +1069,12 @@
       return '<button type="button" class="colbtn' + (c.align === "right" ? " right" : "")
         + '" data-col="' + c.id + '" data-sec="' + esc(secId) + '" data-on="' + on + '"'
         + ' aria-haspopup="true" aria-expanded="false"'
-        + ' title="Filter by ' + esc(c.id === "match" ? "match percentage" : c.label) + '"'
+        + ' title="Click to sort by ' + esc(c.id === "match" ? "score" : c.label)
+          + '. Click the small arrow to filter instead."'
         + ' aria-label="Filter by ' + esc(c.id === "match" ? "match percentage" : c.label) + '">'
-        + '<span class="lbl">' + esc(c.label) + (on ? " (" + n + ")" : "") + "</span>"
+        + '<span class="lbl">' + esc(c.label) + (on ? " (" + n + ")" : "")
+          + (sortCol === c.id ? '<span class="sarrow">' + (sortDir === "asc" ? "&#9650;" : "&#9660;") + "</span>" : "")
+          + "</span>"
         + '<span class="fun" aria-hidden="true">' + (on ? "&#9660;&#9679;" : "&#9660;") + "</span>"
         + (RESIZABLE[c.id]
             ? '<span class="colgrip" data-grip="' + c.id + '" role="separator"'
@@ -1220,7 +1261,25 @@
   /** Re-attach the header handlers after each innerHTML rebuild. */
   function wireColumnFilters() {
     document.querySelectorAll(".colbtn").forEach(function (b) {
-      b.addEventListener("click", function (ev) { ev.stopPropagation(); openFilterMenu(b); });
+      b.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        /* The resize grip lives inside this button; dragging it must not also
+           re-sort the table under the pointer. */
+        if (ev.target.closest && ev.target.closest(".colgrip")) return;
+        /* The caret opens the filter. Anywhere else sorts. */
+        if (ev.target.closest && ev.target.closest(".fun")) { openFilterMenu(b); return; }
+        var id = b.getAttribute("data-col");
+        if (sortCol === id) sortDir = (sortDir === "asc" ? "desc" : "asc");
+        else {
+          sortCol = id;
+          /* Sensible first click per type: best score and best pay first,
+             but names A to Z. */
+          sortDir = (id === "match" || id === "pay") ? "desc" : "asc";
+        }
+        var sel = document.getElementById("sort");
+        if (sel) sel.value = "__col";
+        render();
+      });
     });
   }
 
@@ -1310,7 +1369,11 @@
        instead of hiding it. The banner's own button is the only place that ever
        asks, because the person clicked it. */
     var tok = writeToken();
-    if (!tok) { markStale(); return Promise.resolve(false); }
+    if (!tok) {
+      toast("Not saved — this browser has no write token. Use the banner at the top to set it.");
+      markStale();
+      return Promise.resolve(false);
+    }
     return fetch("/api/apply", {
       method: "POST",
       headers: { "content-type": "application/json", "x-apply-token": tok },
@@ -1355,6 +1418,20 @@
     var n = unsynced().length;
     var el = document.getElementById("stale");
     if (!el) return;
+    /* No token at all is the FIRST thing to say, before any count. Without one
+       every mark is refused, the row correctly stays on the list, and from the
+       outside that is indistinguishable from a dead button -- which is exactly
+       how it was reported: "the check mark is completely broken and does
+       nothing". The button worked; the save was refused and nothing said so. */
+    if (!writeToken()) {
+      el.hidden = false;
+      el.innerHTML = "<strong>Marks are not being saved.</strong> "
+        + "This browser has no write token, so ticking a job cannot record it in the "
+        + "database and the row stays on your list on purpose. "
+        + '<button type="button" id="fixstale">Set the write token</button>'
+        + (n ? " <span>" + n + " mark" + (n === 1 ? "" : "s") + " waiting.</span>" : "");
+      return;
+    }
     if (!n) { el.hidden = true; el.textContent = ""; return; }
     el.hidden = false;
     el.innerHTML = "<strong>" + n + " job" + (n === 1 ? "" : "s") + " you marked applied "
@@ -1389,7 +1466,16 @@
   }
 
   document.addEventListener("click", function (ev) {
-    if (ev.target.id === "fixstale") { reconcile(true); return; }
+    if (ev.target.id === "fixstale") {
+      /* Asking here is fine and always was: the person clicked this button.
+         The ban is on prompting from a row click, which is a different thing. */
+      if (!writeToken()) {
+        askToken();
+        if (!writeToken()) { markStale(); return; }
+      }
+      reconcile(true);
+      return;
+    }
     var sec = ev.target.closest(".sechead");
     if (sec) {
       var id = sec.getAttribute("data-sec");
@@ -1478,7 +1564,13 @@
   }
 
   document.getElementById("q").addEventListener("input", render);
-  document.getElementById("sort").addEventListener("change", function () { sortBy = this.value; render(); });
+  document.getElementById("sort").addEventListener("change", function () {
+    sortBy = this.value;
+    /* Choosing a preset drops the column sort, so the two cannot disagree
+       about what the table is ordered by. */
+    if (this.value !== "__col") sortCol = null;
+    render();
+  });
   document.querySelectorAll(".chip").forEach(function (b) {
     b.addEventListener("click", function () {
       kind = b.getAttribute("data-kind") || "all";
@@ -1537,6 +1629,9 @@
     /* Repair anything marked applied in this browser that never reached D1.
        Silent when there is nothing to do, and never prompts on load. */
     setTimeout(function () { reconcile(false); }, 300);
+    /* Surface a missing token immediately, rather than waiting for him to lose
+       a mark to discover it. */
+    markStale();
     markTokenState();
     render();
   }).catch(function (e) {
