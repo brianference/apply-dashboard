@@ -27,3 +27,13 @@
 # The marks are content-addressed by name and never change, so they may cache.
 /*.png
   Cache-Control: public, max-age=86400
+
+# Security headers. Every row on this page is third-party text from someone
+# else's job board, and the page is a public URL. The dashboard escapes on
+# render; these are the second line, for when it does not.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'unsafe-inline' 'self'; style-src 'unsafe-inline' 'self'; img-src 'self' data:; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()

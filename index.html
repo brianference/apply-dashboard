@@ -1100,6 +1100,10 @@
          not a job he can take -- so it is off the list, not shown with a badge.
          Place kept reappearing with "The job you are looking for is no longer
          open" because only the location rule was hidden here. */
+      /* pending-review means a writer other than the daily pipeline inserted
+         it. A database trigger quarantines those, and they stay off this list
+         until Brian's own rules have passed them. */
+      if (j.status === "pending-review") return false;
       /* duplicate-posting belongs here too. It was the ONLY ruled-out reason
          left visible, so a posting Brian had already applied to under another
          URL stayed on his list and stayed applyable -- which is exactly how the
