@@ -433,6 +433,14 @@ while (processed < SAFETY_CAP) {
     if (A.shard && shardOf(String(j.company || '').toLowerCase()) !== SHARD_INDEX) return false;
     const c = String(j.company || '').toLowerCase();
     if ((companyAttempts[c] || 0) >= PER_COMPANY) return false;
+    /* NEVER apply to a posting that has been ruled out. These reasons are
+       decisions about the JOB -- it fails Brian's location or role rule, the
+       employer has taken it down, or it is off-criteria -- and the runner had
+       no idea they existed: it filtered on host and ledger only. A row marked
+       location-ineligible on the dashboard was still a candidate here, which
+       is how a New York / San Francisco hybrid posting got an application. */
+    const RULED_OUT = new Set(['location-ineligible', 'posting-closed', 'off-criteria']);
+    if (RULED_OUT.has(String(j.blocked_reason || ''))) return false;
     const attempted = ledger[j.dedupe_key];
     /* A crashing posting used to be retried forever: 'crashed' is retryable, so
        the same row was picked again on every loop. One posting (Linear) burned

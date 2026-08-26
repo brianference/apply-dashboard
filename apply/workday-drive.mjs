@@ -540,7 +540,7 @@ const WD_QUESTIONS = [
      tooling of that job. */
   [/user stories in jira|jira and confluence|experience (with|using) (jira|confluence|azure devops)|agile ceremonies/i, /^yes/i],
   /* State residency questions, asked for pay-transparency reasons. Arizona. */
-  [/resident of (california|colorado|new york|washington|illinois|alaska or hawaii)|do you (currently )?reside in/i, /^no$/i],
+  [/resident of (california|colorado|new york|washington|illinois|alaska or hawaii)|are you a (california|colorado|new york|washington|illinois|alaska|hawaii) resident|do you (currently )?reside in/i, /^no$/i],
   /* The rest of HPE's conflict block, read off the rendered page. Every one of
      these is No: SRP ended in 2019 and Arizona Game and Fish in 2010, both
      outside a five-year window as of 2026, and neither was one of the listed
@@ -581,6 +581,22 @@ const WD_QUESTIONS = [
   [/are you subject to any restriction|subject to any (non-?compete|agreement|covenant)|any restrictions? (that|which) (would|may) (affect|limit|prevent)/i, /^no$/i],
   /* KeyBank asks about candidacy for public office. He is not running. */
   [/currently running for (public )?office|candidate for (public )?office|hold (any )?public office/i, /^no$/i],
+  /* KeyBank's public-office and discharge questions, verbatim from the form.
+     He has never run for or held public office, and has never been discharged,
+     asked to resign, or resigned to avoid termination. */
+  [/running for or planning to run for public office|hold, or have you held.{0,40}public office/i, /^no$/i],
+  [/discharged, asked to resign, or resigned to avoid termination|asked to resign|resigned to avoid/i, /^no$/i],
+  /* KeyBank's regulatory-history question, verbatim. None of the three limbs
+     applies to him: no investigation, no resignation under investigation, no
+     disciplinary history in financial services. */
+  [/are under investigation by your current employer|resigned your employment while under such investigation|alleged violation of .{0,40}(company policies|any laws)/i, /^no$/i],
+  /* And the closing acknowledgement, which the application is refused without. */
+  [/application acknowledgement|your application will not be accepted if you do not agree/i, /^(yes|i (agree|acknowledge|accept))/i],
+  /* KeyBank's consent questions. Declining the AI-evaluation consent risks the
+     application not being processed at all, and being considered for other
+     roles is what he wants -- both are Yes. */
+  [/may use artificial intelligence \(ai\) tools|ai tools provided by a trusted third-party vendor|assist in evaluating candidate qualifications/i, /^(yes|opt[- ]?in|i (consent|agree|acknowledge))/i],
+  [/if you are not selected for this position|consider your application for (additional|other)/i, /^(yes|opt[- ]?in|i (agree|consent))/i],
   [/legal age to work|of legal age/i, /^yes$/i],
   [/willing to submit (to )?a? ?background (check|screening)|consent to a background/i, /^yes$/i],
   /* Every posting in this queue is US-remote and he will not relocate, so "can
