@@ -1,0 +1,27 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>apply-dashboard screenshots</title>
+<style>
+ :root{--bg:#0d1117;--card:#161b22;--line:#30363d;--text:#e6edf3;--muted:#8b949e}
+ *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;padding:32px}
+ h1{margin:0 0 4px;font-size:24px} p.sub{margin:0 0 28px;color:var(--muted)}
+ .grid{display:grid;gap:26px;grid-template-columns:repeat(auto-fit,minmax(520px,1fr))}
+ figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+ figcaption{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600}
+ figcaption span{display:block;font-weight:400;color:var(--muted);font-size:13px;margin-top:2px}
+ img{width:100%;display:block;background:#000}
+ .warn{margin:28px 0 0;padding:14px 16px;border:1px solid #7d4e24;background:#241a10;border-radius:10px;color:#e8a070}
+</style></head><body>
+<h1>apply-dashboard — screenshots</h1>
+<p class="sub">Captured from the live site at 2x. Click any image to open it full size.</p>
+<div class="grid">
+<figure><figcaption>1. Ranked queue, dark<span>Score, role, board, location and published pay. Italic scores are keyword-only — the description could not be read.</span></figcaption><a href="01-ranked-list-dark.png"><img src="01-ranked-list-dark.png" alt="Ranked queue, dark"></a></figure>
+<figure><figcaption>2. Ranked queue, light<span>Same view, light theme.</span></figcaption><a href="02-ranked-list-light.png"><img src="02-ranked-list-light.png" alt="Ranked queue, light"></a></figure>
+<figure><figcaption>3. Sort by pay<span>Click any column header to sort; click again to reverse. Unknown pay sinks in both directions.</span></figcaption><a href="03-sort-by-pay.png"><img src="03-sort-by-pay.png" alt="Sort by pay"></a></figure>
+<figure><figcaption>4. Per-column filter<span>The caret opens an Excel-style value filter for that column.</span></figcaption><a href="04-column-filter.png"><img src="04-column-filter.png" alt="Per-column filter"></a></figure>
+<figure><figcaption>5. Needs a human<span>Everything auto-apply could not finish, each with the reason: an emailed code, a captcha, a closed posting.</span></figcaption><a href="05-needs-a-human.png"><img src="05-needs-a-human.png" alt="Needs a human"></a></figure>
+<figure><figcaption>6. Mobile<span>390px. No horizontal scroll.</span></figcaption><a href="07-mobile.png"><img src="07-mobile.png" alt="Mobile"></a></figure>
+</div>
+<p class="warn"><strong>Not included on purpose:</strong> the Applied tab. It names every employer applied to and when, which is private. It stays out of the repo, the release and any post.</p>
+</body></html>

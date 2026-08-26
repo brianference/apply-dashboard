@@ -677,7 +677,7 @@
       clean(j.title) + " — " + clean(j.company),
       j.url || "",
       j.work_type ? "Location: " + clean(j.work_type) : "",
-      "Brian Ference · brianference@protonmail.com",
+      identityLine(),
       "Source: " + clean(j.source || "") + (j.match_pct != null ? " · match " + j.match_pct + "%" : "")
     ].filter(Boolean).join("\n");
   }
@@ -1321,6 +1321,15 @@
     b.title = on ? "Write token set — Apply records to D1" : "No write token — Apply records locally only";
   }
   document.getElementById("token").addEventListener("click", askToken);
+
+  /* The owner's name and email, kept OUT of this file. It is served from a
+     public URL, so shipping a real contact detail in the page source publishes
+     it to anyone who views source or scrapes the site. Set it once per browser
+     with localStorage.setItem("apply-identity", "Name . email"). Absent, the
+     packet simply omits the line. */
+  function identityLine() {
+    try { return localStorage.getItem("apply-identity") || ""; } catch (e) { return ""; }
+  }
 
   /* ---------- apply ---------- */
   function saveLocalApplied() {

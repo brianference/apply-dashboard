@@ -51,6 +51,16 @@ jobs:
           fi
           echo "token present (${#CF_D1_TOKEN} chars)"
 
+      - name: Repair and attack the database guards
+        # A guard that existed once is not a guard: protect_submitted_status
+        # vanished between two test runs and an un-submit went through the gap.
+        # This re-asserts all of them, restores anything the gap swallowed from
+        # the insert-only ledger, and then attacks every un-apply path. It fails
+        # the run if any attack succeeds.
+        env:
+          CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+        run: node ingest/ensure-guards.mjs
+
       - name: Find, filter, rank and write
         env:
           CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}

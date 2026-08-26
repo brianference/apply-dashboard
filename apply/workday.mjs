@@ -402,7 +402,7 @@ export async function wdErrors(page) {
        automation id, so an earlier version reported zero errors on a page that
        was visibly refusing to advance. Match the rendered error text too. */
     /* role=alert is also how Workday announces SUCCESS. The resume upload toast
-       reads "BrianFerence_Resume_August.pdf successfully uploaded", and taking
+       reads "<resume file> successfully uploaded", and taking
        it as an error stopped NVIDIA as wd-validation-blocked on a page that had
        filled correctly and had nothing wrong with it. A success notice is not a
        validation failure. */
@@ -788,7 +788,7 @@ export async function wdSelectByKeyboard(page, field, want, max = 14, log) {
      pressing Enter without arrowing lands on it -- and confirm by readback. */
   /* Home jumps to the first entry, which is "Select One". Pressing Enter
      without moving keeps whatever the walk last landed on -- that is how the
-     State field was left reading Vermont, and then "85331 is not a valid postal
+     State field was left reading Vermont, and then "<zip> is not a valid postal
      code for Vermont". */
   await page.keyboard.press('Escape').catch(() => {});
   await page.waitForTimeout(250);
