@@ -31,6 +31,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isCli, parseArgs } from './cli.mjs';
 import { locationEligible, roleEligible } from './location-eligible.mjs';
+import { corpus, resumeText, resumeMatch, calibrate } from './resume-match.mjs';
+
+/* Built once, lazily: the corpus is a pass over every cached description and
+   the resume is one file read. */
+let CORPUS = null, RESUME = null;
+function corpusOnce() { if (!CORPUS) CORPUS = corpus(); return CORPUS; }
+function resumeOnce() { if (RESUME === null) RESUME = resumeText() || false; return RESUME || null; }
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
   .replace(/^\/([A-Za-z]:)/, '$1'), '..');
@@ -401,8 +408,30 @@ export async function fetchJd(url) {
  */
 export function scoreOne(job, jd) {
   const gate = requirementsGate(job, jd);
-  const fit = fitScore(jd);
+  const concept = fitScore(jd);
   const success = successScore(job, jd);
+  /* The real resume, against this posting's distinctive requirements. The
+     CONCEPTS table above is my written summary of Brian; this is his actual
+     document. Both are kept: the concepts encode judgement about what a domain
+     means, the resume match is evidence that cannot be argued with. */
+  const rawResume = resumeMatch(jd, resumeOnce(), corpusOnce());
+  /* Raw overlap runs 0-30 on real postings, so it is reported as a PERCENTILE
+     against every cached description. Averaging the raw number with a 45-94
+     concept score made a strong posting read as a weak one -- Jerry.ai fell
+     from 86 to 51 on a resume overlap of 15, which is actually above average. */
+  const resume = rawResume ? { ...rawResume, raw: rawResume.pct, pct: calibrate(rawResume.pct) } : null;
+  const resumeUsable = resume && resume.pct !== null;
+  const fit = concept === null ? null : {
+    ...concept,
+    conceptPct: concept.pct,
+    resumePct: resumeUsable ? resume.pct : null,
+    resumeRaw: resume ? resume.raw : null,
+    matched: resume ? resume.matched : [],
+    missing: resume ? resume.missing : [],
+    /* Half and half when both exist. Weighting either one higher would be a
+       preference I have no evidence for. */
+    pct: resumeUsable ? Math.round(concept.pct * 0.6 + resume.pct * 0.4) : concept.pct
+  };
   /* The headline is deliberately NOT an average. A posting that fails the gate
      has no headline at all, and one whose description was unreadable carries
      its success score alone, clearly marked. */
@@ -435,10 +464,11 @@ if (isCli(import.meta.url)) {
   scored.sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1));
 
   console.log(`scored ${live.length} queued postings; descriptions read for ${read}\n`);
-  console.log('RANK  OLD  FIT  WIN  COMPANY / TITLE');
+  console.log('RANK  OLD  FIT  RES  WIN  COMPANY / TITLE');
   for (const s of scored) {
     const fit = s.fit ? String(s.fit.pct).padStart(3) : ' --';
-    console.log(`${String(s.rank ?? 'GATE').padStart(4)}  ${String(s.job.match_pct ?? '').padStart(3)}  ${fit}  ${String(s.success.pct).padStart(3)}  ${String(s.job.company).slice(0, 20).padEnd(20)} ${String(s.job.title).slice(0, 44)}`);
+    const rp = s.fit && s.fit.resumePct != null ? String(s.fit.resumePct).padStart(3) : ' --';
+    console.log(`${String(s.rank ?? 'GATE').padStart(4)}  ${String(s.job.match_pct ?? '').padStart(3)}  ${fit}  ${rp}  ${String(s.success.pct).padStart(3)}  ${String(s.job.company).slice(0, 20).padEnd(20)} ${String(s.job.title).slice(0, 44)}`);
     if (!s.gate.ok) console.log(`      ruled out: ${s.gate.reasons.join('; ')}`);
     else if (s.success.reasons.length) console.log(`      ${s.success.reasons.join('; ')}`);
   }
@@ -472,11 +502,19 @@ if (isCli(import.meta.url)) {
           ruledOut++;
           continue;
         }
+        const why = [];
+        if (s2.fit && s2.fit.resumePct != null) {
+          why.push(`resume: better than ${s2.fit.resumePct}% of your queue - matches ${s2.fit.matched.slice(0, 6).join(', ')}`);
+          if (s2.fit.missing.length) why.push(`not in your resume: ${s2.fit.missing.slice(0, 6).join(', ')}`);
+        }
+        if (s2.fit) why.push(...s2.fit.hits.slice(0, 3));
+        why.push(...s2.success.reasons);
         await run(`UPDATE jobs SET rank_pct=${s2.rank ?? 'NULL'},
           fit_pct=${s2.fit ? s2.fit.pct : 'NULL'},
+          resume_pct=${s2.fit && s2.fit.resumePct != null ? s2.fit.resumePct : 'NULL'},
           success_pct=${s2.success.pct},
           jd_read=${q(s2.jdRead ? 'yes' : 'no')},
-          rank_why=${q([...(s2.fit ? s2.fit.hits.slice(0, 4) : []), ...s2.success.reasons].join(' | ').slice(0, 600))}
+          rank_why=${q(why.join(' | ').slice(0, 800))}
           WHERE dedupe_key=${k}`);
         scoredRows++;
       }

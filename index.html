@@ -745,6 +745,9 @@
     var hi = shown != null && Number(shown) >= 70;
     var pctWhy = scored
       ? ("fit " + (j.fit_pct == null ? "not measured" : j.fit_pct + "%")
+         + (j.resume_pct != null
+             ? " / your resume matches this better than " + j.resume_pct + "% of your queue"
+             : " / resume match not measurable")
          + " / likelihood " + j.success_pct + "%"
          + (j.jd_read === "yes" ? " - read the job description" : " - description could not be read")
          + (j.rank_why ? " — " + j.rank_why : ""))
@@ -1379,7 +1382,7 @@
       headers: { "content-type": "application/json", "x-apply-token": tok },
       body: JSON.stringify({ dedupe_key: job.dedupe_key, status: "submitted" })
     }).then(function (r) {
-      if (r.status === 401) throw new Error("the write token was rejected");
+      if (r.status === 401) throw new Error("this browser's write token is wrong - it does not match the server's APPLY_TOKEN");
       if (r.status === 503) throw new Error("writes are disabled on this deployment");
       if (!r.ok) throw new Error("HTTP " + r.status);
       /* Remember that THIS one is safely in D1, so reconcile stops retrying it. */
@@ -1622,6 +1625,21 @@
   /* Restore the column widths BEFORE the first paint, so a resized location
      column does not flash back to its default on every reload. */
   loadWidths();
+
+  /* One-click token install: open the dashboard once with #token=... and it is
+     stored and stripped from the address bar immediately, so it never sits in
+     the URL, never reaches the server, and is not left in a shared link. Typing
+     a 40-character secret by hand was the friction, and a hand-typed token is
+     also how an invented one ends up saved and every write 401s. */
+  (function installTokenFromHash() {
+    var m = (location.hash || "").match(/[#&]token=([^&]+)/);
+    if (!m) return;
+    var t = decodeURIComponent(m[1]).trim();
+    try { if (t) localStorage.setItem("apply-token", t); } catch (e) {}
+    /* Strip it before anything can screenshot, bookmark or share the URL. */
+    history.replaceState(null, "", location.pathname + location.search);
+    toast(t ? "Write token installed in this browser." : "No token in that link.");
+  })();
 
   loadJobs().then(function (d) {
     all = Array.isArray(d.jobs) ? d.jobs : [];
