@@ -572,7 +572,7 @@ while (processed < SAFETY_CAP) {
          removed. Brian's rule, 2026-08-25: aggressively prevent duplicates. */
       const norm = (v) => String(v || '').toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
-        .replace(/(remote|eligible|hybrid|onsite|on site|us|usa|united states|full time|contract)/g, ' ')
+        .replace(/\b(remote|eligible|hybrid|onsite|on site|us|usa|united states|full time|contract)\b/g, ' ')
         .replace(/\s+/g, ' ').trim();
       const sameJob = (f) => norm(f.company) === norm(j.company) && norm(f.title) === norm(j.title);
       const clash = fresh.find(f => isDone(f)

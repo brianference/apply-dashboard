@@ -748,7 +748,7 @@ async function answerQuestions(page, profile, answerBank, log) {
     /* An EEO question can turn up on an Application Questions page. Decline it
        here with the same rule the disclosures page uses rather than reporting
        it unanswered. */
-    if (/ethnicity|race|gender|veteran status|are you hispanic|disability status/i.test(grp.text)) {
+    if (/ethnicity|\brace\b|gender|veteran status|are you hispanic|disability status/i.test(grp.text)) {
       const DECLINE = /decline to (self[- ]identify|answer|specify|state)|prefer not to (answer|say|disclose|state)|(do not|don't) (wish|want) to (answer|self[- ]identify|disclose)|i do not wish|choose not to (answer|disclose)|not disclosed?$/i;
       if (await wdAnswerGroup(page, grp, DECLINE, log)) continue;
       if (await wdSelect(page, grp.field, DECLINE, log)) continue;
@@ -1004,7 +1004,7 @@ async function answerFreeText(page, grp, bank, log) {
      (N/A)" and was getting the word "No", which is not one of the answers it
      offered. He needs sponsorship nowhere. */
   if (/indicate all locations or countries|require sponsorship for employment/i.test(grp.text)
-      && /not applicable|n\/a/i.test(grp.text)) {
+      && /not applicable|\bn\/a\b/i.test(grp.text)) {
     const ok = await wdFill(page, grp.field, 'N/A', log);
     if (ok) { log.push('wd: sponsorship locations = N/A'); return true; }
   }
@@ -1053,7 +1053,7 @@ async function fillDisclosures(page, profile, log) {
        is not a valid postal code for Wyoming". A matcher that changes nothing
        when it misses is safe to run everywhere; one that picks an option is
        not. */
-    const isEEO = /ethnicity|race|gender|veteran|disab|hispanic|latino|self[- ]identif/i.test(grp.text);
+    const isEEO = /ethnicity|\brace\b|gender|veteran|disab|hispanic|latino|self[- ]identif/i.test(grp.text);
     if (!declined && grp.kind === 'select' && isEEO) {
       declined = !!(await wdSelectByKeyboard(page, grp.field, DECLINE, 14, log));
     }
@@ -1904,7 +1904,7 @@ export async function runWorkday({ page, url, root, profile, answerBank = {}, su
     /* Also run it when the page merely CONTAINS EEO fields. Four postings
        stopped on "The field Please select your ethnicity. is required" because
        the page was called something else and fillDisclosures never ran on it. */
-    const eeoOnPage = /ethnicity|race|gender|veteran|disability|self[- ]identif/i
+    const eeoOnPage = /ethnicity|race\b|gender|veteran|disability|self[- ]identif/i
       .test(await page.locator('body').innerText().catch(() => ''));
     if (/voluntary disclosure|self identify|self-identif|disability/i.test(name) || eeoOnPage) {
       await fillDisclosures(page, profile, log);

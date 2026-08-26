@@ -15,7 +15,7 @@
  * together constantly and mean opposite things:
  *   "New York, San Francisco or Remote"          -> remote is an OPTION, eligible
  *   "Remote (San Francisco, CA)"                 -> remote FROM the Bay Area, not
- *   "Hybrid / FullTime / San Francisco / Remote" -> remote is an option, eligible
+ *   "Hybrid / FullTime / San Francisco / Remote" -> HYBRID in SF, NOT eligible
  * A bracket straight after the word remote is a RESTRICTION; a city listed
  * beside remote is a choice. Anything unreadable is ineligible rather than
  * assumed fine -- failing closed keeps a wrong posting off the list, and the
@@ -53,6 +53,18 @@ export function locationEligible(workType, title) {
 
   /* Arizona wins outright, remote or not: he can commute to it. */
   if (HOME.test(text)) return { ok: true, why: 'Arizona' };
+
+  /* Hybrid means going into an office. Brian's rule, given 2026-08-26: if a
+     posting requires hybrid, that office has to be in Arizona -- and every
+     Arizona posting has already returned above, so a hybrid role naming
+     anywhere else is out. The word "Remote" appearing alongside does NOT
+     rescue it: Vapi and Harvey both read "Hybrid / FullTime / San Francisco /
+     Remote" and both reached the top of his list, at 86% and 84%. The comment
+     at the top of this file used to cite that exact string as eligible. */
+  if (/\bhybrid\b/i.test(text)) {
+    if (US_ELSEWHERE.test(text)) return { ok: false, why: 'hybrid, and the office is not in Arizona' };
+    if (NOT_US.test(text)) return { ok: false, why: 'hybrid, and outside the US' };
+  }
 
   /* "Remote-Friendly (Travel-Required) | Washington, DC" is a hybrid role at a
      named office, not a remote one. The hyphenated form is marketing. */
@@ -102,7 +114,7 @@ export function locationEligible(workType, title) {
 const NOT_PRODUCT = /engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
 
 /** Titles that ARE product management, whatever else the string contains. */
-const IS_PRODUCT = /product manager|product management|product lead|product owner|head of product|director of product|\bdirector,? product\b|vp of product|\bvp,? product\b|chief product officer|\bcpo\b|group product manager|\bgpm\b|technical product manager|\btpm\b|product sr\.? manager|senior director of product|sr\.? director of product|product, .*(platform|ai)|\bproduct.{0,14}(manager|management|lead|owner|director)\b/i;
+const IS_PRODUCT = /product manager|product management|product lead|product owner|head of product|director of product|\bdirector,? product\b|vp of product|\bvp,? product\b|chief product officer|\bcpo\b|group product manager|\bgpm\b|technical product manager|\btpm\b|product sr\.? manager|senior director of product|sr\.? director of product|product, .*(platform|ai)|\bproduct\b.{0,14}\b(manager|management|lead|owner|director)\b/i;
 
 /**
  * Is this a product-management role?
