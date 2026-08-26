@@ -160,7 +160,7 @@
      together. A fixed location column clipped two-city strings and anything
      carrying a salary, and no amount of shortening the TEXT fixes a column
      that is simply too narrow for what Brian wants to read. */
-  :root { --w-pct: 42px; --w-ats: 96px; --w-loc: 240px; --w-pay: 92px; }
+  :root { --w-pct: 42px; --w-ats: 96px; --w-loc: 320px; --w-pay: 92px; }
 
   .colgrip {
     position: absolute; top: 2px; bottom: 2px; right: -5px; width: 10px;
@@ -439,8 +439,8 @@
     <div class="toolbar">
       <input class="search" id="q" type="search" placeholder="Search title, company, source" autocomplete="off" aria-label="Search jobs"/>
       <select class="sortsel" id="sort" aria-label="Sort order">
+        <option value="match" selected>Best match</option>
         <option value="applyable">Easiest to apply</option>
-        <option value="match">Match %</option>
         <option value="company">Company</option>
         <option value="pay-desc">Pay: high to low</option>
         <option value="pay-asc">Pay: low to high</option>
@@ -613,7 +613,12 @@
   }
 
   /* ---------- state ---------- */
-  var all = [], kind = "all", sortBy = "applyable";
+  /* Default to the SCORE, not to how easy the form is. Brian's ask is explicit:
+   the jobs at the top should be the ones he most wants and is most likely to
+   get. "Easiest to apply" put a 28% above an 81% because its form was simpler,
+   which optimises the wrong thing -- a form he can submit to a job he will not
+   get is not a better use of his morning. */
+  var all = [], kind = "all", sortBy = "match";
   var localApplied = {};
   try { localApplied = JSON.parse(localStorage.getItem("apply-applied") || "{}") || {}; } catch (e) {}
   /* Which local marks are known to have reached D1. Without this, reconcile
@@ -803,7 +808,7 @@
   /* Which columns can be dragged, and the variable each one drives. Company is
      the flexible 1fr column and takes whatever is left, so it has no grip. */
   var RESIZABLE = { match: "--w-pct", ats: "--w-ats", loc: "--w-loc", pay: "--w-pay" };
-  var COLW_DEFAULTS = { match: 42, ats: 96, loc: 240, pay: 92 };
+  var COLW_DEFAULTS = { match: 42, ats: 96, loc: 320, pay: 92 };
   var COLW_MIN = 40, COLW_MAX = 640;
 
   function loadWidths() {
