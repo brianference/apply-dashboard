@@ -246,6 +246,8 @@ export async function wdSelect(page, field, want, log) {
   const label = want instanceof RegExp ? want.source : String(want);
   const test = want instanceof RegExp ? (t) => want.test(t) : (t) => t === String(want);
   let k = labels.findIndex(test);
+  /* Then the words this form actually uses: Opt In for yes, Opt Out for no. */
+  if (k < 0) { const w = withSynonyms(want); if (w !== want) k = labels.findIndex(t => w.test(t)); }
   /* Second attempt at matching: drop the END anchor. Salesforce answers a
      yes/no question with "No, I have not", so an anchored /^no$/ finds nothing
      while the right option is sitting there. Only relax the TAIL -- keeping ^
@@ -701,6 +703,31 @@ export async function readOpenOptions(page, btnHandle) {
  * @param {RegExp} want
  * @returns {RegExp}
  */
+/** Vocabulary a form uses instead of yes and no. */
+const SYNONYMS = [
+  [/\^\(?yes/i, ['opt in', 'opt-in', 'i agree', 'i consent', 'accept', 'agree']],
+  [/\^\(?no/i, ['opt out', 'opt-out', 'decline', 'i do not agree', 'disagree']],
+];
+
+/**
+ * Widen an answer pattern to the words THIS form actually offers.
+ *
+ * KeyBank's consent questions offer "Opt In / Opt Out" rather than Yes / No, so
+ * a rule answering /^yes/ matched nothing and a required field stopped the
+ * application. The rule stays written in yes/no terms; this translates it.
+ *
+ * @param {RegExp} want
+ * @returns {RegExp}
+ */
+export function withSynonyms(want) {
+  if (!(want instanceof RegExp)) return want;
+  for (const [shape, words] of SYNONYMS) {
+    if (!shape.test(want.source)) continue;
+    return new RegExp(want.source + '|^(' + words.join('|') + ')', want.flags);
+  }
+  return want;
+}
+
 export function relaxTail(want) {
   if (!(want instanceof RegExp) || !/\$$/.test(want.source)) return want;
   return new RegExp(want.source.replace(/\$$/, '\\b'), want.flags);
