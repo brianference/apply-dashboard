@@ -1,3 +1,0 @@
-UPDATE jobs SET status='skipped', blocked_reason='duplicate-posting', blocked_detail='Same posting as webflow|staff product manager, ai, reached by a different URL.' WHERE dedupe_key='webflow|staff product manager, ai - webflow';
-UPDATE jobs SET status='skipped', blocked_reason='duplicate-posting', blocked_detail='Same posting as webflow|senior product manager, ai, reached by a different URL.' WHERE dedupe_key='webflow|senior product manager, ai - webflow';
-UPDATE jobs SET status='skipped', blocked_reason='duplicate-posting', blocked_detail='Same posting as one already applied to, reached by a different URL.' WHERE dedupe_key='gitlab|principal product manager, ai software factory - gitlab';
