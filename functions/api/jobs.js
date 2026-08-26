@@ -20,7 +20,7 @@ const COLUMNS = [
 const SELECT = `
   SELECT ${COLUMNS.join(", ")}, link_status, link_checked_at, blocked_reason, blocked_detail,
          salary_min, salary_max, salary_source,
-         rank_pct, fit_pct, success_pct, rank_why, jd_read
+         rank_pct, fit_pct, resume_pct, success_pct, rank_why, jd_read
   FROM jobs
   ORDER BY
     CASE lane WHEN 'submitted' THEN 0 WHEN 'ft' THEN 1 ELSE 2 END,
