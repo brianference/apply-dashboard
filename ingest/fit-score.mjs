@@ -313,6 +313,14 @@ export function boardRef(url) {
   let m = u.match(/job-boards\.greenhouse\.io\/([^/]+)\/jobs\/(\d+)/i)
     || u.match(/boards\.greenhouse\.io\/([^/]+)\/jobs\/(\d+)/i);
   if (m) return { ats: 'greenhouse', token: m[1], id: m[2] };
+  /* A company's own careers page fronting Greenhouse keeps the job id in
+     ?gh_jid= but names no board. Measured 2026-08-26: 252 queued rows were
+     unranked and 60+ of them were these -- Stripe, Brex, Samsara, Pinterest,
+     Databricks, Datadog, Coinbase, Elastic, MongoDB. The board token is not in
+     the URL, so it is resolved from an id -> board index built once from the
+     boards already listed in companies.json. */
+  m = u.match(/[?&]gh_jid=(\d+)/i);
+  if (m) return { ats: 'greenhouse', token: null, id: m[1] };
   m = u.match(/jobs\.ashbyhq\.com\/([^/]+)\/([0-9a-f-]{36})/i);
   if (m) return { ats: 'ashby', token: m[1], id: m[2] };
   m = u.match(/jobs\.lever\.co\/([^/]+)\/([0-9a-f-]{36})/i);
@@ -323,9 +331,42 @@ export function boardRef(url) {
 const strip = h => String(h || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim();
 
 /** @param {string} url @returns {Promise<string|null>} */
+/** id -> board token, built once from every Greenhouse board we already know. */
+let GH_INDEX = null;
+async function greenhouseIndex() {
+  if (GH_INDEX) return GH_INDEX;
+  const idxFile = path.join(CACHE, 'gh-index.json');
+  fs.mkdirSync(CACHE, { recursive: true });
+  if (fs.existsSync(idxFile)) {
+    try { GH_INDEX = JSON.parse(fs.readFileSync(idxFile, 'utf8')); return GH_INDEX; } catch { /* rebuild */ }
+  }
+  const companies = JSON.parse(fs.readFileSync(path.join(ROOT, 'ingest', 'companies.json'), 'utf8'));
+  const idx = {};
+  const tokens = (companies.greenhouse || []).map(c => c.token);
+  /* Four at a time: this is somebody else's public API and a burst of 72 is
+     rude, not clever. */
+  for (let i = 0; i < tokens.length; i += 4) {
+    await Promise.all(tokens.slice(i, i + 4).map(async (t) => {
+      try {
+        const r = await fetch(`https://boards-api.greenhouse.io/v1/boards/${t}/jobs`);
+        if (!r.ok) return;
+        for (const j of (await r.json()).jobs || []) idx[String(j.id)] = t;
+      } catch { /* one unreachable board must not fail the index */ }
+    }));
+  }
+  GH_INDEX = idx;
+  fs.writeFileSync(idxFile, JSON.stringify(idx));
+  return idx;
+}
+
 export async function fetchJd(url) {
   const ref = boardRef(url);
   if (!ref) return null;
+  if (ref.ats === 'greenhouse' && !ref.token) {
+    const idx = await greenhouseIndex();
+    ref.token = idx[ref.id] || null;
+    if (!ref.token) return null;          // unknown board: unread, never guessed
+  }
   fs.mkdirSync(CACHE, { recursive: true });
   const cacheFile = path.join(CACHE, `${ref.ats}-${ref.token}-${ref.id}`.replace(/[^a-z0-9-]/gi, '_') + '.txt');
   if (fs.existsSync(cacheFile)) return fs.readFileSync(cacheFile, 'utf8');
