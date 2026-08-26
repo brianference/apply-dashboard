@@ -1,0 +1,70 @@
+name: Daily job run
+
+# Find, filter, dedupe, rank and write, once a day.
+#
+# THIS REPOSITORY IS PUBLIC, so these run logs are world-readable. The job runs
+# ingest/daily.mjs with --quiet, which prints counts only. Job postings are
+# public information; which ones Brian applied to, and how each scored against
+# his record, are not. Never add an artifact upload here and never echo a row:
+# artifacts on a public repo are downloadable by anyone signed in to GitHub.
+
+on:
+  schedule:
+    # 11:10 UTC, a little after most US boards publish for the day.
+    - cron: '10 11 * * *'
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: 'Report only, write nothing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # Two runs writing the same table would race on the same dedupe keys.
+  group: daily-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check the write token is present
+        # Fail here rather than let the run report a clean pass that wrote
+        # nothing. A silent no-op is the failure mode this whole pipeline
+        # exists to avoid.
+        env:
+          CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+        run: |
+          if [ -z "$CF_D1_TOKEN" ]; then
+            echo "CF_D1_TOKEN is not set on this repository. Nothing would be written."
+            exit 1
+          fi
+          echo "token present (${#CF_D1_TOKEN} chars)"
+
+      - name: Find, filter, rank and write
+        env:
+          CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+        run: node ingest/daily.mjs --quiet --max-rank 200 ${{ (inputs.dry == true) && '--dry' || '--write' }}
+
+      - name: Confirm the database actually moved
+        # A wrangler-style "success" is not proof. Read the API back and print
+        # counts, so a run that silently wrote nothing is visible as such.
+        run: |
+          curl -s https://apply-dashboard.pages.dev/api/jobs \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
+                const j=JSON.parse(s).jobs;
+                const q=j.filter(x=>x.status==='queued');
+                console.log('rows',j.length,'| queued',q.length,
+                  '| ranked',q.filter(x=>x.rank_pct!=null).length,
+                  '| unranked',q.filter(x=>x.rank_pct==null).length);
+              })"
