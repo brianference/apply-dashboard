@@ -209,6 +209,24 @@ async function authenticate(page, cred, applyUrl, log, root, host) {
     await page.waitForTimeout(2500);
   }
   if (await signedIn()) { log.push('wd: already signed in'); return 'signed-in'; }
+  /* No sign-in link anywhere. Adobe gets here every time: a stale cookie carries
+     it into the wizard, the wizard has no sign-in control because it believes
+     you are already in, and the session then drops mid-application and the
+     submit goes nowhere. Every Workday tenant serves a /login route -- go
+     straight to it rather than hunting for a link that is not on this page. */
+  if (!(await onSignIn())) {
+    const m = String(applyUrl).match(/^(https:\/\/[^/]+)\/([a-z-]{2,5})\/([^/]+)/i);
+    const guesses = m
+      ? [`${m[1]}/${m[2]}/${m[3]}/login`, `${m[1]}/${m[3]}/login`, `${m[1]}/login`]
+      : [];
+    for (const url of guesses) {
+      log.push(`wd: no sign-in control on the page, trying ${url.replace(/^https:\/\//, '')}`);
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+      await page.waitForTimeout(4000);
+      if (await signedIn()) { log.push('wd: signed in'); return 'signed-in'; }
+      if (await onSignIn()) break;
+    }
+  }
   if (!(await onSignIn())) { log.push('wd: could not reach the sign-in form'); return 'blocked'; }
   await page.locator(A_('email')).first().fill(cred.email);
   await page.locator(A_('password')).first().fill(cred.password);

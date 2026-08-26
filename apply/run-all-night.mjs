@@ -17,9 +17,15 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
   .replace(/^\/([A-Za-z]:)/, '$1'), '..');
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
 const TIMELINE = path.join(ROOT, 'evidence', 'apply', 'night-timeline.log');
+/* Every board whose form the runner can actually finish unattended, worked from
+   BOTH ends by two shards that cannot collide -- shards are disjoint by company
+   hash, so --reverse only changes the order within a worker's own set, never
+   what it owns. Greenhouse and Lever are deliberately absent: they gate on an
+   emailed code and an image challenge, and no amount of retrying moves them. */
+const ALL_HOSTS = 'myworkdayjobs|ashbyhq|workable|breezy|recruitee|teamtailor|applytojob|smartrecruiters|icims';
 const LANES = [
-  { host: 'ashbyhq', log: 'night-ashby.log', pace: '6000' },
-  { host: 'myworkdayjobs', log: 'night-workday.log', pace: '4000' },
+  { host: ALL_HOSTS, log: 'night-fwd.log', pace: '3000', shard: '0/2', reverse: false, name: 'forward' },
+  { host: ALL_HOSTS, log: 'night-rev.log', pace: '3000', shard: '1/2', reverse: true, name: 'reverse' },
 ];
 
 const argv = process.argv.slice(2);
@@ -122,7 +128,7 @@ while (round < MAX_ROUNDS) {
   const start = submitted(before);
   say(`round ${round} | ${counts.join(' | ')} | submitted ${start}`);
 
-  if (LANES.every(l => countFor(before, l.host) === 0)) { say('no queued postings left on a lane the runner can complete'); break; }
+  if (LANES.every(l => countFor(before, l.host) === 0)) { say('no queued postings left on a board the runner can complete'); break; }
 
   /* Only genuinely transient states come back. A posting retired as terminal
      stays retired, so one bad posting cannot be picked round after round. */
@@ -130,10 +136,12 @@ while (round < MAX_ROUNDS) {
 
   for (const lane of LANES) {
     if (countFor(before, lane.host) === 0) continue;
-    say(`  ${lane.host}...`);
-    await run(process.execPath,
-      [path.join(ROOT, 'apply', 'batch.mjs'), '--submit', '--goal', '500', '--host', lane.host],
-      { env: { PACE_MS: lane.pace }, out: lane.log });
+    say(`  ${lane.name} shard ${lane.shard}...`);
+    const args = [path.join(ROOT, 'apply', 'batch.mjs'), '--submit', '--goal', '500',
+      '--host', lane.host, '--shard', lane.shard];
+    if (lane.reverse) args.push('--reverse');
+    await run(process.execPath, args,
+      { env: { PACE_MS: lane.pace, MAX_SUBMITS_PER_COMPANY: '6' }, out: lane.log });
     await sweep();
   }
 

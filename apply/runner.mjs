@@ -1464,6 +1464,12 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
     [/years of (relevant )?experience|how many years/i, '18'],
     [/notice period|when can you start|availability|earliest start/i, 'Immediately'],
     [/how did you hear|where did you (hear|find)/i, 'LinkedIn'],
+    /* Ashby's own wording for the same two fields, read off the 1Password form
+       that rejected the submit twice: the banner named "Current Location" and
+       "What brought you to this job posting" and neither matched any pattern
+       here, so the repair loop had nothing to type. Both are typeaheads. */
+    [/current location|where are you located|your location/i, id.city + ', ' + id.state],
+    [/what brought you to this (job )?posting|how did you find this (job|role|posting)/i, 'LinkedIn'],
     /* Yes/No policy questions. Ashby renders these as button pairs (handled by
        clickYesNo) but Greenhouse renders the very same questions as unlabelled
        comboboxes, which no label-based matcher can reach. Answering them here
@@ -1960,9 +1966,25 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
     }
 
     /* A bare .catch(() => {}) here hid a click that never landed. Say so. */
+    /* Close anything open first. A typeahead left showing its option list -- or
+       a "No results" panel -- sits over the submit button, and the click then
+       times out after fifteen seconds. Rounds 2 and 3 of every 1Password
+       attempt failed this way, so the form never got a second chance. */
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(400);
     await submit.scrollIntoViewIfNeeded().catch(() => {});
     let clickErr = null;
     await submit.click({ timeout: 15000 }).catch((e) => { clickErr = String(e.message).split(String.fromCharCode(10))[0].slice(0, 120); });
+    /* If it was still covered, click its coordinates -- the same overlay-beating
+       approach the Workday buttons needed. */
+    if (clickErr) {
+      const box = await submit.boundingBox().catch(() => null);
+      if (box) {
+        const landed = await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+          .then(() => true).catch(() => false);
+        if (landed) { clickErr = null; console.log('  [submit] element click was blocked; clicked its coordinates instead'); }
+      }
+    }
     if (clickErr) {
       console.log(`  [submit round ${round}] click failed: ${clickErr}`);
       log.push(`submit click failed: ${clickErr}`);
@@ -2083,7 +2105,13 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
           await page.waitForTimeout(250);
           await page.keyboard.press('Enter').catch(() => {});
           await page.waitForTimeout(600);
-          const now = (await el.inputValue().catch(() => '')).trim();
+          /* "No results" means the query matched NOTHING, and pressing Enter
+             on an empty list leaves the typed text sitting in the box while the
+             field stays unset. That read as committed and the same submit was
+             rejected three rounds running. */
+          const empty = await target.evaluate(() =>
+            /no results|no options|nothing found/i.test(document.body.innerText)).catch(() => false);
+          const now = empty ? '' : (await el.inputValue().catch(() => '')).trim();
           if (now && !/^select/i.test(now)) {
             log.push(`banner-fix: "${name.slice(0, 30)}" = ${now.slice(0, 30)} (keyboard)`);
             console.log(`  [submit] committed "${now.slice(0, 40)}" by keyboard for "${name.slice(0, 40)}"`);
@@ -2094,9 +2122,21 @@ STOP: no application form on this page (${fieldCount} fields). This ATS needs an
         if (picked) fixedAny = true;
         else console.log(`  [submit] "${name.slice(0, 50)}" offered no option matching "${value.slice(0, 24)}"`);
       } else {
-        await el.fill(value).catch(() => {});
-        log.push(`banner-fix: "${name.slice(0, 30)}" = ${value.slice(0, 30)}`);
-        fixedAny = true;
+        /* Clear, then TYPE. fill() sets the value in one shot and some
+           validators never see it -- 1Password kept reporting "Why 1Password?"
+           missing across three rounds while the essay was visibly sitting in
+           the box. Typing a few characters after the fill raises the events the
+           form is actually listening for, without retyping a 900-character
+           answer one key at a time. */
+        await el.fill('').catch(() => {});
+        await page.waitForTimeout(120);
+        await el.fill(value.slice(0, -3)).catch(() => {});
+        await el.click().catch(() => {});
+        await page.keyboard.type(value.slice(-3), { delay: 60 }).catch(() => {});
+        await page.waitForTimeout(200);
+        const back = (await el.inputValue().catch(() => '')).trim();
+        log.push(`banner-fix: "${name.slice(0, 30)}" = ${value.slice(0, 30)}${back ? '' : ' (DID NOT TAKE)'}`);
+        if (back) fixedAny = true;
       }
       await page.waitForTimeout(300);
     }

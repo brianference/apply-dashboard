@@ -159,7 +159,7 @@
   /* ---- per-column filter header ---- */
   .colhead {
     display: grid; align-items: center; gap: 10px;
-    grid-template-columns: 42px minmax(0,1fr) 96px minmax(0,150px) minmax(82px,auto);
+    grid-template-columns: 42px minmax(0,1fr) 96px minmax(0,132px) 78px minmax(82px,auto);
     padding: 6px 10px; background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
@@ -218,7 +218,7 @@
     display: grid; align-items: center; gap: 10px;
     /* the action cell must be allowed to grow: the "Sent? Yes No" confirm is
        wider than an Apply button, and a fixed 82px made it overlap the location */
-    grid-template-columns: 42px minmax(0,1fr) 96px minmax(0,150px) minmax(82px,auto);
+    grid-template-columns: 42px minmax(0,1fr) 96px minmax(0,132px) 78px minmax(82px,auto);
     padding: 0 10px; height: 40px;
     border-top: 1px solid var(--border);
     font-size: 13px;
@@ -278,6 +278,15 @@
     white-space: nowrap;
   }
   .apply.manual:hover { text-decoration: underline; }
+
+  /* Published pay. Blank when the posting does not state it -- an unknown
+     salary is not a low one, and dashes would read as "no pay". */
+  .pay {
+    font: 600 11px/1 "IBM Plex Mono", monospace; color: var(--muted);
+    text-align: right; white-space: nowrap;
+  }
+  .pay.over { color: var(--success); }
+  @media (max-width: 860px) { .pay { display: none; } }
 
   /* "I already applied to this myself." Deliberately quiet -- it sits beside
      the main action on every unrecorded row, and it should never compete with
@@ -417,6 +426,7 @@
         <button type="button" class="chip" data-kind="ptc2c" aria-pressed="false">PT/C2C</button>
         <button type="button" class="chip" data-kind="submitted" aria-pressed="false">Applied</button>
         <button type="button" class="chip" data-kind="manual" aria-pressed="false" title="Auto-apply could not finish these - they need you">Needs you <span id="nmanual"></span></button>
+        <button type="button" class="chip" data-kind="under" aria-pressed="false" title="Also show postings that publish a salary below $180k">Under $180k</button>
         <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="The company's own application form - no login wall, no bot check">Direct form <span id="ndirect"></span></button>
       </div>
     </div>
@@ -731,6 +741,7 @@
               : "")
           + "</span>"
       + "</span>"
+      + '<span class="pay' + (meetsFloor(j) && payText(j) ? " over" : "") + '">' + esc(payText(j)) + "</span>"
       + '<span class="act">' + markBtn + btn + "</span>"
       + "</div>";
   }
@@ -771,9 +782,40 @@
     { id: "match",   label: "%",              value: function (j) { return matchBucket(j.match_pct); }, align: "right" },
     { id: "company", label: "Role / Company", value: function (j) { return clean(j.company) || "(none)"; } },
     { id: "ats",     label: "Apply via",      value: function (j) { return atsOf(j).label; } },
-    { id: "loc",     label: "Location",       value: function (j) { return shortLoc(j.work_type) || "(none)"; } }
+    { id: "loc",     label: "Location",       value: function (j) { return shortLoc(j.work_type) || "(none)"; } },
+    { id: "pay",     label: "Pay",            value: function (j) { return payBucket(j); }, align: "right" }
   ];
-  var colSel = { match: null, company: null, ats: null, loc: null };
+  var colSel = { match: null, company: null, ats: null, loc: null, pay: null };
+
+  /**
+   * A posting's pay, as a short string.
+   * Most postings publish nothing, and an unknown salary is NOT the same as a
+   * low one -- it must never be treated as failing the floor.
+   * @param {object} j
+   * @returns {string}
+   */
+  function payText(j) {
+    var lo = Number(j.salary_min) || 0, hi = Number(j.salary_max) || 0;
+    if (!lo && !hi) return "";
+    var k = function (n) { return Math.round(n / 1000) + "k"; };
+    if (lo && hi && lo !== hi) return "$" + k(lo) + "-" + k(hi);
+    return "$" + k(hi || lo);
+  }
+  /** Bucket for the column filter. */
+  function payBucket(j) {
+    var hi = Number(j.salary_max) || Number(j.salary_min) || 0;
+    if (!hi) return "not published";
+    if (hi >= 250000) return "$250k+";
+    if (hi >= 200000) return "$200-250k";
+    if (hi >= 180000) return "$180-200k";
+    if (hi >= 160000) return "$160-180k";
+    return "under $160k";
+  }
+  /** Does this posting clear Brian's floor, or is its pay simply unknown? */
+  function meetsFloor(j) {
+    var hi = Number(j.salary_max) || Number(j.salary_min) || 0;
+    return !hi || hi >= 180000;
+  }
 
   /**
    * @param {number|null} pct
@@ -863,6 +905,13 @@
          place with an "Applied" badge, so the row Brian had just dealt with was
          still sitting in front of him. The Applied chip still shows them all. */
       if (kind !== "submitted" && isApplied(j)) return false;
+      /* Brian's floor is $180k. By default a posting that PUBLISHES a lower
+         salary is hidden -- he has to ask to see those. A posting that publishes
+         nothing is still shown, because unknown is not the same as low and
+         hiding it would drop most of the list. The "Under $180k" chip brings
+         the published-low ones back. */
+      if (kind !== "under" && !meetsFloor(j) && !isApplied(j)) return false;
+      if (kind === "under") { if (meetsFloor(j) || isApplied(j)) return false; }
       if (kind === "manual") { if (!j.blocked_reason || isApplied(j)) return false; }
       else if (kind === "direct") { if (atsOf(j).cls !== "direct") return false; }
       else if (kind !== "all" && kind !== bucketOf(j)) return false;

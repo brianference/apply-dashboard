@@ -483,6 +483,12 @@ while (processed < SAFETY_CAP) {
     if (f) return f;
     return (b.match_pct || 0) - (a.match_pct || 0);
   });
+  /* --reverse works the same queue from the far end. Paired with --shard the
+     two workers can never collide -- shards are disjoint by company hash, so
+     reversing only changes the ORDER within a worker's own set, never what it
+     owns. Brian asked for two agents approaching from opposite ends without
+     duplicating each other; the shard is what guarantees the second half. */
+  if (A.reverse) candidates.reverse();
   const j = candidates[0];
   processed++;
 

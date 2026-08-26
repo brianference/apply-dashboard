@@ -99,7 +99,7 @@ export function locationEligible(workType, title) {
 }
 
 /** Titles that are engineering management, not product management. */
-const NOT_PRODUCT = /engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientist/i;
+const NOT_PRODUCT = /engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
 
 /** Titles that ARE product management, whatever else the string contains. */
 const IS_PRODUCT = /product manager|product management|product lead|product owner|head of product|director of product|\bdirector,? product\b|vp of product|\bvp,? product\b|chief product officer|\bcpo\b|group product manager|\bgpm\b|technical product manager|\btpm\b|product sr\.? manager|senior director of product|sr\.? director of product|product, .*(platform|ai)|\bproduct.{0,14}(manager|management|lead|owner|director)\b/i;
