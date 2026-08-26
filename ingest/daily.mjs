@@ -91,11 +91,11 @@ if (WRITE && fresh.length) {
     const chunk = fresh.slice(i, i + 25);
     const values = chunk.map(r => `(${[
       q(r.dedupe_key), q(r.company), q(r.title), q(r.url), r.match_pct ?? 'NULL',
-      q(r.source), q('queued'), q(r.lane || 'ft'), q(r.posted), q(r.work_type), q(now)
+      q(r.source), q('queued'), q(r.lane || 'ft'), q(r.posted), q(r.work_type), q(now), q('apply-daily')
     ].join(', ')})`).join(',\n');
     try {
       await d1(`INSERT OR IGNORE INTO jobs
-        (dedupe_key, company, title, url, match_pct, source, status, lane, posted, work_type, updated_at)
+        (dedupe_key, company, title, url, match_pct, source, status, lane, posted, work_type, updated_at, source_pipeline)
         VALUES\n${values}`);
       stats.newRows += chunk.length;
     } catch (e) { stats.errors++; say(`insert failed at ${i}: ${e.message}`); }
@@ -104,8 +104,15 @@ if (WRITE && fresh.length) {
 
 /* ---- 4. gate and rank anything unranked, whoever wrote it ----------- */
 const live = (await (await fetch(API, { headers: { 'cache-control': 'no-cache' } })).json()).jobs || [];
+/* Quarantined rows are the other writer's. A database trigger forces anything
+   not stamped 'apply-daily' into pending-review, so it is off Brian's list
+   until it has been through his rules here. Whoever finds a job, the same gate
+   decides whether he ever sees it. */
+const quarantined = live.filter(j => j.status === 'pending-review');
+say(`quarantined by another writer: ${quarantined.length}`);
+
 const needsRank = live
-  .filter(j => j.status === 'queued')
+  .filter(j => j.status === 'queued' || j.status === 'pending-review')
   .filter(j => j.rank_pct === null || j.rank_pct === undefined)
   .filter(j => boardRef(j.url))            // only what we can actually read
   .slice(0, MAX_RANK);
@@ -127,6 +134,10 @@ for (const job of needsRank) {
         blocked_at=${q(new Date().toISOString())} WHERE dedupe_key=${q(job.dedupe_key)}`);
       stats.ruledOut++;
     } else {
+      /* Passing the gate releases a quarantined row into the queue. */
+      if (job.status === 'pending-review') {
+        await d1(`UPDATE jobs SET status='queued' WHERE dedupe_key=${q(job.dedupe_key)}`);
+      }
       await d1(`UPDATE jobs SET rank_pct=${s.rank ?? 'NULL'},
         fit_pct=${s.fit ? s.fit.pct : 'NULL'}, success_pct=${s.success.pct},
         jd_read=${q(s.jdRead ? 'yes' : 'no')},
