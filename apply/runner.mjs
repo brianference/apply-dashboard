@@ -2301,9 +2301,28 @@ SUBMIT BLOCKED: the form POST returned HTTP ${wall.status} (${wall.url}).`);
     await shot(page, 'stop-submit-wall');
     return await finish(ctx, !!args.batch, { state: 'captcha-blocked', httpStatus: wall.status, log });
   }
+  let namedMissing = [];
   if (FAILURE.test(after)) {
     const errs = (after.match(/Missing entry for required field: [^.]{0,70}/gi) || []).slice(0, 6);
-    console.log('\nform rejected the submit:', errs.length ? errs.join(' | ') : '(see screenshot)');
+    console.log('');
+    console.log('form rejected the submit:', errs.length ? errs.join(' | ') : '(see screenshot)');
+    namedMissing = errs.map(e => e.replace(/^Missing entry for required field:\s*/i, '').trim());
+  }
+  /* A form that NAMES the fields it is still missing has not half-sent
+     anything: it refused. Recording that as 'submitted-unconfirmed' put about
+     twenty Ashby postings into a state whose own name says maybe, and STUCK.md
+     then reasoned at length about whether they had gone through -- while the
+     run log for each one already said 'form rejected the submit' and listed
+     the fields. They had not gone through. This is its own state so the
+     posting comes back the moment those answers exist, instead of being
+     retired by a word that only sounds uncertain. */
+  if (!confirmed && namedMissing.length) {
+    console.log('');
+    console.log('NOT SENT: the form refused the submit and named the fields it still needs.');
+    console.log('Nothing was sent. This needs answers, not a retry:');
+    for (const m of namedMissing) console.log('  ! ' + m);
+    await shot(page, '4-after-submit-unconfirmed');
+    return await finish(ctx, !!args.batch, { state: 'needs-answers', missing: namedMissing, log });
   }
   after = after.slice(0, 400);
   await shot(page, confirmed ? '4-submitted' : '4-after-submit-unconfirmed');

@@ -21,3 +21,20 @@ export function isVerdict(state) {
   const s = String(state || '');
   return s !== '' && !NOT_A_VERDICT.has(s);
 }
+
+/**
+ * Should a `needs-answers` entry be reopened?
+ *
+ * The form refused the submit and named the fields it still needed. That is a
+ * verdict about the ANSWERS available that day, not about the posting, so it
+ * has to reopen the moment the answer bank changes -- otherwise writing the
+ * answer changes nothing and the row stays retired forever.
+ *
+ * @param {{state?:string, answers?:string}|null|undefined} entry
+ * @param {string} currentHash fingerprint of the answer bank right now
+ * @returns {boolean}
+ */
+export function reopensOnAnswers(entry, currentHash) {
+  if (!entry || String(entry.state || '') !== 'needs-answers') return false;
+  return entry.answers !== currentHash;
+}
