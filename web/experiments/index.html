@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Experiments — AI PM Jobs</title>
+<meta name="robots" content="noindex"/>
+<link rel="icon" href="/01-light-32.png" type="image/png" media="(prefers-color-scheme: light)"/>
+<link rel="icon" href="/01-dark-32.png" type="image/png" media="(prefers-color-scheme: dark)"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="./css/experiments.css"/>
+</head>
+<body>
+<div id="flash" hidden></div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="bar">
+      <a class="brand" href="/" aria-label="AI PM Jobs — home">
+        <img src="/mark-01.png" alt="" width="56" height="56"/>
+        <h1>Experiments</h1>
+      </a>
+      <div class="spacer"></div>
+      <a class="backlink" href="/">back to the job list</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <h2>Before you read any result</h2>
+    <div class="panel"><p id="power"></p></div>
+  </section>
+
+  <section>
+    <h2>Experiments</h2>
+    <div id="picker"></div>
+  </section>
+
+  <section>
+    <h2>Response rate by arm</h2>
+    <div id="summary"></div>
+  </section>
+
+  <section>
+    <h2>Assign an application</h2>
+    <div class="panel">
+      <form class="assign" id="assign">
+        <label>Experiment
+          <input name="experiment" required pattern="[a-z0-9][a-z0-9_\-]{0,63}" placeholder="eeo-disclosure"/>
+        </label>
+        <label>Arm
+          <input name="arm" required pattern="[a-z0-9][a-z0-9_\-]{0,63}" placeholder="control"/>
+        </label>
+        <label class="wide">Application key
+          <input name="dedupe_key" required placeholder="company|role title"/>
+        </label>
+        <button type="submit">Assign</button>
+      </form>
+    </div>
+  </section>
+
+  <section>
+    <h2>Assignments and outcomes</h2>
+    <div class="tablewrap" id="table"></div>
+  </section>
+
+  <section>
+    <h2>Write token</h2>
+    <div class="panel">
+      <label class="wide">Kept in this browser only, never in page source.
+        <input id="token" type="password" placeholder="paste to enable writes" autocomplete="off"/>
+      </label>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
