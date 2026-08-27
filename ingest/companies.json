@@ -335,6 +335,246 @@
     {
       "token": "modernhealth",
       "name": "Modern Health"
+    },
+    {
+      "token": "launchdarkly",
+      "name": "LaunchDarkly"
+    },
+    {
+      "token": "cribl",
+      "name": "Cribl"
+    },
+    {
+      "token": "boulevard",
+      "name": "Boulevard"
+    },
+    {
+      "token": "backblaze",
+      "name": "Backblaze"
+    },
+    {
+      "token": "litify",
+      "name": "Litify"
+    },
+    {
+      "token": "sidecarhealth",
+      "name": "Sidecar Health"
+    },
+    {
+      "token": "cardata",
+      "name": "Cardata"
+    },
+    {
+      "token": "ziprecruiter",
+      "name": "ZipRecruiter"
+    },
+    {
+      "token": "overstory",
+      "name": "Overstory"
+    },
+    {
+      "token": "place",
+      "name": "Place"
+    },
+    {
+      "token": "mitratech",
+      "name": "Mitratech"
+    },
+    {
+      "token": "robotsandpencils",
+      "name": "Robots & Pencils"
+    },
+    {
+      "token": "arizeai",
+      "name": "Arize AI"
+    },
+    {
+      "token": "bugcrowd",
+      "name": "Bugcrowd"
+    },
+    {
+      "token": "armada",
+      "name": "Armada"
+    },
+    {
+      "token": "automatticcareers",
+      "name": "Automattic Careers"
+    },
+    {
+      "token": "inovalon",
+      "name": "Inovalon"
+    },
+    {
+      "token": "vulncheck",
+      "name": "VulnCheck Inc."
+    },
+    {
+      "token": "ethoslife",
+      "name": "Ethos Life"
+    },
+    {
+      "token": "relativity",
+      "name": "Relativity"
+    },
+    {
+      "token": "constantcontact",
+      "name": "Constant Contact"
+    },
+    {
+      "token": "engine",
+      "name": "Engine"
+    },
+    {
+      "token": "vannevarlabs",
+      "name": "Vannevar Labs"
+    },
+    {
+      "token": "oportun",
+      "name": "Oportun"
+    },
+    {
+      "token": "pandadoc",
+      "name": "PandaDoc"
+    },
+    {
+      "token": "cookunity",
+      "name": "CookUnity"
+    },
+    {
+      "token": "myfitnesspal",
+      "name": "MyFitnessPal"
+    },
+    {
+      "token": "netlify",
+      "name": "Netlify"
+    },
+    {
+      "token": "maxwell",
+      "name": "Maxwell"
+    },
+    {
+      "token": "wing",
+      "name": "Wing Assistant"
+    },
+    {
+      "token": "ebanx",
+      "name": "EBANX"
+    },
+    {
+      "token": "apolloio",
+      "name": "Apollo.io"
+    },
+    {
+      "token": "boostlingo",
+      "name": "Boostlingo"
+    },
+    {
+      "token": "minio",
+      "name": "MinIO"
+    },
+    {
+      "token": "ondofinance",
+      "name": "Ondo Finance"
+    },
+    {
+      "token": "apartmentiq",
+      "name": "ApartmentIQ"
+    },
+    {
+      "token": "comfrt",
+      "name": "Comfrt"
+    },
+    {
+      "token": "nebius",
+      "name": "Nebius"
+    },
+    {
+      "token": "imply",
+      "name": "Imply"
+    },
+    {
+      "token": "alphasense",
+      "name": "AlphaSense"
+    },
+    {
+      "token": "codepath",
+      "name": "CodePath.org"
+    },
+    {
+      "token": "patientpoint",
+      "name": "PatientPoint"
+    },
+    {
+      "token": "public",
+      "name": "Public Consulting Group"
+    },
+    {
+      "token": "smarterdx",
+      "name": "SmarterDx"
+    },
+    {
+      "token": "hyphenconnect",
+      "name": "Hyphen Connect Limited"
+    },
+    {
+      "token": "klaxoon",
+      "name": "Klaxoon"
+    },
+    {
+      "token": "wrike",
+      "name": "Wrike"
+    },
+    {
+      "token": "connectwise",
+      "name": "ConnectWise"
+    },
+    {
+      "token": "netdocuments",
+      "name": "NetDocuments"
+    },
+    {
+      "token": "oddball",
+      "name": "Oddball"
+    },
+    {
+      "token": "axon",
+      "name": "Axon"
+    },
+    {
+      "token": "icapitalnetwork",
+      "name": "iCapital Network"
+    },
+    {
+      "token": "pingidentity",
+      "name": "Ping Identity"
+    },
+    {
+      "token": "orderly",
+      "name": "Orderly Network"
+    },
+    {
+      "token": "quinstreet",
+      "name": "QuinStreet"
+    },
+    {
+      "token": "yipitdata",
+      "name": "YipitData"
+    },
+    {
+      "token": "hcesquared",
+      "name": "HCEsquared"
+    },
+    {
+      "token": "ma",
+      "name": "MSPbots.ai"
+    },
+    {
+      "token": "array",
+      "name": "Array"
+    },
+    {
+      "token": "credible",
+      "name": "Credible"
     }
   ],
   "lever": [
@@ -377,6 +617,86 @@
     {
       "token": "outreach",
       "name": "Outreach"
+    },
+    {
+      "token": "jobgether",
+      "name": "Jobgether (anonymized partner employer)"
+    },
+    {
+      "token": "xsolla",
+      "name": "Xsolla"
+    },
+    {
+      "token": "filevine",
+      "name": "Filevine"
+    },
+    {
+      "token": "veeva",
+      "name": "Veeva Systems"
+    },
+    {
+      "token": "pointb",
+      "name": "Point B"
+    },
+    {
+      "token": "fullscript",
+      "name": "Fullscript"
+    },
+    {
+      "token": "activecampaign",
+      "name": "ActiveCampaign"
+    },
+    {
+      "token": "virtualitics",
+      "name": "Virtualitics"
+    },
+    {
+      "token": "lyrahealth",
+      "name": "Lyra Health"
+    },
+    {
+      "token": "zensurance",
+      "name": "Zensurance"
+    },
+    {
+      "token": "15five",
+      "name": "15Five"
+    },
+    {
+      "token": "arcadia",
+      "name": "Arcadia"
+    },
+    {
+      "token": "capital",
+      "name": "Capital One"
+    },
+    {
+      "token": "peoplegrove",
+      "name": "PeopleGrove"
+    },
+    {
+      "token": "pointclickcare",
+      "name": "PointClickCare"
+    },
+    {
+      "token": "aledade",
+      "name": "Aledade"
+    },
+    {
+      "token": "kobie",
+      "name": "Kobie"
+    },
+    {
+      "token": "versapay",
+      "name": "Versapay"
+    },
+    {
+      "token": "workwave",
+      "name": "WorkWave"
+    },
+    {
+      "token": "padsplit",
+      "name": "PadSplit"
     }
   ],
   "ashby": [
@@ -611,6 +931,154 @@
     {
       "token": "weave",
       "name": "Weave"
+    },
+    {
+      "token": "angi",
+      "name": "Angi"
+    },
+    {
+      "token": "camunda",
+      "name": "Camunda"
+    },
+    {
+      "token": "fieldguide",
+      "name": "Fieldguide"
+    },
+    {
+      "token": "circle",
+      "name": "Circle"
+    },
+    {
+      "token": "revenuecat",
+      "name": "RevenueCat"
+    },
+    {
+      "token": "meridianlink",
+      "name": "MeridianLink"
+    },
+    {
+      "token": "aiwyn",
+      "name": "Aiwyn"
+    },
+    {
+      "token": "loot-labs",
+      "name": "Loot Labs"
+    },
+    {
+      "token": "lark",
+      "name": "Lark Health"
+    },
+    {
+      "token": "cohere",
+      "name": "Cohere"
+    },
+    {
+      "token": "headway",
+      "name": "Headway"
+    },
+    {
+      "token": "tiny-health",
+      "name": "Tiny Health"
+    },
+    {
+      "token": "tekion",
+      "name": "Tekion"
+    },
+    {
+      "token": "owner",
+      "name": "Owner"
+    },
+    {
+      "token": "applied",
+      "name": "Applied Systems"
+    },
+    {
+      "token": "monarchmoney",
+      "name": "Monarch Money"
+    },
+    {
+      "token": "bunny",
+      "name": "bunny.net"
+    },
+    {
+      "token": "zip",
+      "name": "Zip Co"
+    },
+    {
+      "token": "1password",
+      "name": "1Password"
+    },
+    {
+      "token": "vultr",
+      "name": "Vultr"
+    },
+    {
+      "token": "fyxer",
+      "name": "FYXER"
+    },
+    {
+      "token": "hopper",
+      "name": "Hopper"
+    },
+    {
+      "token": "tenex",
+      "name": "TENEX.AI"
+    },
+    {
+      "token": "hatch",
+      "name": "Hatch"
+    },
+    {
+      "token": "ava-labs",
+      "name": "Ava Labs"
+    },
+    {
+      "token": "teamworks",
+      "name": "Teamworks"
+    },
+    {
+      "token": "sandboxaq",
+      "name": "SandboxAQ"
+    },
+    {
+      "token": "ignite-reading",
+      "name": "Ignite Reading"
+    },
+    {
+      "token": "payabli",
+      "name": "Payabli"
+    },
+    {
+      "token": "tiger",
+      "name": "Tiger Analytics Inc."
+    },
+    {
+      "token": "vantage",
+      "name": "Vantage Data Centers"
+    },
+    {
+      "token": "brightwheel",
+      "name": "Brightwheel"
+    },
+    {
+      "token": "sekai",
+      "name": "Sekai (Versa Inc)"
+    },
+    {
+      "token": "evergrid",
+      "name": "Evergrid"
+    },
+    {
+      "token": "1mind",
+      "name": "1mind"
+    },
+    {
+      "token": "solace",
+      "name": "Solace"
+    },
+    {
+      "token": "quorum",
+      "name": "Quorum Software"
     }
   ]
 }
