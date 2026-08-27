@@ -13,7 +13,7 @@
  */
 
 import { compareCandidates, familyRank } from './order.mjs';
-import { isVerdict, reopensOnAnswers } from './ledger-rules.mjs';
+import { isVerdict, reopensOnAnswers, crashCapApplies } from './ledger-rules.mjs';
 
 let bad = 0;
 /**
@@ -94,6 +94,18 @@ check('a changed bank does not reopen a captcha or a real submission',
   reopensOnAnswers({ state: 'captcha', answers: 'aaa' }, 'bbb') === false
   && reopensOnAnswers({ state: 'submitted', answers: 'aaa' }, 'bbb') === false);
 check('nothing recorded is nothing to reopen', reopensOnAnswers(null, 'aaa') === false);
+
+/* A crash is evidence about the driver. When the driver changes the count is a
+   stale verdict, or a slow screenshot retires a good posting forever. */
+check('the cap holds while the driver is unchanged',
+  crashCapApplies({ crashCount: 2, driver: 'abc' }, 'abc') === true);
+check('a changed driver gives the posting its attempts back',
+  crashCapApplies({ crashCount: 2, driver: 'abc' }, 'xyz') === false);
+check('under the cap is never blocked',
+  crashCapApplies({ crashCount: 1, driver: 'abc' }, 'abc') === false);
+check('an entry with no driver recorded is not capped',
+  crashCapApplies({ crashCount: 5 }, 'abc') === false);
+check('no entry is not capped', crashCapApplies(null, 'abc') === false);
 
 /* The bad input. This is the comparator batch.mjs used until 2026-08-27; if the
    suite above still passes with it, the suite is decorative. */

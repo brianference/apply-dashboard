@@ -582,9 +582,32 @@ Never submits when a captcha, a sign-in wall, or an unknown required field is pr
 
   fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
   const tag = slug(args.url);
+  /* Evidence capture must never abort an application.
+     A full-page screenshot of an Ashby posting is routinely eight thousand
+     pixels tall, and on 2026-08-27 `page.screenshot` timed out at the default
+     30s on four consecutive postings while the machine was busy. Each timeout
+     threw out of the run, the batch recorded `crashed`, and the two-crash cap
+     then retired Aiwyn, Teamworks and Fieldguide permanently -- three good
+     postings lost to a slow PNG, not to anything about the posting or the
+     form. The screenshot gets a longer budget, falls back to the viewport if
+     the full page will not render in time, and gives up with a warning rather
+     than taking the run down with it. */
   const shot = async (page, step) => {
     const f = path.join(EVIDENCE_DIR, `${tag}--${step}.png`);
-    await page.screenshot({ path: f, fullPage: true });
+    try {
+      await page.screenshot({ path: f, fullPage: true, timeout: 90000 });
+    } catch (err) {
+      const why = err && err.message ? String(err.message).slice(0, 90) : String(err);
+      console.log('  screenshot (full page) failed: ' + why);
+      try {
+        await page.screenshot({ path: f, fullPage: false, timeout: 20000 });
+        console.log('  screenshot: fell back to the viewport only');
+      } catch (err2) {
+        const why2 = err2 && err2.message ? String(err2.message).slice(0, 90) : String(err2);
+        console.log('  screenshot skipped entirely: ' + why2);
+        return null;
+      }
+    }
     console.log(`  screenshot: ${f}`);
     return f;
   };

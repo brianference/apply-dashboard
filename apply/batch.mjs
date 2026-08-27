@@ -18,7 +18,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import { compareCandidates } from './order.mjs';
-import { isVerdict, reopensOnAnswers } from './ledger-rules.mjs';
+import { isVerdict, reopensOnAnswers, crashCapApplies } from './ledger-rules.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
@@ -565,7 +565,7 @@ while (processed < SAFETY_CAP) {
         || (/^wd-/.test(String(attempted.state || '')) && attempted.driver !== DRIVER_HASH);
       if (!staleBlock) {
         if (!RETRYABLE.has(attempted.state)) return false;
-        if ((attempted.crashCount || 0) >= 2) return false;
+        if (crashCapApplies(attempted, DRIVER_HASH)) return false;
       }
     }
     return true;
