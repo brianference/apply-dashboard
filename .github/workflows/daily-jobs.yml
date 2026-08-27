@@ -54,6 +54,18 @@ jobs:
           fi
           echo "token present (${#CF_D1_TOKEN} chars)"
 
+      - name: Run the rule tests
+        # These were gitignored until 2026-08-27 -- they matched *.local.* and so
+        # were never in the repository, which meant CI could not run the suites
+        # that prove Brian's location, role, hybrid, security and dedupe rules.
+        # They gate the run now: a rule change that breaks a case stops the
+        # pipeline before it writes anything.
+        run: |
+          node ingest/test-location.mjs
+          node ingest/test-fit.mjs
+          node ingest/test-sync.mjs
+          node ingest/resume-match.mjs --self-check
+
       - name: Repair and attack the database guards
         # A guard that existed once is not a guard: protect_submitted_status
         # vanished between two test runs and an un-submit went through the gap.

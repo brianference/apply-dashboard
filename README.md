@@ -13,7 +13,7 @@ what never reaches it.
 
 ## What it does
 
-**Finds.** Eight sources, including the public job-board APIs of 124 company
+**Finds.** Eight sources, including the public job-board APIs of 152 company
 boards on Greenhouse, Lever and Ashby. Every token in `ingest/companies.json`
 was probed and kept only if its board answered with real postings.
 
@@ -66,7 +66,7 @@ recorded, and the posting waits for a human instead of being marked done.
 ## The database defends itself
 
 Application history was destroyed once. A writer using `INSERT OR REPLACE` — a
-delete plus an insert — took `status` and `submitted_at` with it. Nine triggers
+delete plus an insert — took `status` and `submitted_at` with it. Ten triggers
 now enforce the rules in the database, so they hold for **every** writer, not
 just this repository:
 
@@ -95,12 +95,14 @@ disappeared between two test runs and an un-submit went through the gap.
 
 ```bash
 node ingest/daily.mjs --dry                     # find, filter, rank: no writes
-CF_D1_TOKEN=... node ingest/daily.mjs --write   # what CI runs, once a day
+CF_D1_TOKEN=... node ingest/daily.mjs --write   # what CI runs, twice a day
 CF_D1_TOKEN=... node ingest/ensure-guards.mjs   # repair and attack the guards
 
 node ingest/fit-score.mjs --limit 80 --readable # ranking report
 node ingest/resume-match.mjs --self-check       # prove the resume match discriminates
-node ingest/test-location.local.mjs             # location and role rules, both directions
+node ingest/test-location.mjs                   # location, role, hybrid and product-ops rules
+node ingest/test-fit.mjs                        # the fit score, including the security gate
+node ingest/test-sync.mjs                       # every dedupe and rejection reason
 ```
 
 Deployment is Cloudflare Pages **direct upload** — `git push` does not deploy:
@@ -117,8 +119,9 @@ No framework and no build step. The dashboard is one 1,700-line `index.html`
 served straight from Cloudflare Pages; every API is a Pages Function on the
 edge; data is D1 (SQLite) with the integrity rules as triggers. The ingest and
 apply layers are 37 plain ESM modules on Node 22 with no dependencies beyond
-Playwright. GitHub Actions runs the pipeline daily and a scheduled Claude
-routine audits what landed.
+Playwright. GitHub Actions runs the pipeline twice a day and a scheduled Claude
+routine audits what landed. The rule suites gate the run: a change that breaks
+a case stops the pipeline before it writes anything.
 
 ## Privacy
 
