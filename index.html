@@ -664,6 +664,34 @@
   }
   function bucketOf(j) { return isApplied(j) ? "submitted" : laneOf(j); }
 
+  /* Reasons that take a posting off the list entirely. Each one is a decision
+     about the JOB -- it breaks a rule, the employer pulled it, or it is a
+     second copy of something already applied to -- not a problem with the form.
+     Showing any of them with a badge still puts a job he cannot take in front
+     of him. */
+  var RULED_OUT = ["location-ineligible", "posting-closed", "duplicate-posting", "off-criteria"];
+
+  /**
+   * Is this posting on Brian's working list at all?
+   *
+   * ONE definition, used by the rows and by every count on the page. They used
+   * to be written separately: the rows hid ruled-out postings while the
+   * FULL-TIME tile counted them, so the tile read 510 over a list of 237 and
+   * the All / Full-time toggle looked broken because the two numbers had
+   * nothing to do with each other. A count that does not come from the same
+   * predicate as the rows is a different question wearing the same label.
+   *
+   * @param {object} j
+   * @returns {boolean}
+   */
+  function onTheList(j) {
+    /* Quarantined: inserted by something other than the daily pipeline and not
+       yet through Brian's rules. */
+    if (j.status === "pending-review") return false;
+    if (!isApplied(j) && RULED_OUT.indexOf(String(j.blocked_reason || "")) !== -1) return false;
+    return true;
+  }
+
   function toast(msg) {
     var t = document.getElementById("toast");
     t.textContent = msg; t.hidden = false;
@@ -1100,18 +1128,7 @@
          not a job he can take -- so it is off the list, not shown with a badge.
          Place kept reappearing with "The job you are looking for is no longer
          open" because only the location rule was hidden here. */
-      /* pending-review means a writer other than the daily pipeline inserted
-         it. A database trigger quarantines those, and they stay off this list
-         until Brian's own rules have passed them. */
-      if (j.status === "pending-review") return false;
-      /* duplicate-posting belongs here too. It was the ONLY ruled-out reason
-         left visible, so a posting Brian had already applied to under another
-         URL stayed on his list and stayed applyable -- which is exactly how the
-         Reddit Ads Safety row kept coming back after he dealt with it. */
-      if (!isApplied(j) && (j.blocked_reason === "location-ineligible"
-        || j.blocked_reason === "posting-closed"
-        || j.blocked_reason === "duplicate-posting"
-        || j.blocked_reason === "off-criteria")) return false;
+      if (!onTheList(j)) return false;
       /* An applied job is off the working list. Marking one used to leave it in
          place with an "Applied" badge, so the row Brian had just dealt with was
          still sitting in front of him. The Applied chip still shows them all. */
@@ -1145,16 +1162,18 @@
       return false;
     });
 
-    var nSub = all.filter(isApplied).length;
-    var nFt = all.filter(function (j) { return bucketOf(j) === "ft"; }).length;
-    var nPt = all.filter(function (j) { return bucketOf(j) === "ptc2c"; }).length;
-    var nDirect = all.filter(function (j) { return !isApplied(j) && atsOf(j).cls === "direct"; }).length;
+    /* Counted over the SAME set the rows come from. */
+    var live = all.filter(onTheList);
+    var nSub = live.filter(isApplied).length;
+    var nFt = live.filter(function (j) { return bucketOf(j) === "ft"; }).length;
+    var nPt = live.filter(function (j) { return bucketOf(j) === "ptc2c"; }).length;
+    var nDirect = live.filter(function (j) { return !isApplied(j) && atsOf(j).cls === "direct"; }).length;
     document.getElementById("s-ft").textContent = nFt;
     document.getElementById("s-pt").textContent = nPt;
     document.getElementById("s-sub").textContent = nSub;
     document.getElementById("s-dir").textContent = nDirect;
     document.getElementById("ndirect").textContent = nDirect ? String(nDirect) : "";
-    var nManual = all.filter(function (j) { return j.blocked_reason && !isApplied(j); }).length;
+    var nManual = live.filter(function (j) { return j.blocked_reason && !isApplied(j); }).length;
     var mEl = document.getElementById("nmanual");
     if (mEl) mEl.textContent = nManual ? String(nManual) : "";
 

@@ -96,6 +96,15 @@ jobs:
           CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
         run: node ingest/daily.mjs --quiet --max-rank 200 ${{ (inputs.dry == true) && '--dry' || '--write' }}
 
+      - name: Check every count equals the rows it claims
+        # The FULL-TIME tile once read 510 over a list of 237 because the rows
+        # and the tile were written from separate predicates. This drives the
+        # live page and compares each count against the rows actually rendered.
+        # It runs AFTER the write, so it checks the numbers Brian will see.
+        run: |
+          npx --yes playwright@1.49.1 install --with-deps chromium
+          node apply/test-counts.mjs https://apply-dashboard.pages.dev
+
       - name: Confirm the database actually moved
         # A wrangler-style "success" is not proof. Read the API back and print
         # counts, so a run that silently wrote nothing is visible as such.

@@ -45,12 +45,12 @@ const API = 'https://apply-dashboard.pages.dev/api/jobs';
 const CACHE = path.join(ROOT, 'ingest', 'out', 'jd-cache');
 const FLOOR = 180000;
 const SECOND_TIER = 160000;
-/* A published START at or below this fails, however high the top of the range
-   goes. Brian, 2026-08-27: "i don't like these jobs that have a supper low
-   start range like $120K or below". A band of $120k-$220k is an offer
-   conversation that opens at $120k, and the top of a range is the number a
-   company almost never pays. */
-const FLOOR_START = 120000;
+/* A published START below this fails, however high the top of the range goes.
+   Brian set it at $120k on 2026-08-27, raised it to $165k the same day on
+   seeing Liberty Mutual at $125k-$201k pass, then settled on $160k. A band is
+   an offer conversation that opens at its bottom, and the top is the number a
+   company almost never pays. Exactly $160k passes; below it does not. */
+const FLOOR_START = 160000;
 
 /* ------------------------------------------------------------------ *
  * Brian's evidence. Every phrase below is drawn from his own words in
@@ -213,8 +213,8 @@ export function requirementsGate(job, jd) {
   /* The bottom of the band is checked before the top. An unpublished start is
      unknown and passes; a published one at or below the floor does not. */
   const bottom = Number(job.salary_min) || 0;
-  if (bottom > 0 && bottom <= FLOOR_START) {
-    reasons.push(`salary: the range starts at $${Math.round(bottom / 1000)}k, at or below the $${FLOOR_START / 1000}k start floor`);
+  if (bottom > 0 && bottom < FLOOR_START) {
+    reasons.push(`salary: the range starts at $${Math.round(bottom / 1000)}k, below the $${FLOOR_START / 1000}k start floor`);
   }
   const top = Number(job.salary_max) || Number(job.salary_min) || 0;
   /* An unpublished salary is UNKNOWN, not low. Most postings publish nothing
