@@ -10,8 +10,11 @@ name: Daily job run
 
 on:
   schedule:
-    # 11:10 UTC, a little after most US boards publish for the day.
-    - cron: '10 11 * * *'
+    # Twice a day. 11:10 UTC is a little after most US boards publish for the
+    # morning; 23:10 UTC catches everything posted during the US working day,
+    # so a job posted at 9am Pacific is on the list the same evening rather
+    # than the next morning.
+    - cron: '10 11,23 * * *'
   workflow_dispatch:
     inputs:
       dry:

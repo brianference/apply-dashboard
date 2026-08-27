@@ -287,6 +287,54 @@
     {
       "token": "upwork",
       "name": "Upwork"
+    },
+    {
+      "token": "andurilindustries",
+      "name": "Anduril Industries"
+    },
+    {
+      "token": "grafanalabs",
+      "name": "Grafana Labs"
+    },
+    {
+      "token": "oscar",
+      "name": "Oscar Health"
+    },
+    {
+      "token": "coreweave",
+      "name": "CoreWeave"
+    },
+    {
+      "token": "upstart",
+      "name": "Upstart"
+    },
+    {
+      "token": "huntress",
+      "name": "Huntress"
+    },
+    {
+      "token": "mindbody",
+      "name": "Mindbody"
+    },
+    {
+      "token": "monzo",
+      "name": "Monzo"
+    },
+    {
+      "token": "betterment",
+      "name": "Betterment"
+    },
+    {
+      "token": "collectivehealth",
+      "name": "Collective Health"
+    },
+    {
+      "token": "komodohealth",
+      "name": "Komodo Health"
+    },
+    {
+      "token": "modernhealth",
+      "name": "Modern Health"
     }
   ],
   "lever": [
@@ -325,6 +373,10 @@
     {
       "token": "truv",
       "name": "Truv"
+    },
+    {
+      "token": "outreach",
+      "name": "Outreach"
     }
   ],
   "ashby": [
@@ -499,6 +551,66 @@
     {
       "token": "middesk",
       "name": "Middesk"
+    },
+    {
+      "token": "fireworks",
+      "name": "Fireworks"
+    },
+    {
+      "token": "crusoe",
+      "name": "Crusoe"
+    },
+    {
+      "token": "suno",
+      "name": "Suno"
+    },
+    {
+      "token": "deepgram",
+      "name": "Deepgram"
+    },
+    {
+      "token": "speak",
+      "name": "Speak"
+    },
+    {
+      "token": "gamma",
+      "name": "Gamma"
+    },
+    {
+      "token": "greptile",
+      "name": "Greptile"
+    },
+    {
+      "token": "listenlabs",
+      "name": "Listen Labs"
+    },
+    {
+      "token": "orb",
+      "name": "Orb"
+    },
+    {
+      "token": "pika",
+      "name": "Pika"
+    },
+    {
+      "token": "pylon",
+      "name": "Pylon"
+    },
+    {
+      "token": "reducto",
+      "name": "Reducto"
+    },
+    {
+      "token": "scribe",
+      "name": "Scribe"
+    },
+    {
+      "token": "tavus",
+      "name": "Tavus"
+    },
+    {
+      "token": "weave",
+      "name": "Weave"
     }
   ]
 }
