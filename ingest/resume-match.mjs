@@ -208,6 +208,17 @@ if (isCli(import.meta.url)) {
   console.log(`resume: ${resume ? resume.length + ' chars' : 'NOT FOUND at ' + RESUME}`);
 
   if (args['self-check']) {
+    /* Without the resume text or a corpus there is nothing to measure. Skipping
+       loudly beats failing (the rules are fine, the environment is bare) and
+       beats passing (a green tick would claim the resume match was verified
+       when it never ran). */
+    if (!resume || c.docs < 20) {
+      console.log(`
+SKIPPED: resume match cannot be measured here`
+        + ` (resume ${resume ? 'present' : 'missing'}, corpus ${c.docs} descriptions).`
+        + ` This is an environment gap, not a passing test.`);
+      process.exit(0);
+    }
     /* The check that must FAIL: a description from a field he has never worked
        in has to score below one squarely in his record. If both come out the
        same, the measure is not measuring anything. */

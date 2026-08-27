@@ -54,6 +54,21 @@ jobs:
           fi
           echo "token present (${#CF_D1_TOKEN} chars)"
 
+      - name: Supply the resume text
+        # resume-text.local.txt is gitignored, so on a CI runner it does not
+        # exist -- and resumeMatch silently returned null for every posting,
+        # which is why the twice-daily run produced no resume scores at all.
+        # The text is a repository secret, written to the path the code reads.
+        env:
+          RESUME_TEXT: ${{ secrets.RESUME_TEXT }}
+        run: |
+          if [ -z "$RESUME_TEXT" ]; then
+            echo "RESUME_TEXT is not set: ranking will have no resume component."
+            exit 1
+          fi
+          printf '%s' "$RESUME_TEXT" > apply/resume-text.local.txt
+          echo "resume text written ($(wc -c < apply/resume-text.local.txt) bytes)"
+
       - name: Run the rule tests
         # These were gitignored until 2026-08-27 -- they matched *.local.* and so
         # were never in the repository, which meant CI could not run the suites

@@ -92,3 +92,25 @@ const benign = 'We build an AI analytics platform. Our team values security and 
 const s2 = securitySignals(benign);
 console.log(`${!s2.ruled ? 'ok  ' : 'FAIL'} ${'one mention does NOT rule out'.padEnd(34)} ${s2.why || 'kept'}`);
 if (!s1.ruled || s2.ruled) process.exitCode = 1;
+
+/* The salary START floor, given by Brian on 2026-08-27. */
+{
+  const cases = [
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 120000, salary_max: 220000 }, false, 'starts AT 120k, however high the top'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 110000, salary_max: 300000 }, false, 'starts below it'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 95000,  salary_max: 145000 }, false, 'low band'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 130000, salary_max: 200000 }, true,  'starts above the floor'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 180000, salary_max: 250000 }, true,  'a good band'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_max: 200000 }, true,  'no published start is unknown, not low'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US' }, true, 'no salary at all is still fine'],
+  ];
+  let bad = 0;
+  for (const [job, want, note] of cases) {
+    const got = requirementsGate(job, null);
+    const ok = got.ok === want;
+    if (!ok) bad++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${('min ' + (job.salary_min || '-') + ' max ' + (job.salary_max || '-')).padEnd(26)} ${String(got.ok).padEnd(5)} ${note}`);
+  }
+  console.log(bad ? `\n${bad} SALARY-START CASES FAILED` : '\na published start at or below $120k is refused, an unknown one is not');
+  if (bad) process.exitCode = 1;
+}
