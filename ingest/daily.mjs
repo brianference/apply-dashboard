@@ -160,10 +160,23 @@ for (const job of needsRank) {
         await d1(`UPDATE jobs SET status='queued', source_pipeline='apply-daily'
           WHERE dedupe_key=${q(job.dedupe_key)}`);
       }
+      /* resume_pct was missing from this statement while fit-score.mjs wrote
+         it, so every posting the DAILY run ranked came out with no resume
+         score at all -- eight in a row before anyone looked. The two write
+         paths now agree. */
+      const why = [];
+      if (s.fit && s.fit.resumePct != null) {
+        why.push(`resume: better than ${s.fit.resumePct}% of your queue - matches ${s.fit.matched.slice(0, 6).join(', ')}`);
+        if (s.fit.missing.length) why.push(`not in your resume: ${s.fit.missing.slice(0, 6).join(', ')}`);
+      }
+      if (s.fit) why.push(...s.fit.hits.slice(0, 3));
+      why.push(...s.success.reasons);
       await d1(`UPDATE jobs SET rank_pct=${s.rank ?? 'NULL'},
-        fit_pct=${s.fit ? s.fit.pct : 'NULL'}, success_pct=${s.success.pct},
+        fit_pct=${s.fit ? s.fit.pct : 'NULL'},
+        resume_pct=${s.fit && s.fit.resumePct != null ? s.fit.resumePct : 'NULL'},
+        success_pct=${s.success.pct},
         jd_read=${q(s.jdRead ? 'yes' : 'no')},
-        rank_why=${q([...(s.fit ? s.fit.hits.slice(0, 4) : []), ...s.success.reasons].join(' | ').slice(0, 600))}
+        rank_why=${q(why.join(' | ').slice(0, 800))}
         WHERE dedupe_key=${q(job.dedupe_key)}`);
       stats.ranked++;
     }
