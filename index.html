@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Applications</title>
+<title>AI PM Jobs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
@@ -63,7 +63,10 @@
   /* ---- masthead: big brand + big stats. Scrolls away; the toolbar sticks. ---- */
   .masthead { background: var(--surface); border-bottom: 1px solid var(--border); }
   .bar { display: flex; align-items: center; gap: 18px; padding: 18px 0 6px; }
-  .brand { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
+  /* The mark is the way back to the unfiltered list -- a logo that does not go
+     home is the one thing every visitor tries first. */
+  .brand { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; color: inherit; text-decoration: none; }
+  .brand:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 18px; }
   .brand img { width: 104px; height: 104px; display: block; border-radius: 18px; }
   h1 { margin: 0; font-size: 40px; font-weight: 700; letter-spacing: -.025em; white-space: nowrap; }
   .spacer { flex: 1 1 auto; }
@@ -414,10 +417,10 @@
 <header class="masthead">
   <div class="wrap">
     <div class="bar">
-      <div class="brand">
+      <a class="brand" href="/" aria-label="AI PM Jobs — home">
         <img src="mark-01.png" alt="" width="104" height="104"/>
-        <h1>Applications</h1>
-      </div>
+        <h1>AI PM Jobs</h1>
+      </a>
       <div class="spacer"></div>
       <button type="button" class="iconbtn" id="token" title="Set the write token so Apply records to D1" aria-label="Set write token">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">

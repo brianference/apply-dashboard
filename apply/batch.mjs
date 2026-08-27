@@ -18,6 +18,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import { compareCandidates } from './order.mjs';
+import { isVerdict } from './ledger-rules.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
@@ -133,6 +134,12 @@ function pausedHost(url) {
    five times while thirty other Workday postings waited. A wizard that will not
    start does not start on the next attempt either. */
 const RETRYABLE = new Set(['crashed', 'upload-failed']);
+/* A dry run is a rehearsal, not a decision about the posting. Any recorded
+   state that is not retryable blocks a posting forever, so `--limit 10` -- the
+   dry run this file's own usage line documents -- permanently retired the ten
+   postings it rehearsed from every later --submit run. On 2026-08-27 that cost
+   RevenueCat and Aiwyn, the two highest-ranked jobs in the queue: the submit
+   batch started at number three and reported nothing wrong. */
 /* A form that rejected the submit is blocked on a field the profile cannot
    answer. Retrying it produces the same rejection, so it is recorded once and
    never attempted again - that is what "skip and move on" means in practice. */
@@ -510,7 +517,8 @@ while (processed < SAFETY_CAP) {
        is how a New York / San Francisco hybrid posting got an application. */
     const RULED_OUT = new Set(['location-ineligible', 'posting-closed', 'off-criteria', 'duplicate-posting']);
     if (RULED_OUT.has(String(j.blocked_reason || ''))) return false;
-    const attempted = ledger[j.dedupe_key];
+    let attempted = ledger[j.dedupe_key];
+    if (attempted && !isVerdict(attempted.state)) attempted = null;
     /* A crashing posting used to be retried forever: 'crashed' is retryable, so
        the same row was picked again on every loop. One posting (Linear) burned
        dozens of attempts and starved the whole campaign. Allow at most two

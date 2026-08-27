@@ -13,6 +13,7 @@
  */
 
 import { compareCandidates, familyRank } from './order.mjs';
+import { isVerdict } from './ledger-rules.mjs';
 
 let bad = 0;
 /**
@@ -72,6 +73,14 @@ check('a zero rank is a rank, not a missing one',
 
 check('familyRank is case-insensitive', familyRank('https://JOBS.ASHBYHQ.COM/x') === 0);
 check('greenhouse and ashby are not the same lane', familyRank(gh({}).url) !== familyRank(ashby({}).url));
+
+/* A rehearsal must not retire a posting. batch.mjs blocks on any recorded state
+   it does not know to be retryable, so before this rule a dry run was a life
+   sentence. */
+check('a dry run is not a verdict about the posting', isVerdict('dry-run-ok') === false);
+check('a real block still blocks', isVerdict('needs-email-code') === true);
+check('a submission is still a verdict', isVerdict('submitted') === true);
+check('no entry at all is not a verdict', isVerdict('') === false && isVerdict(null) === false);
 
 /* The bad input. This is the comparator batch.mjs used until 2026-08-27; if the
    suite above still passes with it, the suite is decorative. */
