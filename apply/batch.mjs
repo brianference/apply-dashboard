@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
+import { compareCandidates } from './order.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
@@ -167,6 +168,21 @@ function args() {
   return o;
 }
 const A = args();
+/* `node apply/batch.mjs --help` opened a browser and started working the real
+   queue, because an unrecognised flag is just an unread key. A campaign is not
+   what somebody asking for usage wants. */
+if (A.help || A.h) {
+  console.log(`Work the apply queue.
+
+  node apply/batch.mjs --limit 10            dry run, fills forms, submits nothing
+  node apply/batch.mjs --goal 100 --submit   the overnight run
+  node apply/batch.mjs --submit --company GitLab
+  node apply/batch.mjs --host ashbyhq --limit 5
+  node apply/batch.mjs --wait-for-code --code-file <path> --submit
+
+Order is apply/order.mjs: submittable ATS first, then rank_pct, unranked last.`);
+  process.exit(0);
+}
 const MAX_SUBMITS_PER_COMPANY = Number(process.env.MAX_SUBMITS_PER_COMPANY || 3);
 let submittedByCompany = {};
 
@@ -527,21 +543,10 @@ while (processed < SAFETY_CAP) {
 
   if (!candidates.length) { console.log('\nqueue exhausted: no more eligible direct-form postings.'); break; }
 
-  /* Work the postings most likely to actually submit first. Measured tonight:
-     Ashby and Greenhouse account for 22 of 24 confirmed submissions, while
-     Workday and iCIMS have produced none. Match score breaks ties. */
-  const FAMILY_RANK = (u) => {
-    if (/ashbyhq/.test(u)) return 0;
-    if (/greenhouse/.test(u)) return 1;
-    if (/lever\.co/.test(u)) return 2;
-    if (/workable|smartrecruiters/.test(u)) return 3;
-    return 4;
-  };
-  candidates.sort((a, b) => {
-    const f = FAMILY_RANK(a.url || '') - FAMILY_RANK(b.url || '');
-    if (f) return f;
-    return (b.match_pct || 0) - (a.match_pct || 0);
-  });
+  /* Work the postings most likely to actually submit first, then the ones the
+     dashboard actually ranks highest -- see apply/order.mjs for why this is
+     not match_pct any more, and apply/test-order.mjs for what enforces it. */
+  candidates.sort(compareCandidates);
   /* --reverse works the same queue from the far end. Paired with --shard the
      two workers can never collide -- shards are disjoint by company hash, so
      reversing only changes the ORDER within a worker's own set, never what it
