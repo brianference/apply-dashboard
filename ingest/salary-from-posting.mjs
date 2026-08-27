@@ -16,6 +16,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { isCli } from './cli.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
   .replace(/^\/([A-Za-z]:)/, '$1'), '..');
@@ -34,7 +35,7 @@ const LIMIT = Number(argv[argv.indexOf('--limit') + 1]) || Infinity;
  * @param {string} text
  * @returns {number[]} plausible annual figures, ascending
  */
-function figures(text) {
+export function figures(text) {
   const out = [];
   const re = /\$\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{2,3}(?:\.[0-9])?\s?[kK])/g;
   let m;
@@ -60,7 +61,7 @@ function figures(text) {
  * @param {string} text
  * @returns {{min:number|null,max:number|null}}
  */
-function rangePair(text) {
+export function rangePair(text) {
   /* Written as one literal so the escapes cannot be mangled by a build or an
      editor round-trip: two dollar figures joined by a dash, "to", or "up to". */
   const re = /\$\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{2,3}(?:\.[0-9])?\s?[kK])\s*(?:-|–|—|to|through|up to)\s*\$?\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{2,3}(?:\.[0-9])?\s?[kK])/gi;
@@ -79,6 +80,20 @@ function rangePair(text) {
     if (b % 1000 === 999) continue;
     if (a >= 50000 && b <= 800000 && b > a) return { min: a, max: b };
   }
+  return { min: null, max: null };
+}
+
+/**
+ * Published salary band from posting text, or nulls if none is written as a range.
+ * Scattered figures are not a band — that is how aggregator sidebars poisoned
+ * Ethos Life and Great Minds — so this never falls back to min/max of leftovers.
+ *
+ * @param {string} text
+ * @returns {{min: number|null, max: number|null}}
+ */
+export function salaryFromText(text) {
+  const pair = rangePair(String(text || ''));
+  if (pair.min) return { min: pair.min, max: pair.max };
   return { min: null, max: null };
 }
 
@@ -114,6 +129,7 @@ async function priceOf(url) {
   }
 }
 
+if (isCli(import.meta.url)) {
 const live = await fetch(API, { headers: { 'cache-control': 'no-cache' } }).then(r => r.json());
 const queued = live.jobs.filter(j => j.status === 'queued').slice(0, LIMIT);
 console.log(`reading pay bands off ${queued.length} postings, ${CONCURRENCY} at a time\n`);
@@ -165,3 +181,4 @@ console.log('\n--- under 160k, being skipped');
 for (const p of under) console.log(`  ${p.company} | ${p.title} | $${p.salary_min}-${p.salary_max}`);
 console.log('\n--- 160k-180k, second priority');
 for (const p of tier2) console.log(`  ${p.company} | ${p.title} | $${p.salary_min}-${p.salary_max}`);
+}
