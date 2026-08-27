@@ -30,8 +30,11 @@ reaches the top of a remote-only list. The gate is pass or fail:
   design, not marketing, and not security products *even when the title hides
   it*: with the description in hand, "Senior Product Manager - Platform" at an
   identity-security company is caught by what the posting says about itself.
-- **Salary** — a published figure below the floor fails. An *unpublished* salary
-  is unknown, not low, and most postings publish nothing.
+- **Salary** — a published range that STARTS below $160k fails, however high its
+  top goes. A band is an offer conversation that opens at its bottom, and the
+  top is the number a company almost never pays; `$125k-$201k` is a $125k job.
+  An *unpublished* salary is unknown, not low, and most postings publish
+  nothing.
 
 **Never applies twice.** Deduplication runs on the primary key, on a normalised
 URL (tracking parameters stripped, board identifiers kept), and within the
@@ -88,6 +91,21 @@ just this repository:
 `ingest/ensure-guards.mjs` re-asserts all of them and then **attacks** them,
 because a guard that existed once is not a guard — one of these silently
 disappeared between two test runs and an un-submit went through the gap.
+
+---
+
+## Every count equals the rows it claims
+
+The FULL-TIME tile once read 510 over a list of 237, and toggling All against
+Full-time changed nothing visible. The rows and the tiles had been written from
+separate predicates, so the two numbers were answering different questions under
+the same label.
+
+There is now one `onTheList()` in `index.html`, used by the rows and by every
+count on the page. `apply/test-counts.mjs` drives the live site and compares
+each count against the rows actually rendered under that filter, and CI runs it
+after every write. It fails on the build from before the fix — tile 510, rows
+242 — which is the only evidence that it checks anything.
 
 ---
 

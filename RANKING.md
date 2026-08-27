@@ -16,10 +16,15 @@ Location (remote US-eligible or Arizona), role (product management), and the
 salary floor. A posting that fails is not "ranked low", it is off the list:
 `status='skipped'`, `blocked_reason='off-criteria'`, with the reason recorded.
 
-Two rules the gate holds that a naive version would get wrong:
+Three rules the gate holds that a naive version would get wrong:
 
 - **An unpublished salary is unknown, not low.** Most postings publish nothing.
-  Only a *published* figure below the floor can fail.
+  Only a *published* figure can fail.
+- **A band is judged on where it starts, not where it ends.** `$125k-$201k`
+  passed a top-of-range check on its $201k and is a $125k job. A published start
+  below $160k fails however high the top goes. Brian set that floor at $120k,
+  raised it on seeing Liberty Mutual's $125k-$201k survive, and settled at
+  $160k.
 - **A security product is ruled out even when the title hides it.** The role
   rule reads titles, and Delinea's "Senior Product Manager - Platform" says
   nothing. Its own description opens *"a pioneer in securing human and machine
@@ -95,7 +100,7 @@ than reading it.
     node ingest/fit-score.mjs --limit 80 --readable            # report only
     CF_D1_TOKEN=... node ingest/fit-score.mjs --limit 200 --readable --write
 
-    node ingest/test-fit.local.mjs      # every rejection reason, on inputs built to trip it
+    node ingest/test-fit.mjs            # every rejection reason, on inputs built to trip it
 
 `--write` updates `rank_pct`, `fit_pct`, `success_pct`, `jd_read` and
 `rank_why`, and rules out anything failing the gate. Descriptions are cached

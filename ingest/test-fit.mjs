@@ -96,10 +96,12 @@ if (!s1.ruled || s2.ruled) process.exitCode = 1;
 /* The salary START floor, given by Brian on 2026-08-27. */
 {
   const cases = [
-    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 120000, salary_max: 220000 }, false, 'starts AT 120k, however high the top'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 125000, salary_max: 201000 }, false, 'LIBERTY MUTUAL: the one he flagged'],
     [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 110000, salary_max: 300000 }, false, 'starts below it'],
     [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 95000,  salary_max: 145000 }, false, 'low band'],
-    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 130000, salary_max: 200000 }, true,  'starts above the floor'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 130000, salary_max: 200000 }, false, 'still below the $160k floor'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 160000, salary_max: 200000 }, true,  'exactly at the floor passes'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 159999, salary_max: 400000 }, false, 'one dollar below does not'],
     [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 180000, salary_max: 250000 }, true,  'a good band'],
     [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_max: 200000 }, true,  'no published start is unknown, not low'],
     [{ title: 'Senior Product Manager', work_type: 'Remote US' }, true, 'no salary at all is still fine'],
