@@ -13,7 +13,7 @@
  */
 
 import { compareCandidates, familyRank } from './order.mjs';
-import { isVerdict } from './ledger-rules.mjs';
+import { isVerdict, reopensOnAnswers } from './ledger-rules.mjs';
 
 let bad = 0;
 /**
@@ -81,6 +81,19 @@ check('a dry run is not a verdict about the posting', isVerdict('dry-run-ok') ==
 check('a real block still blocks', isVerdict('needs-email-code') === true);
 check('a submission is still a verdict', isVerdict('submitted') === true);
 check('no entry at all is not a verdict', isVerdict('') === false && isVerdict(null) === false);
+
+/* A refusal that named its missing fields reopens when the answers change, and
+   only then. Without this the answer is written and the row stays retired. */
+check('a needs-answers row reopens when the bank changes',
+  reopensOnAnswers({ state: 'needs-answers', answers: 'aaa' }, 'bbb') === true);
+check('a needs-answers row stays shut on the same bank',
+  reopensOnAnswers({ state: 'needs-answers', answers: 'aaa' }, 'aaa') === false);
+check('an entry recorded before the bank was fingerprinted reopens once',
+  reopensOnAnswers({ state: 'needs-answers' }, 'aaa') === true);
+check('a changed bank does not reopen a captcha or a real submission',
+  reopensOnAnswers({ state: 'captcha', answers: 'aaa' }, 'bbb') === false
+  && reopensOnAnswers({ state: 'submitted', answers: 'aaa' }, 'bbb') === false);
+check('nothing recorded is nothing to reopen', reopensOnAnswers(null, 'aaa') === false);
 
 /* The bad input. This is the comparator batch.mjs used until 2026-08-27; if the
    suite above still passes with it, the suite is decorative. */

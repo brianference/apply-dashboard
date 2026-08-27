@@ -18,7 +18,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import { compareCandidates } from './order.mjs';
-import { isVerdict } from './ledger-rules.mjs';
+import { isVerdict, reopensOnAnswers } from './ledger-rules.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
@@ -47,6 +47,26 @@ const DRIVER_HASH = (() => {
   for (const f of DRIVER_FILES) {
     try { h.update(fs.readFileSync(path.join(ROOT, 'apply', f))); } catch { h.update(f); }
   }
+  return h.digest('hex').slice(0, 12);
+})();
+/**
+ * Fingerprint of the ANSWER BANK, for the same reason the driver has one.
+ *
+ * A posting recorded needs-answers because the form named required questions
+ * nothing could answer. That is a verdict about the answers available on the
+ * day, not about the posting -- so it has to reopen the moment the bank grows.
+ * Without this, writing the answer for RevenueCat's "a non-computer system
+ * you've hacked" question would change nothing: the row would stay retired.
+ */
+const ANSWERS_HASH = (() => {
+  const h = crypto.createHash('sha1');
+  const dir = path.join(ROOT, 'apply');
+  let names = [];
+  try { names = fs.readdirSync(dir).filter(f => /^answers\..*\.local\.json$/.test(f)).sort(); } catch { /* none yet */ }
+  for (const f of names) {
+    try { h.update(f); h.update(fs.readFileSync(path.join(dir, f))); } catch { h.update('unreadable'); }
+  }
+  try { h.update(fs.readFileSync(path.join(dir, 'narrative.local.md'))); } catch { h.update('no-narrative'); }
   return h.digest('hex').slice(0, 12);
 })();
 let LEDGER = path.join(ROOT, 'evidence', 'apply', 'batch-ledger.json');
@@ -161,7 +181,11 @@ const TERMINAL = new Set(['submitted-unconfirmed', 'needs-input', 'no-submit-but
      for something the profile and the answer bank do not cover; the run stops
      rather than guessing. wd-no-apply-path is a posting Workday now 404s. */
   'wd-auth-blocked', 'wd-unknown-question', 'wd-validation-blocked',
-  'wd-no-apply-path', 'wd-too-many-pages']);
+  'wd-no-apply-path', 'wd-too-many-pages',
+  /* The form refused the submit and NAMED the fields it still needs. Retrying
+     the same run produces the same refusal; only new answers change it, which
+     is what ANSWERS_HASH reopens on. */
+  'needs-answers']);
 
 /** @returns {Record<string,string|boolean>} */
 function args() {
@@ -534,7 +558,10 @@ while (processed < SAFETY_CAP) {
          this the relay lane reports "queue exhausted" and applies to nothing. */
       const relayable = !!A['wait-for-code']
         && ['needs-email-code', 'code-unconfirmed'].includes(String(attempted.state || ''));
-      const staleBlock = relayable
+      /* Same predicate the tests cover, so the rule that runs is the rule that
+         is enforced -- an inline copy here would drift and pass forever. */
+      const answersGrew = reopensOnAnswers(attempted, ANSWERS_HASH);
+      const staleBlock = relayable || answersGrew
         || (/^wd-/.test(String(attempted.state || '')) && attempted.driver !== DRIVER_HASH);
       if (!staleBlock) {
         if (!RETRYABLE.has(attempted.state)) return false;
@@ -665,6 +692,7 @@ while (processed < SAFETY_CAP) {
        of the Workday queue waited. */
     crashCount: RETRYABLE.has(state) ? priorCrashes + 1 : priorCrashes,
     driver: DRIVER_HASH,
+    answers: ANSWERS_HASH,
     at: new Date().toISOString()
   };
   saveLedger(ledger);
