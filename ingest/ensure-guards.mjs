@@ -62,6 +62,14 @@ export const GUARDS = [
       WHEN NEW.source_pipeline IS NULL OR NEW.source_pipeline <> 'apply-daily'
       BEGIN UPDATE jobs SET status='pending-review'
         WHERE dedupe_key = NEW.dedupe_key AND submitted_at IS NULL; END`],
+  /* Quarantine fires on INSERT. Nothing stopped a LATER update putting the row
+     back to queued, which is how four program-manager roles reached the live
+     queue after being correctly quarantined. Only the daily pipeline releases. */
+  ['protect_quarantine_release', `CREATE TRIGGER protect_quarantine_release
+      BEFORE UPDATE ON jobs FOR EACH ROW
+      WHEN OLD.status = 'pending-review' AND NEW.status = 'queued'
+       AND (NEW.source_pipeline IS NULL OR NEW.source_pipeline <> 'apply-daily')
+      BEGIN SELECT RAISE(IGNORE); END`],
   ['reject_hostile_insert', `CREATE TRIGGER reject_hostile_insert
       BEFORE INSERT ON jobs FOR EACH ROW
       WHEN NEW.url IS NULL OR NEW.url NOT LIKE 'https://%' OR length(NEW.url) > 2048

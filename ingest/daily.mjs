@@ -26,7 +26,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from './cli.mjs';
 import { decide } from './sync-to-d1.mjs';
-import { fetchJd, scoreOne, boardRef } from './fit-score.mjs';
+import { fetchJd, scoreOne, boardRef, requirementsGate } from './fit-score.mjs';
 import { runUpsert } from './upsert.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
@@ -111,10 +111,29 @@ const live = (await (await fetch(API, { headers: { 'cache-control': 'no-cache' }
 const quarantined = live.filter(j => j.status === 'pending-review');
 say(`quarantined by another writer: ${quarantined.length}`);
 
+/* Location and role need no description, so a quarantined posting whose URL
+   cannot be read is still judged on those. Gating only readable rows left the
+   unreadable ones quarantined forever, invisible and unjudged. */
+for (const job of quarantined.filter(j => !boardRef(j.url))) {
+  const g = requirementsGate(job, null);
+  if (!WRITE) { detail(`  ${g.ok ? 'pass' : 'GATE'} ${job.company} - ${String(job.title).slice(0, 44)}`); continue; }
+  try {
+    if (!g.ok) {
+      await d1(`UPDATE jobs SET status='skipped', blocked_reason='off-criteria',
+        blocked_detail=${q(g.reasons.join('; ').slice(0, 400))},
+        blocked_at=${q(new Date().toISOString())} WHERE dedupe_key=${q(job.dedupe_key)}`);
+      stats.ruledOut++;
+    } else {
+      await d1(`UPDATE jobs SET status='queued', source_pipeline='apply-daily'
+        WHERE dedupe_key=${q(job.dedupe_key)}`);
+    }
+  } catch (e) { stats.errors++; say(`quarantine gate failed: ${e.message}`); }
+}
+
 const needsRank = live
   .filter(j => j.status === 'queued' || j.status === 'pending-review')
   .filter(j => j.rank_pct === null || j.rank_pct === undefined)
-  .filter(j => boardRef(j.url))            // only what we can actually read
+  .filter(j => boardRef(j.url))            // ranking needs a readable description
   .slice(0, MAX_RANK);
 say(`unranked and readable: ${needsRank.length}`);
 
@@ -136,7 +155,10 @@ for (const job of needsRank) {
     } else {
       /* Passing the gate releases a quarantined row into the queue. */
       if (job.status === 'pending-review') {
-        await d1(`UPDATE jobs SET status='queued' WHERE dedupe_key=${q(job.dedupe_key)}`);
+        /* Stamping the pipeline is what the release trigger checks. Without it
+           the row silently stays quarantined. */
+        await d1(`UPDATE jobs SET status='queued', source_pipeline='apply-daily'
+          WHERE dedupe_key=${q(job.dedupe_key)}`);
       }
       await d1(`UPDATE jobs SET rank_pct=${s.rank ?? 'NULL'},
         fit_pct=${s.fit ? s.fit.pct : 'NULL'}, success_pct=${s.success.pct},
