@@ -137,10 +137,22 @@ const needsRank = live
   .slice(0, MAX_RANK);
 say(`unranked and readable: ${needsRank.length}`);
 
+/* Fetch every description FIRST. resumeMatch weighs a posting's terms against
+   how rare they are across the cached corpus, and the corpus is those cached
+   files -- so scoring while the cache is still filling measures against almost
+   nothing. On a fresh CI runner the cache starts empty, which is why the
+   twice-daily run produced no resume scores at all. */
+const descriptions = new Map();
 for (const job of needsRank) {
-  let jd = null;
-  try { jd = await fetchJd(job.url); } catch { /* unreadable stays unread */ }
-  if (jd) stats.jdRead++;
+  try {
+    const jd = await fetchJd(job.url);
+    if (jd) { descriptions.set(job.dedupe_key, jd); stats.jdRead++; }
+  } catch { /* unreadable stays unread */ }
+}
+say(`descriptions fetched before scoring: ${descriptions.size}`);
+
+for (const job of needsRank) {
+  const jd = descriptions.get(job.dedupe_key) || null;
   const s = scoreOne(job, jd);
   if (!WRITE) {
     detail(`  ${String(s.rank ?? 'GATE').padStart(4)} ${job.company} - ${String(job.title).slice(0, 46)}`);
