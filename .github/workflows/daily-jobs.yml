@@ -81,6 +81,7 @@ jobs:
           node ingest/test-sync.mjs
           node ingest/resume-match.mjs --self-check
           node apply/test-order.mjs
+          node ingest/test-resolve-by-board.mjs
 
       - name: Repair and attack the database guards
         # A guard that existed once is not a guard: protect_submitted_status
