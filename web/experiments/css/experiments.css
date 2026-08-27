@@ -1,0 +1,143 @@
+/* Experiments. Same tokens as the dashboard so the two pages read as one app. */
+
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --text: #1a232b;
+  --muted: #44525c;
+  --border: #d0d7de;
+  --primary: #2c5266;
+  --primary-contrast: #ffffff;
+  --success: #1b5e48;
+  --warn: #8a4b12;
+  --primary-soft: rgba(44, 82, 102, 0.10);
+  --radius: 10px;
+}
+
+:root[data-theme="dark"] {
+  --bg: #131a20;
+  --surface: #1c242b;
+  --text: #e8eef2;
+  --muted: #a3b2bc;
+  --border: #33404a;
+  --primary: #8fb4c8;
+  --primary-contrast: #131a20;
+  --success: #7ad7a8;
+  --warn: #e8b078;
+  --primary-soft: rgba(143, 180, 200, 0.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131a20;
+    --surface: #1c242b;
+    --text: #e8eef2;
+    --muted: #a3b2bc;
+    --border: #33404a;
+    --primary: #8fb4c8;
+    --primary-contrast: #131a20;
+    --success: #7ad7a8;
+    --warn: #e8b078;
+    --primary-soft: rgba(143, 180, 200, 0.16);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 15px/1.55 "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+header.masthead { background: var(--surface); border-bottom: 1px solid var(--border); }
+.bar { display: flex; align-items: center; gap: 16px; padding: 18px 0; }
+.brand { display: flex; align-items: center; gap: 14px; color: inherit; text-decoration: none; }
+.brand img { width: 56px; height: 56px; border-radius: 12px; display: block; }
+h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+.spacer { flex: 1 1 auto; }
+.backlink { color: var(--primary); text-decoration: none; font-weight: 600; font-size: 14px; }
+.backlink:hover { text-decoration: underline; }
+
+main { padding: 22px 0 60px; }
+section { margin: 0 0 26px; }
+h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+     font-family: "IBM Plex Mono", ui-monospace, monospace; margin: 0 0 12px; }
+
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+
+#power { margin: 0; color: var(--warn); font-weight: 600; }
+
+#picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.tab { background: var(--surface); border: 1px solid var(--border); color: var(--text);
+       border-radius: 999px; padding: 7px 15px; font: inherit; font-size: 14px; cursor: pointer; }
+.tab.on { background: var(--primary); color: var(--primary-contrast); border-color: var(--primary); }
+
+.arms { display: flex; gap: 12px; flex-wrap: wrap; }
+.arm { flex: 1 1 220px; background: var(--surface); border: 1px solid var(--border);
+       border-radius: var(--radius); padding: 14px 16px; }
+.arm h3 { margin: 0 0 6px; font: 600 12px/1 "IBM Plex Mono", ui-monospace, monospace;
+          text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.arm b { display: block; font: 700 38px/1 "IBM Plex Sans", system-ui, sans-serif;
+         letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.arm span { display: block; margin-top: 5px; font-size: 13px; color: var(--muted); }
+.arm .pending { color: var(--warn); }
+
+.verdict { margin-top: 14px; padding: 14px 16px; border-radius: var(--radius);
+           background: var(--primary-soft); border: 1px solid var(--border); }
+.verdict strong { display: block; text-transform: uppercase; font-size: 12px; letter-spacing: .07em;
+                  font-family: "IBM Plex Mono", ui-monospace, monospace; margin-bottom: 6px; }
+.verdict p { margin: 0; color: var(--muted); }
+.verdict.separated { border-color: var(--success); }
+
+table.assignments { width: 100%; border-collapse: collapse; background: var(--surface);
+                    border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.assignments th { text-align: left; font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+                  text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+                  padding: 11px 12px; border-bottom: 1px solid var(--border); }
+.assignments td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 14px; }
+.assignments tr:last-child td { border-bottom: 0; }
+.assignments .role { max-width: 340px; }
+.chip, .stagechip { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px;
+                    background: var(--primary-soft); color: var(--text); }
+.muted { color: var(--muted); }
+.record { display: flex; gap: 6px; flex-wrap: wrap; }
+
+select, input, button { font: inherit; font-size: 14px; color: var(--text); background: var(--bg);
+                        border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
+button { background: var(--primary); color: var(--primary-contrast); border-color: var(--primary); cursor: pointer; }
+button:hover { filter: brightness(1.08); }
+
+/* The label is the flex ITEM; the input inside it is not. A `flex: 1 1 340px`
+   on the input made 340px its basis along the label's own main axis, which is
+   vertical in a column, and the application-key box rendered 340px TALL. Every
+   numeric check passed while it looked like that. */
+form.assign { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+form.assign label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted);
+                    font-family: "IBM Plex Mono", ui-monospace, monospace; text-transform: uppercase;
+                    letter-spacing: .05em; flex: 0 1 200px; }
+form.assign label.wide { flex: 1 1 320px; }
+form.assign input { width: 100%; min-width: 0; }
+form.assign button { flex: 0 0 auto; padding: 8px 18px; }
+
+#flash { position: sticky; top: 0; z-index: 5; background: var(--primary); color: var(--primary-contrast);
+         padding: 9px 24px; font-size: 14px; }
+.empty, .note { color: var(--muted); margin: 0; }
+
+.tablewrap { overflow-x: auto; }
+
+.panel > label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted);
+                 font-family: "IBM Plex Mono", ui-monospace, monospace; text-transform: uppercase;
+                 letter-spacing: .05em; max-width: 460px; }
+.panel > label input { width: 100%; }
+
+@media (max-width: 720px) {
+  .wrap { padding: 0 14px; }
+  h1 { font-size: 22px; }
+  .brand img { width: 44px; height: 44px; }
+  .arm b { font-size: 30px; }
+  form.assign input, form.assign input[name="dedupe_key"] { min-width: 0; width: 100%; flex: 1 1 100%; }
+}
