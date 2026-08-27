@@ -102,7 +102,10 @@ jobs:
         # live page and compares each count against the rows actually rendered.
         # It runs AFTER the write, so it checks the numbers Brian will see.
         run: |
-          npx --yes playwright@1.49.1 install --with-deps chromium
+          # `playwright install` fetches BROWSERS. The package itself still has
+          # to be installed or the import fails with ERR_MODULE_NOT_FOUND.
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
           node apply/test-counts.mjs https://apply-dashboard.pages.dev
 
       - name: Confirm the database actually moved
