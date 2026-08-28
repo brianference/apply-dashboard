@@ -77,7 +77,9 @@ async function start() {
 
   for (const [id, text] of [["skills", profile.skills], ["education", profile.education], ["certifications", profile.certifications]]) {
     const node = at(`#${id}`);
-    if (!text) { node.previousElementSibling.hidden = true; node.hidden = true; continue; }
+    /* Hide the whole block, heading included. Hiding only the body left an
+       orphaned title with nothing under it. */
+    if (!text) { (node.closest(".fact") || node).hidden = true; continue; }
     node.replaceChildren(lines(text));
   }
 

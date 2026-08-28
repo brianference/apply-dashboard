@@ -37,18 +37,33 @@
 
   <section class="band" aria-label="More work" id="rows"></section>
 
-  <section class="band" aria-label="Open source">
-    <h2 class="section-title">Open source</h2>
-    <div id="repos"></div>
+  <!-- These sit in the same column as the hero and the project rows. They did
+       not: .band has no max-width because each .row supplies its own, so
+       anything else dropped into a band ran edge to edge with no left padding. -->
+  <section class="band closing" aria-label="Open source">
+    <div class="band-inner">
+      <h2 class="section-title">Open source</h2>
+      <div id="repos"></div>
+    </div>
   </section>
 
-  <section class="band" aria-label="Background">
-    <h2 class="section-title">Skills</h2>
-    <div id="skills"></div>
-    <h2 class="section-title">Education</h2>
-    <div id="education"></div>
-    <h2 class="section-title">Certifications</h2>
-    <div id="certifications"></div>
+  <section class="band closing" aria-label="Background">
+    <div class="band-inner">
+      <div class="facts">
+        <div class="fact">
+          <h2 class="section-title">Skills</h2>
+          <div id="skills"></div>
+        </div>
+        <div class="fact">
+          <h2 class="section-title">Education</h2>
+          <div id="education"></div>
+        </div>
+        <div class="fact">
+          <h2 class="section-title">Certifications</h2>
+          <div id="certifications"></div>
+        </div>
+      </div>
+    </div>
   </section>
 </main>
 
