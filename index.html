@@ -427,9 +427,9 @@
 <div id="sitenav"></div>
 <div class="wrap statswrap"><div class="stats" id="stats">
       <div class="stat"><b id="s-ft">&mdash;</b><span>Full-time</span></div>
-      <div class="stat"><b id="s-pt">&mdash;</b><span>PT / C2C</span></div>
+      <div class="stat"><b id="s-pt">&mdash;</b><span>Part-time &amp; contract</span></div>
       <div class="stat good"><b id="s-sub">&mdash;</b><span>Applied</span></div>
-      <div class="stat"><b id="s-dir">&mdash;</b><span>Direct form</span></div>
+      <div class="stat"><b id="s-dir">&mdash;</b><span>Apply direct</span></div>
     </div>
   </div>
 </div>
@@ -449,11 +449,11 @@
       <div class="chips" role="group" aria-label="Filters">
         <button type="button" class="chip" data-kind="all" aria-pressed="true">All</button>
         <button type="button" class="chip" data-kind="ft" aria-pressed="false">Full-time</button>
-        <button type="button" class="chip" data-kind="ptc2c" aria-pressed="false">PT/C2C</button>
+        <button type="button" class="chip" data-kind="ptc2c" aria-pressed="false" title="Contract, corp-to-corp, part-time, freelance, fractional and fixed-term postings">Part-time &amp; contract</button>
         <button type="button" class="chip" data-kind="submitted" aria-pressed="false">Applied</button>
         <button type="button" class="chip" data-kind="manual" aria-pressed="false" title="Auto-apply could not finish these - they need you">Needs you <span id="nmanual"></span></button>
         <button type="button" class="chip" data-kind="under" aria-pressed="false" title="Also show postings that publish a salary below $180k">Under $180k</button>
-        <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="The company's own application form - no login wall, no bot check">Direct form <span id="ndirect"></span></button>
+        <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="Applies on the company's own site - no aggregator in the way, no account to make first">Apply direct <span id="ndirect"></span></button>
       </div>
     </div>
     <p class="err" id="err" hidden></p>
@@ -982,7 +982,7 @@
 
   var SECTIONS = [
     { id: "ft",        label: "Full-time", hint: "" },
-    { id: "ptc2c",     label: "PT / C2C",  hint: "" },
+    { id: "ptc2c",     label: "Part-time & contract",  hint: "" },
     { id: "submitted", label: "Applied",   hint: "already submitted", defaultCollapsed: true }
   ];
   var collapsed = {};
