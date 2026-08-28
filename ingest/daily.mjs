@@ -27,6 +27,8 @@ import path from 'node:path';
 import { parseArgs } from './cli.mjs';
 import { decide } from './sync-to-d1.mjs';
 import { fetchJd, scoreOne, boardRef, requirementsGate } from './fit-score.mjs';
+import { salaryFromText } from './salary-from-posting.mjs';
+import { judgeBand, FLOOR } from './salary-sweep.mjs';
 import { runUpsert } from './upsert.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
@@ -45,11 +47,20 @@ const say = (m) => process.stdout.write(m + '\n');
 const detail = (m) => { if (!QUIET) process.stdout.write(m + '\n'); };
 
 /** @param {string} sql */
-async function d1(sql) {
+/**
+ * Run one statement. Pass `params` and use `?` placeholders wherever the value
+ * came from outside this repo - a job title, a company name, a pay figure
+ * scraped off somebody else's board. The rest of this file predates that and
+ * still interpolates through q(); new statements should not.
+ *
+ * @param {string} sql
+ * @param {Array<string|number|null>} [params]
+ */
+async function d1(sql, params) {
   const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/${DATABASE}/query`, {
     method: 'POST',
     headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ sql })
+    body: JSON.stringify(params === undefined ? { sql } : { sql, params })
   });
   const j = await r.json();
   if (!j.success) throw new Error(`D1 rejected the query: ${JSON.stringify(j.errors)}`);
@@ -151,9 +162,32 @@ for (const job of needsRank) {
 }
 say(`descriptions fetched before scoring: ${descriptions.size}`);
 
+/* Read the pay band off the SAME description that was just fetched for
+   scoring. This is the connection that was missing: the ranking pass held the
+   text, the extractor could parse it, and nothing joined them - so a Lever
+   posting reading "Base salary: $135,000-$155,000 annually" was scored 83 and
+   listed with no salary, twenty-five thousand under the floor. 184 of 201 open
+   rows had no band recorded while their postings published one. */
+const bands = new Map();
+for (const [key, jd] of descriptions) {
+  const band = salaryFromText(jd);
+  if (band.min != null) bands.set(key, band);
+}
+say(`pay bands read from those descriptions: ${bands.size}`);
+
 for (const job of needsRank) {
   const jd = descriptions.get(job.dedupe_key) || null;
+  const band = bands.get(job.dedupe_key) || null;
   const s = scoreOne(job, jd);
+  /* A published band under the floor rules the row out here, before it can be
+     ranked well and shown. An ABSENT band is unknown, not low, and never
+     rules anything out - that distinction is the whole point. */
+  if (band && judgeBand(band) === 'below-floor') {
+    s.gate.ok = false;
+    s.gate.reasons = (s.gate.reasons || []).concat(
+      `published band starts at $${band.min}, under the $${FLOOR} floor`
+    );
+  }
   if (!WRITE) {
     detail(`  ${String(s.rank ?? 'GATE').padStart(4)} ${job.company} - ${String(job.title).slice(0, 46)}`);
     continue;
@@ -176,6 +210,20 @@ for (const job of needsRank) {
          it, so every posting the DAILY run ranked came out with no resume
          score at all -- eight in a row before anyone looked. The two write
          paths now agree. */
+      /* Bound, not interpolated. These figures are parsed out of third-party
+         job-board text, and a regex that stops returning a clean number is a
+         change away - the value must never be able to reach SQL as syntax.
+         Non-finite is dropped rather than written. */
+      if (band) {
+        const minPay = Number(band.min);
+        const maxPay = band.max === null || band.max === undefined ? null : Number(band.max);
+        if (Number.isFinite(minPay) && (maxPay === null || Number.isFinite(maxPay))) {
+          await d1(
+            'UPDATE jobs SET salary_min = ?, salary_max = ?, salary_source = ? WHERE dedupe_key = ?',
+            [minPay, maxPay, 'posting:daily', job.dedupe_key]
+          );
+        }
+      }
       const why = [];
       if (s.fit && s.fit.resumePct != null) {
         why.push(`resume: better than ${s.fit.resumePct}% of your queue - matches ${s.fit.matched.slice(0, 6).join(', ')}`);
