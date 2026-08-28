@@ -59,7 +59,27 @@ export async function query(sql, params = []) {
 export function literal(value) {
   if (value === null || value === undefined) return 'NULL';
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'NULL';
-  return `'${String(value).replace(/'/g, "''")}'`;
+  const text = String(value).replace(/'/g, "''");
+  /* A newline inside the value would put the statement across several LINES,
+     and anything that reads the file statement-by-statement then splits one
+     INSERT into fragments that are not SQL. That is not hypothetical: the
+     profile row holds the whole resume, and restoring it failed with
+     `unrecognized token: "'BRIAN FERENCE`. Newlines become char(10) so every
+     statement stays on exactly one line and still restores byte-for-byte. */
+  const NL = String.fromCharCode(10);
+  if (!text.includes(NL) && !text.includes(String.fromCharCode(13))) return `'${text}'`;
+  const CR = String.fromCharCode(13);
+  const flat = text.split(CR + NL).join(NL).split(CR).join(NL);
+  /* ONE replace() rather than a chain of || char(10) ||. The chain works for
+     a few lines and then does not: the resume is over a hundred lines, and
+     SQLite refused it with "Expression tree is too large (maximum depth 100)".
+     A sentinel plus a single replace is flat however many lines there are.
+     The sentinel is grown until it does not occur in the value, so it can
+     never collide with real content. */
+  let sentinel = String.fromCharCode(1) + "NL" + String.fromCharCode(1);
+  while (flat.includes(sentinel)) sentinel += String.fromCharCode(1);
+  const encoded = flat.split(NL).join(sentinel);
+  return `replace('${encoded}', '${sentinel}', char(10))`;
 }
 
 /**
