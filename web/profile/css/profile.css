@@ -66,3 +66,36 @@ input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 a { color: var(--primary); }
 
 @media (max-width: 560px) { .wrap { padding: 22px 15px 60px; } h1 { font-size: 26px; } }
+
+/* ---- photo ---- */
+.photo-panel { margin-bottom: 20px; }
+.photo-row { display: flex; gap: 18px; align-items: flex-start; }
+.avatar-preview {
+  width: 88px; height: 88px; border-radius: 50%; flex: 0 0 auto;
+  object-fit: cover; background: var(--primary-soft);
+  display: grid; place-items: center;
+}
+.avatar-initials {
+  background: var(--primary); color: var(--primary-contrast);
+  font: 600 26px/1 "IBM Plex Sans", system-ui, sans-serif; letter-spacing: .04em;
+}
+.photo-copy { min-width: 0; }
+.photo-copy h2 { margin: 0 0 4px; font-size: 18px; }
+.photo-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.photo-actions .cta { margin-top: 0; }
+.ghost {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 46px; padding: 0 18px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font: 600 15px/1 "IBM Plex Sans", system-ui, sans-serif;
+}
+.ghost:hover { background: var(--primary-soft); }
+/* Hidden from sight, not from the keyboard: the label is the visible control
+   and clicking it still opens the picker. display:none would take the input
+   out of the tab order and off the accessibility tree entirely. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+.visually-hidden:focus-visible + * , label.cta:focus-within { outline: 2px solid var(--primary); outline-offset: 3px; }
+@media (max-width: 560px) { .photo-row { flex-direction: column; } }

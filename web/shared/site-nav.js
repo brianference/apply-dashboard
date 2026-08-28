@@ -245,10 +245,15 @@ function accountControl(who) {
   const email = who.email || "";
   const initials = initialsFor(email, who.name);
 
+  /* A photo when there is one, initials when there is not. GitHub shows the
+     picture; initials are the fallback rather than the design. */
+  const avatarNode = who.avatar
+    ? el("img", { class: "avatar avatar-img", src: who.avatar, alt: "", width: "36", height: "36" })
+    : el("span", { class: "avatar", "aria-hidden": "true" }, [initials]);
   const button = el("button", {
     type: "button", class: "chip-btn", "aria-expanded": "false",
     "aria-label": `Account menu for ${email || "this account"}`
-  }, [el("span", { class: "avatar", "aria-hidden": "true" }, [initials])]);
+  }, [avatarNode]);
   const caret = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   caret.setAttribute("class", "caret");
   caret.setAttribute("width", "12");
@@ -266,8 +271,11 @@ function accountControl(who) {
 
   const menu = el("div", { class: "menu" });
   menu.hidden = true;
+  const bigAvatar = who.avatar
+    ? el("img", { class: "avatar-lg avatar-img", src: who.avatar, alt: "", width: "40", height: "40" })
+    : el("span", { class: "avatar-lg", "aria-hidden": "true" }, [initials]);
   menu.append(el("div", { class: "menu-head" }, [
-    el("span", { class: "avatar-lg", "aria-hidden": "true" }, [initials]),
+    bigAvatar,
     el("span", { class: "who-copy" }, [
       el("strong", {}, [who.name || email]),
       /* A text node, never innerHTML: this value comes from the database. */
@@ -293,6 +301,65 @@ function accountControl(who) {
 }
 
 /**
+ * The header search.
+ *
+ * GitHub puts one in the masthead with a slash shortcut, and it is the right
+ * place for it: the job list is the product, and looking something up should
+ * not require being on the right page first.
+ *
+ * On the job list it filters in place, by handing the typed value to the page
+ * through an event rather than reaching into its internals - the list owns its
+ * own filtering. Anywhere else it navigates to the list carrying the query, so
+ * searching from the portfolio takes you to results rather than doing nothing.
+ *
+ * @returns {HTMLElement}
+ */
+function searchControl() {
+  const onJobs = location.pathname === "/" || location.pathname === "/index.html";
+  const form = el("form", { class: "site-search", role: "search" });
+  const input = el("input", {
+    type: "search",
+    id: "site-search-input",
+    placeholder: "Search jobs",
+    "aria-label": "Search jobs",
+    autocomplete: "off"
+  });
+  form.append(el("span", { class: "site-search-icon", "aria-hidden": "true" }, ["⌕"]), input);
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("q")) input.value = params.get("q");
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const q = input.value.trim();
+    if (onJobs) {
+      document.dispatchEvent(new CustomEvent("site-search", { detail: { q } }));
+    } else {
+      location.href = q ? `/?q=${encodeURIComponent(q)}` : "/";
+    }
+  });
+  if (onJobs) {
+    input.addEventListener("input", () => {
+      document.dispatchEvent(new CustomEvent("site-search", { detail: { q: input.value.trim() } }));
+    });
+  }
+
+  /* Slash focuses the box, the way it does on GitHub - but never while the
+     person is already typing somewhere else. */
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+    const tag = (document.activeElement && document.activeElement.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (document.activeElement && document.activeElement.isContentEditable) return;
+    event.preventDefault();
+    input.focus();
+    input.select();
+  });
+
+  return form;
+}
+
+/**
  * Build the whole header.
  *
  * @param {Who} who
@@ -309,6 +376,7 @@ export function buildHeader(who) {
           el("em", {}, ["Ranked product-management roles"])
         ])
       ]),
+      searchControl(),
       el("div", { class: "spacer" }),
       el("div", { class: "tools" }, [themeButton(), who.authenticated ? accountControl(who) : signInControl()])
     ]),

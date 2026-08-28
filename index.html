@@ -1322,6 +1322,17 @@
      this variable directly. It calls this instead. Assigning window.canWrite
      would have set a DIFFERENT variable and the banner would have stayed up
      while signed in - which looks exactly like a broken login. */
+  /* The header owns a search box now. It does not reach into this page's
+     state; it announces what was typed and the list, which owns its own
+     filtering, answers. A query in the URL is applied on load so a search
+     started on another page lands on results. */
+  document.addEventListener("site-search", function (ev) {
+    var box = document.getElementById("q");
+    if (!box) return;
+    box.value = (ev.detail && ev.detail.q) || "";
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
   window.__authReady = function (who) {
     canWrite = !!(who && who.authenticated);
     markStale();
@@ -1692,6 +1703,11 @@
      portfolio all answer "who is signed in" the same way. */
   import { mountSiteNav } from "/shared/site-nav.js";
   mountSiteNav("#sitenav").then(function (who) {
+    var initial = new URLSearchParams(location.search).get("q");
+    if (initial) {
+      var box = document.getElementById("q");
+      if (box) { box.value = initial; box.dispatchEvent(new Event("input", { bubbles: true })); }
+    }
     /* The page script owns canWrite; hand it the answer and let it re-render
        the banner, which is what tells Brian whether ticking will save. */
     if (typeof window.__authReady === "function") window.__authReady(who);

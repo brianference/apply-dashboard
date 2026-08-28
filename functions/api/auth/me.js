@@ -24,11 +24,13 @@ export async function onRequestGet(context) {
      from the email gives BR; deriving them from "Brian Ference" gives BF, which
      is what a person expects to see in their own avatar. */
   let name = null;
+  let avatar = null;
   try {
-    const row = await env.DB.prepare("SELECT display_name FROM profile WHERE id = 1").first();
+    const row = await env.DB.prepare("SELECT display_name, avatar_data_url FROM profile WHERE id = 1").first();
     name = (row && row.display_name) || null;
-  } catch { name = null; }
-  return new Response(JSON.stringify({ authenticated: true, email: user.email, name, since: user.since }), { headers: HEADERS });
+    avatar = (row && row.avatar_data_url) || null;
+  } catch { name = null; avatar = null; }
+  return new Response(JSON.stringify({ authenticated: true, email: user.email, name, avatar, since: user.since }), { headers: HEADERS });
 }
 
 /**

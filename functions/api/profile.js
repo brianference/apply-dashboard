@@ -18,6 +18,18 @@ import { currentUser, originAllowed } from "./_session.js";
 const EDITABLE = ["headline", "location", "resume_filename", "linkedin_url", "github_url"];
 
 /**
+ * The largest avatar accepted, as a data URL.
+ *
+ * The page resizes to 256px before sending, which lands well under this; the
+ * cap is here so a caller that skips the page cannot put a megabyte in a row
+ * that /api/auth/me reads on every single page load.
+ */
+const MAX_AVATAR_CHARS = 200000;
+
+/** Only real raster images. No SVG: it can carry script. */
+const AVATAR_PREFIX = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+
+/**
  * @returns {Response}
  */
 export function onRequestOptions() {
@@ -38,7 +50,7 @@ export async function onRequestGet(context) {
     return new Response(JSON.stringify({ error: "sign in to view your profile" }), { status: 401, headers: HEADERS });
   }
   const row = await env.DB.prepare(
-    "SELECT headline, location, resume_filename, resume_text, linkedin_url, github_url, updated_at FROM profile WHERE id = 1"
+    "SELECT display_name, headline, location, resume_filename, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE id = 1"
   ).first();
   return new Response(JSON.stringify({
     profile: row || null,
@@ -74,6 +86,27 @@ export async function onRequestPut(context) {
 
   const sets = [];
   const values = [];
+
+  /* The avatar is handled apart from the text fields: it is validated by shape
+     and by size, and it is the one value here that a page load reads on every
+     request, so an oversized one is refused rather than stored. */
+  if ("avatar_data_url" in body) {
+    const avatar = body.avatar_data_url;
+    if (avatar === null || avatar === "") {
+      sets.push("avatar_data_url = ?");
+      values.push(null);
+    } else {
+      const value = String(avatar);
+      if (!AVATAR_PREFIX.test(value)) {
+        return new Response(JSON.stringify({ error: "avatar must be a base64 PNG, JPEG or WEBP data URL" }), { status: 400, headers: HEADERS });
+      }
+      if (value.length > MAX_AVATAR_CHARS) {
+        return new Response(JSON.stringify({ error: `avatar is too large (${Math.round(value.length / 1024)}KB); keep it under ${Math.round(MAX_AVATAR_CHARS / 1024)}KB` }), { status: 400, headers: HEADERS });
+      }
+      sets.push("avatar_data_url = ?");
+      values.push(value);
+    }
+  }
   for (const field of EDITABLE) {
     if (!(field in body)) continue;
     const value = body[field] === null || body[field] === "" ? null : String(body[field]).slice(0, 500);
@@ -95,10 +128,10 @@ export async function onRequestPut(context) {
      request; only the VALUES are bound. A field name arriving from the caller
      would be the injection this shape usually has. */
   await env.DB.prepare(`UPDATE profile SET ${sets.join(", ")} WHERE id = 1`).bind(...values).run();
-  const row = await env.DB.prepare(
-    "SELECT headline, location, resume_filename, linkedin_url, github_url, updated_at FROM profile WHERE id = 1"
+  const saved = await env.DB.prepare(
+    "SELECT display_name, headline, location, resume_filename, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE id = 1"
   ).first();
-  return new Response(JSON.stringify({ ok: true, profile: row }), { headers: HEADERS });
+  return new Response(JSON.stringify({ ok: true, profile: saved }), { headers: HEADERS });
 }
 
 /**
