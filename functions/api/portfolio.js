@@ -103,15 +103,24 @@ async function publicRepos(githubUrl) {
  * @returns {Promise<Response>}
  */
 export async function onRequestGet(context) {
-  const { env } = context;
+  const { request, env } = context;
   if (!env || !env.DB) {
     return new Response(JSON.stringify({ error: "D1 binding DB is not bound" }),
       { status: 500, headers: HEADERS });
   }
   try {
-    const row = await env.DB.prepare(
-      "SELECT display_name, headline, location, resume_text, linkedin_url, github_url, updated_at FROM profile WHERE id = 1"
-    ).first();
+    /* Whose portfolio is being asked for. `?u=<handle>` names one; with no
+       handle it falls back to the first profile ever created, which keeps every
+       existing link to /portfolio/ working. It was pinned to id = 1, so every
+       account would have shown the same person's work. */
+    const handle = new URL(request.url).searchParams.get("u");
+    const row = handle
+      ? await env.DB.prepare(
+          "SELECT display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE handle = ?1"
+        ).bind(handle).first()
+      : await env.DB.prepare(
+          "SELECT display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile ORDER BY id LIMIT 1"
+        ).first();
     if (!row) {
       return new Response(JSON.stringify({ error: "no profile yet" }), { status: 404, headers: HEADERS });
     }
@@ -132,6 +141,10 @@ export async function onRequestGet(context) {
          a string literal in two different endpoints, which is a fact with no
          source and two places to drift. */
       name: row.display_name || null,
+      handle: row.handle || null,
+      /* The photo is public on a portfolio by intent; the phone number and the
+         address are not, and are never selected. */
+      avatar: row.avatar_data_url || null,
       headline: row.headline || null,
       location: row.location || null,
       summary: stripContact(section(resume, "SUMMARY")),

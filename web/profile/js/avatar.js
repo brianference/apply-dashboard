@@ -16,16 +16,26 @@ const MAX_CHARS = 200000;
 /**
  * Read a file into an image element.
  *
+ * Through a data: URL, NOT URL.createObjectURL. The page's Content-Security-
+ * Policy is `img-src 'self' data:`, and a blob: URL is neither of those, so the
+ * browser refused to load the image and the only thing the person saw was
+ * "That file could not be read as an image" - which blamed their file for a
+ * policy decision. data: is already permitted, so nothing has to be widened.
+ *
  * @param {File} file
  * @returns {Promise<HTMLImageElement>}
  */
 function loadImage(file) {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That file could not be read as an image.")); };
-    img.src = url;
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("That file could not be read from disk."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("That file could not be decoded as an image. PNG, JPEG and WEBP work."));
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
   });
 }
 

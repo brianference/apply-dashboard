@@ -14,6 +14,7 @@
  */
 
 import { HEADERS, refuseWrite, preflight } from "./_auth.js";
+import { currentUser } from "./_session.js";
 
 /** Statuses a caller is allowed to set. */
 const ALLOWED_STATUS = new Set(["submitted", "queued", "skipped"]);
@@ -57,6 +58,32 @@ export async function onRequestPost(context) {
 
   const now = new Date().toISOString();
   const isSubmit = status === "submitted";
+
+  /* A PERSON's mark goes on their own overlay, never on the shared row.
+     jobs.status belongs to the pipeline: the runner writes it and the ingest
+     reads it. If a signed-in visitor wrote there, marking a job applied would
+     delete it from everybody else's list, which is exactly the thing this
+     product must not do. The machine token still writes the shared column,
+     because that caller IS the pipeline. */
+  const user = await currentUser(request, env);
+  if (user) {
+    const job = await env.DB.prepare("SELECT dedupe_key FROM jobs WHERE dedupe_key = ?1").bind(dedupeKey).first();
+    if (!job) {
+      return new Response(JSON.stringify({ error: "no job with that dedupe_key", dedupe_key: dedupeKey }),
+        { status: 404, headers: HEADERS });
+    }
+    await env.DB.prepare(
+      `INSERT INTO user_jobs (user_id, dedupe_key, status, submitted_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5)
+       ON CONFLICT (user_id, dedupe_key) DO UPDATE SET
+         status = excluded.status,
+         submitted_at = COALESCE(user_jobs.submitted_at, excluded.submitted_at),
+         updated_at = excluded.updated_at`
+    ).bind(user.id, dedupeKey, status, isSubmit ? now : null, now).run();
+    return new Response(
+      JSON.stringify({ ok: true, dedupe_key: dedupeKey, status, submitted_at: isSubmit ? now : null, scope: "account" }),
+      { headers: HEADERS });
+  }
 
   try {
     // Parameterised throughout — no string concatenation into SQL.

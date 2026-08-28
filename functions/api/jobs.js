@@ -9,6 +9,8 @@
  * Binding: DB -> D1 database 10e8a6c0-1fa7-4c33-a007-2044876ce6a7
  */
 
+import { currentUser } from "./_session.js";
+
 const COLUMNS = [
   "dedupe_key", "company", "title", "url", "match_pct", "source",
   "status", "lane", "submitted_at", "posted", "work_type", "updated_at"
@@ -61,7 +63,7 @@ export function onRequestOptions() {
  * @returns {Promise<Response>}
  */
 export async function onRequestGet(context) {
-  const { env } = context;
+  const { request, env } = context;
   if (!env || !env.DB) {
     return new Response(
       JSON.stringify({ error: "D1 binding DB is not bound to this deployment" }),
@@ -76,7 +78,33 @@ export async function onRequestGet(context) {
       // link_status has not been added yet — serve the original columns.
       rows = (await env.DB.prepare(SELECT_LEGACY).all()).results;
     }
-    return new Response(JSON.stringify({ jobs: rows || [] }), { headers: HEADERS });
+    /* Overlay the signed-in person's own applied state.
+       jobs.status is the PIPELINE's field - the runner writes it - and it is
+       full of the owner's history. Serving it to everyone would show a new
+       account 147 jobs already marked applied, and one person's mark would
+       remove a posting from every other list. Each account sees its own.
+       Signed out, the shared status is what shows, which is what keeps the
+       public preview looking like a real list. */
+    let jobs = rows || [];
+    try {
+      const user = await currentUser(request, env);
+      if (user) {
+        const mine = (await env.DB.prepare(
+          "SELECT dedupe_key, status, submitted_at FROM user_jobs WHERE user_id = ?1"
+        ).bind(user.id).all()).results || [];
+        const byKey = new Map(mine.map((r) => [r.dedupe_key, r]));
+        jobs = jobs.map((j) => {
+          const own = byKey.get(j.dedupe_key);
+          return own
+            ? { ...j, status: own.status, submitted_at: own.submitted_at, lane: own.status === "submitted" ? "submitted" : j.lane }
+            : { ...j, status: j.status === "submitted" ? "queued" : j.status, submitted_at: null, lane: j.lane === "submitted" ? "ft" : j.lane };
+        });
+      }
+    } catch {
+      /* A failure here must not take the list down; the shared view is still
+         a usable answer. */
+    }
+    return new Response(JSON.stringify({ jobs }), { headers: HEADERS });
   } catch (error) {
     return new Response(
       JSON.stringify({ error: "query failed", detail: String(error && error.message || error) }),

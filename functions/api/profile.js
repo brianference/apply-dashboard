@@ -15,7 +15,7 @@ import { HEADERS, preflight } from "./_auth.js";
 import { currentUser, originAllowed } from "./_session.js";
 
 /** Only these are editable here. resume_text is replaced by the extractor. */
-const EDITABLE = ["headline", "location", "resume_filename", "linkedin_url", "github_url"];
+const EDITABLE = ["display_name", "headline", "location", "resume_filename", "linkedin_url", "github_url"];
 
 /**
  * The largest avatar accepted, as a data URL.
@@ -49,9 +49,11 @@ export async function onRequestGet(context) {
   if (!user) {
     return new Response(JSON.stringify({ error: "sign in to view your profile" }), { status: 401, headers: HEADERS });
   }
+  /* THEIR row, not row one. It was pinned to id = 1, so a second account would
+     have been shown Brian's resume and would have edited it. */
   const row = await env.DB.prepare(
-    "SELECT display_name, headline, location, resume_filename, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE id = 1"
-  ).first();
+    "SELECT display_name, handle, headline, location, resume_filename, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE user_id = ?1"
+  ).bind(user.id).first();
   return new Response(JSON.stringify({
     profile: row || null,
     /* The length rather than nothing, so the page can say whether a resume is
@@ -127,10 +129,13 @@ export async function onRequestPut(context) {
   /* The column names come from the EDITABLE allowlist above, never from the
      request; only the VALUES are bound. A field name arriving from the caller
      would be the injection this shape usually has. */
-  await env.DB.prepare(`UPDATE profile SET ${sets.join(", ")} WHERE id = 1`).bind(...values).run();
+  /* Scoped to the signed-in user. The column names come from the EDITABLE
+     allowlist above and never from the request; only the values are bound. */
+  values.push(user.id);
+  await env.DB.prepare(`UPDATE profile SET ${sets.join(", ")} WHERE user_id = ?`).bind(...values).run();
   const saved = await env.DB.prepare(
-    "SELECT display_name, headline, location, resume_filename, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE id = 1"
-  ).first();
+    "SELECT display_name, handle, headline, location, resume_filename, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE user_id = ?1"
+  ).bind(user.id).first();
   return new Response(JSON.stringify({ ok: true, profile: saved }), { headers: HEADERS });
 }
 

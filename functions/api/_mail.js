@@ -1,11 +1,28 @@
 /**
  * Transactional email, through Brevo.
  *
- * Verified live on 2026-08-27: GET https://api.brevo.com/v3/account returned
- * 200 on a free plan with 300 sends, and GET /v3/senders lists
- * brianference@protonmail.com as an active, verified sender. Sending from an
- * address Brevo has not verified is rejected, so MAIL_FROM must stay that one
- * unless another is verified in the Brevo dashboard first.
+ * MAIL_FROM must be an address on an AUTHENTICATED DOMAIN, currently
+ * no-reply@txeas.com. It must NOT be brianference@protonmail.com, which is what
+ * an earlier version of this comment said.
+ *
+ * That instruction was the bug. Sending as protonmail.com through Brevo fails
+ * DMARC by construction: protonmail.com publishes `p=quarantine` with strict
+ * alignment (aspf=s; adkim=s) and Brevo is not in its SPF record. Brevo logged
+ * "delivered" for two messages that never reached the inbox, because the
+ * receiving server accepted them and Proton then quarantined them. Verifying an
+ * individual address in Brevo proves you control it; it does not authorise
+ * Brevo to send AS that domain.
+ *
+ * txeas.com is authenticated and verified in Brevo, its SPF includes
+ * spf.brevo.com and its DMARC is p=none. All three checked against live DNS on
+ * 2026-08-28, and a send from it logged requests, delivered and opened.
+ *
+ * Reusing this elsewhere: copy the file, bind BREVO_API_KEY as a Pages secret,
+ * set MAIL_FROM, and change the sender name below. Three traps recorded in
+ * scholarship-one/docs/EMAIL-DELIVERABILITY-RUNBOOK.md - Brevo's "Authorized
+ * IPs" must stay OFF because a serverless sender has no fixed IP; a messageId
+ * means queued, not delivered, so confirm against /v3/smtp/statistics/events;
+ * and domain authentication is dashboard-only on the free tier.
  */
 
 const ENDPOINT = "https://api.brevo.com/v3/smtp/email";
