@@ -29,6 +29,14 @@ export const PROJECTS = [
     shot: "./img/daisydog.png"
   },
   {
+    slug: "coleramsey",
+    name: "Cole Ramsey Music",
+    url: "https://coleramseymusic.com",
+    repo: null,
+    blurb: "An AI music label taken from nothing to two released albums and twenty-six songs, run as release trains with fixed dates for writing, production, artwork and distribution.",
+    shot: "./img/coleramsey.png"
+  },
+  {
     slug: "trip-one",
     name: "Trip One",
     url: "https://trip-one.pages.dev",
@@ -83,13 +91,5 @@ export const PROJECTS = [
     repo: "https://github.com/brianference/kanban-board",
     blurb: "Project kanban for makers and teams, with Python and CLI tooling behind the public board.",
     shot: "./img/kanban-board.png"
-  },
-  {
-    slug: "coleramsey",
-    name: "Cole Ramsey Music",
-    url: "https://coleramseymusic.com",
-    repo: null,
-    blurb: "An AI music label taken from nothing to two released albums and twenty-six songs, run as release trains with fixed dates for writing, production, artwork and distribution.",
-    shot: "./img/coleramsey.png"
   }
 ];

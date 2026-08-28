@@ -6,7 +6,8 @@
  * the two is visible rather than something to remember.
  */
 
-import { mountSiteNav } from "/shared/site-nav.js";
+import { mountSiteNav, initialsFor } from "/shared/site-nav.js";
+import { toAvatarDataUrl } from "./avatar.js";
 
 const FIELDS = ["headline", "location", "linkedin_url", "github_url", "resume_filename"];
 
@@ -56,6 +57,71 @@ async function start() {
   at("#editor").hidden = false;
   const profile = data.profile || {};
   for (const field of FIELDS) at(`#${field}`).value = profile[field] || "";
+
+  /* ---- photo ---- */
+  const preview = at("#avatar-preview");
+  const initials = at("#avatar-initials");
+  /**
+   * @param {string|null} dataUrl
+   * @returns {void}
+   */
+  const showAvatar = (dataUrl) => {
+    if (dataUrl) {
+      preview.setAttribute("src", dataUrl);
+      preview.hidden = false;
+      initials.hidden = true;
+    } else {
+      preview.removeAttribute("src");
+      preview.hidden = true;
+      initials.hidden = false;
+      initials.textContent = initialsFor(who.email, profile.display_name || who.name);
+    }
+  };
+  showAvatar(profile.avatar_data_url || null);
+
+  /**
+   * @param {string|null} dataUrl
+   * @returns {Promise<void>}
+   */
+  const saveAvatar = async (dataUrl) => {
+    const res = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ avatar_data_url: dataUrl })
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+  };
+
+  at("#avatar-file").addEventListener("change", async (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    flash("");
+    try {
+      const dataUrl = await toAvatarDataUrl(file);
+      showAvatar(dataUrl);
+      await saveAvatar(dataUrl);
+      flash(`Photo saved, ${Math.round(dataUrl.length / 1024)}KB. It appears in the header on the next page load.`);
+    } catch (error) {
+      showAvatar(profile.avatar_data_url || null);
+      flash(String(error.message || error), true);
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  at("#avatar-remove").addEventListener("click", async () => {
+    flash("");
+    try {
+      await saveAvatar(null);
+      profile.avatar_data_url = null;
+      showAvatar(null);
+      flash("Photo removed. Your initials are shown instead.");
+    } catch (error) {
+      flash(String(error.message || error), true);
+    }
+  });
   at("#resume-status").textContent = data.resume_chars
     ? `${data.resume_chars.toLocaleString()} characters of resume text stored. The portfolio is built from this, with contact details stripped.`
     : "No resume text stored yet, so the portfolio has nothing to build its summary from.";
