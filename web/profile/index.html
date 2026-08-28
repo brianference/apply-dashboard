@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Profile — AI PM Jobs</title>
+<meta name="robots" content="noindex"/>
+<link rel="icon" href="/01-light-32.png" type="image/png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/shared/site-nav.css"/>
+<link rel="stylesheet" href="./css/profile.css"/>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div id="flash" hidden></div>
+
+  <section id="gate" hidden>
+    <div class="panel">
+      <h2>Sign in required</h2>
+      <p>This page holds your resume and your links. The <a href="/portfolio/">portfolio</a> is the public version.</p>
+      <p><a class="cta" href="/login/">Sign in</a></p>
+    </div>
+  </section>
+
+  <section id="editor" hidden>
+    <h1>Profile</h1>
+    <p class="lede">What the public <a href="/portfolio/">portfolio</a> is built from. Contact details are never published there.</p>
+
+    <form class="panel" id="form">
+      <label for="headline">Headline</label>
+      <input id="headline" name="headline" type="text" maxlength="200"/>
+
+      <label for="location">Location</label>
+      <input id="location" name="location" type="text" maxlength="120"/>
+
+      <label for="linkedin_url">LinkedIn URL</label>
+      <input id="linkedin_url" name="linkedin_url" type="url" placeholder="https://www.linkedin.com/in/..."/>
+
+      <label for="github_url">GitHub URL</label>
+      <input id="github_url" name="github_url" type="url" placeholder="https://github.com/..."/>
+
+      <label for="resume_filename">Resume file</label>
+      <input id="resume_filename" name="resume_filename" type="text" maxlength="200"/>
+      <p class="hint" id="resume-status"></p>
+
+      <button type="submit" class="cta" id="save">Save</button>
+    </form>
+  </section>
+</main>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

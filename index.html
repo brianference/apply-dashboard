@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
 <link rel="icon" href="01-light-32.png" type="image/png" media="(prefers-color-scheme: light)"/>
 <link rel="icon" href="01-dark-32.png" type="image/png" media="(prefers-color-scheme: dark)"/>
+<link rel="stylesheet" href="/shared/site-nav.css"/>
 <style>
   /* Steel Mist (palette-04) - design-refs/palettes/palettes.json */
   :root {
@@ -423,30 +424,15 @@
 </style>
 </head>
 <body>
-<header class="masthead">
-  <div class="wrap">
-    <div class="bar">
-      <a class="brand" href="/" aria-label="AI PM Jobs — home">
-        <img src="mark-01.png" alt="" width="104" height="104"/>
-        <h1>AI PM Jobs</h1>
-      </a>
-      <div class="spacer"></div>
-      <div id="authnav"></div>
-      <button type="button" class="iconbtn" id="theme" title="Toggle light / dark" aria-label="Toggle light or dark theme">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
-          <circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/>
-        </svg>
-      </button>
-    </div>
-    <div class="stats" id="stats">
+<div id="sitenav"></div>
+<div class="wrap statswrap"><div class="stats" id="stats">
       <div class="stat"><b id="s-ft">&mdash;</b><span>Full-time</span></div>
       <div class="stat"><b id="s-pt">&mdash;</b><span>PT / C2C</span></div>
       <div class="stat good"><b id="s-sub">&mdash;</b><span>Applied</span></div>
       <div class="stat"><b id="s-dir">&mdash;</b><span>Direct form</span></div>
     </div>
   </div>
-</header>
+</div>
 <div class="sticky">
   <div class="wrap">
     <div class="toolbar">
@@ -500,7 +486,10 @@
     var saved = localStorage.getItem("apply-theme");
     if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
   } catch (e) {}
-  document.getElementById("theme").addEventListener("click", function () {
+  /* The theme button lives in the shared header now, which owns its own
+     handler. This one has no element to bind to. */
+  var legacyTheme = document.getElementById("theme");
+  if (legacyTheme) legacyTheme.addEventListener("click", function () {
     /* light is the default no matter what the OS prefers, so an unset attribute
        means light. Inferring it from prefers-color-scheme made the first click a
        no-op on a dark-mode machine. */
@@ -1701,8 +1690,8 @@
 <script type="module">
   /* The shared control, so the dashboard, the experiments tool and the
      portfolio all answer "who is signed in" the same way. */
-  import { mountAuthNav } from "/shared/auth-nav.js";
-  mountAuthNav("#authnav").then(function (who) {
+  import { mountSiteNav } from "/shared/site-nav.js";
+  mountSiteNav("#sitenav").then(function (who) {
     /* The page script owns canWrite; hand it the answer and let it re-render
        the banner, which is what tells Brian whether ticking will save. */
     if (typeof window.__authReady === "function") window.__authReady(who);

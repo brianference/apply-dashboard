@@ -1,0 +1,68 @@
+/* Profile. Private page, same tokens as everything else, light by default. */
+
+:root {
+  --bg: #eef1f4; --surface: #ffffff; --text: #1a232b; --muted: #44525c;
+  --border: #d0d7de; --primary: #2c5266; --primary-contrast: #ffffff;
+  --primary-soft: rgba(44, 82, 102, 0.10); --warn: #8a4b12;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #131a20; --surface: #1c242b; --text: #e8eef2; --muted: #a3b2bc;
+  --border: #33404a; --primary: #8fb4c8; --primary-contrast: #131a20;
+  --primary-soft: rgba(143, 180, 200, 0.16); --warn: #e8b078;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 400 16px/1.55 "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+}
+.wrap { max-width: 680px; margin: 0 auto; padding: 30px 22px 70px; }
+
+h1 { margin: 0 0 6px; font-size: 32px; letter-spacing: -.025em; }
+h2 { margin: 0 0 10px; font-size: 20px; }
+.lede { margin: 0 0 24px; color: var(--muted); }
+.hint { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+.panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 22px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.panel p { margin: 0 0 12px; color: var(--muted); }
+
+label {
+  font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+  margin-top: 14px;
+}
+input {
+  width: 100%; height: 46px; padding: 0 13px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  font: 400 15px/1.4 "IBM Plex Sans", system-ui, sans-serif;
+}
+input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.cta {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 46px; margin-top: 22px; padding: 0 24px; border: 0;
+  border-radius: 9px; cursor: pointer; text-decoration: none;
+  background: var(--primary); color: var(--primary-contrast);
+  font: 600 15px/1 "IBM Plex Sans", system-ui, sans-serif;
+  align-self: flex-start;
+}
+.cta:hover { filter: brightness(1.07); }
+.cta:disabled { opacity: .6; cursor: default; }
+
+#flash {
+  background: var(--primary); color: var(--primary-contrast);
+  border-radius: 9px; padding: 11px 15px; margin-bottom: 20px; font-size: 14px;
+}
+#flash.bad { background: var(--warn); }
+
+a { color: var(--primary); }
+
+@media (max-width: 560px) { .wrap { padding: 22px 15px 60px; } h1 { font-size: 26px; } }

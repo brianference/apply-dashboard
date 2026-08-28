@@ -8,7 +8,7 @@ import * as api from "./api.js";
 import { renderSummary } from "./render/summary.js";
 import { renderTable } from "./render/table.js";
 import { trialsNeededPerArm } from "./lib/stats.js";
-import { mountAuthNav } from "/shared/auth-nav.js";
+import { mountSiteNav } from "/shared/site-nav.js";
 
 const DEFAULT_STAGES = ["no-response", "rejected", "recruiter-screen", "hiring-manager", "interview", "onsite", "offer", "withdrawn"];
 
@@ -128,7 +128,7 @@ async function start() {
   mount("#power").textContent =
     `At a 5 percent callback rate, telling a real doubling from noise takes about ${trialsNeededPerArm(0.05, 0.05)} applications in EACH arm.`;
 
-  const who = await mountAuthNav("#authnav");
+  const who = await mountSiteNav("#sitenav");
   if (!who.authenticated) {
     mount("#assign").hidden = true;
     renderSignInPrompt();
