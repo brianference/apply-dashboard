@@ -1,0 +1,220 @@
+/* The sign-in card.
+ *
+ * Lifted from the concept Brian chose out of three: one floating card in empty
+ * space, brand, error and form as a single object. The tokens are the same ones
+ * the dashboard and the experiments page use, so the three read as one product.
+ */
+
+:root {
+    --bg: #eef1f4;
+    --surface: #ffffff;
+    --text: #1a232b;
+    --muted: #44525c;
+    --border: #d0d7de;
+    --primary: #2c5266;
+    --primary-contrast: #ffffff;
+    --primary-soft: rgba(44, 82, 102, 0.10);
+    --error: #8b2e1a;
+    --error-bg: #f8ece8;
+    --error-border: #e0b4a8;
+    --shadow: 0 1px 2px rgba(26, 35, 43, 0.06), 0 12px 32px rgba(26, 35, 43, 0.08);
+    --radius: 14px;
+    --focus: #2c5266;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #131a20;
+    --surface: #1c242b;
+    --text: #e8eef2;
+    --muted: #a3b2bc;
+    --border: #33404a;
+    --primary: #8fb4c8;
+    --primary-contrast: #131a20;
+    --primary-soft: rgba(143, 180, 200, 0.16);
+    --error: #e8a070;
+    --error-bg: rgba(232, 160, 112, 0.14);
+    --error-border: rgba(232, 160, 112, 0.38);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 16px 40px rgba(0, 0, 0, 0.45);
+    --focus: #8fb4c8;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131a20;
+      --surface: #1c242b;
+      --text: #e8eef2;
+      --muted: #a3b2bc;
+      --border: #33404a;
+      --primary: #8fb4c8;
+      --primary-contrast: #131a20;
+      --primary-soft: rgba(143, 180, 200, 0.16);
+      --error: #e8a070;
+      --error-bg: rgba(232, 160, 112, 0.14);
+      --error-border: rgba(232, 160, 112, 0.38);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 16px 40px rgba(0, 0, 0, 0.45);
+      --focus: #8fb4c8;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 16px/1.45 "IBM Plex Sans", system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
+  }
+  body {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  }
+
+  .card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px 24px 24px;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .brand img {
+    width: 88px;
+    height: 88px;
+    display: block;
+    border-radius: 18px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+  .purpose {
+    margin: 0;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.4;
+    max-width: 28ch;
+  }
+
+  .alert {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    color: var(--error);
+    border-radius: 10px;
+    padding: 12px 12px;
+    margin: 0 0 18px;
+    font: 500 15px/1.4 "IBM Plex Sans", system-ui, sans-serif;
+  }
+  .alert svg { flex: 0 0 auto; margin-top: 1px; }
+  /* `display: flex` on the class beats the `hidden` attribute, so the empty
+     alert box painted on every load until this existed. Every numeric check
+     passed while it was visible; only the screenshot showed it. */
+  .alert[hidden] { display: none; }
+  .alert.ok {
+    background: var(--primary-soft);
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  form { display: flex; flex-direction: column; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label {
+    font: 600 12px/1 "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  input[type="email"],
+  input[type="password"],
+  input[type="text"] {
+    width: 100%;
+    height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 16px/1.4 "IBM Plex Sans", system-ui, sans-serif;
+  }
+  .pw {
+    position: relative;
+  }
+  .pw input { padding-right: 84px; }
+  .pw-toggle {
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    height: 44px;
+    min-width: 72px;
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    color: var(--primary);
+    font: 600 13px/1 "IBM Plex Sans", system-ui, sans-serif;
+    cursor: pointer;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .pw-toggle:hover { background: var(--primary-soft); }
+
+  .submit {
+    appearance: none;
+    width: 100%;
+    height: 48px;
+    margin-top: 4px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--primary);
+    color: var(--primary-contrast);
+    font: 600 16px/1 "IBM Plex Sans", system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .submit:hover { filter: brightness(1.06); }
+
+  .forgot {
+    display: flex;
+    justify-content: center;
+    min-height: 44px;
+    align-items: center;
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .forgot:hover { text-decoration: underline; }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-color: var(--primary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; filter: none !important; }
+  }

@@ -1,42 +1,17 @@
 /**
  * Every network call the page makes, in one place.
  *
- * The write token is never in page source. It is pasted once and kept in
- * localStorage, the same way the main dashboard does it.
+ * Writes are authorised by the session cookie, which is HttpOnly - this file
+ * cannot read it and does not need to. There is no token to paste, which is
+ * why the token box is gone from the page.
  */
-
-const TOKEN_KEY = "apply-token";
-
-/**
- * @returns {string} the stored write token, or an empty string
- */
-export function readToken() {
-  try {
-    return localStorage.getItem(TOKEN_KEY) || "";
-  } catch {
-    return "";
-  }
-}
-
-/**
- * @param {string} token
- * @returns {boolean} whether it could be stored
- */
-export function storeToken(token) {
-  try {
-    localStorage.setItem(TOKEN_KEY, String(token || "").trim());
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * @param {string} path
  * @returns {Promise<object>}
  */
 async function get(path) {
-  const res = await fetch(path, { headers: { "cache-control": "no-cache" } });
+  const res = await fetch(path, { credentials: "same-origin", headers: { "cache-control": "no-cache" } });
   if (!res.ok) throw new Error(`${path} returned ${res.status}`);
   return res.json();
 }
@@ -49,7 +24,8 @@ async function get(path) {
 async function post(path, body) {
   const res = await fetch(path, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-apply-token": readToken() },
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
     body: JSON.stringify(body)
   });
   const json = await res.json().catch(() => ({}));

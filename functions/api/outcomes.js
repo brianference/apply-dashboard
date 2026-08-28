@@ -81,7 +81,7 @@ export async function onRequestGet(context) {
  */
 export async function onRequestPost(context) {
   const { request, env } = context;
-  const refused = refuseWrite(request, env);
+  const refused = await refuseWrite(request, env);
   if (refused) return refused;
 
   let body;
