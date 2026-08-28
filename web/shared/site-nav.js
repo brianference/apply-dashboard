@@ -390,6 +390,38 @@ export function buildHeader(who) {
 }
 
 /**
+ * The footer, shared by every page.
+ *
+ * Four documents that exist and are reachable from nowhere are four documents
+ * nobody reads. It mounts itself into <body> rather than needing a placeholder,
+ * so adding a page does not mean remembering to add a footer to it.
+ *
+ * @returns {void}
+ */
+export function mountFooter() {
+  if (document.querySelector("footer.site-foot")) return;
+  const cols = [
+    ["The list", [["Jobs", "/"], ["Portfolio", "/portfolio/"], ["Experiments", "/experiments/"]]],
+    ["Your account", [["Profile", "/profile/"], ["Sign in", "/login/"]]],
+    ["About this site", [["About", "/legal/about/"], ["Contact", "/legal/contact/"]]],
+    ["Legal", [["Terms of Use", "/legal/terms/"], ["Privacy", "/legal/privacy/"]]]
+  ];
+  const foot = el("footer", { class: "site-foot" }, [
+    el("div", { class: "foot-inner" }, [
+      ...cols.map(([title, links]) => el("div", { class: "foot-col" }, [
+        el("h2", {}, [title]),
+        el("ul", {}, links.map(([label, href]) => el("li", {}, [el("a", { href }, [label])])))
+      ]))
+    ]),
+    el("div", { class: "foot-bar" }, [
+      el("span", {}, ["AI PM Jobs"]),
+      el("span", { class: "foot-note" }, ["Listings are collected from public job boards and may be out of date. Always confirm on the employer's own page."])
+    ])
+  ]);
+  document.body.append(foot);
+}
+
+/**
  * Replace a placeholder element with the real header.
  *
  * @param {string} selector element to replace
@@ -406,5 +438,6 @@ export async function mountSiteNav(selector) {
   const who = await whoAmI();
   const slot = document.querySelector(selector);
   if (slot) slot.replaceWith(buildHeader(who));
+  mountFooter();
   return who;
 }

@@ -50,3 +50,22 @@ export const reset = (token, password) => post("/api/auth/reset", { token, passw
 export const me = () =>
   fetch("/api/auth/me", { credentials: "same-origin", headers: { "cache-control": "no-cache" } })
     .then((r) => r.json());
+
+/**
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise<{ok: boolean, message: string}>}
+ */
+export const register = (email, password) => post("/api/auth/register", { email, password });
+
+/**
+ * @param {string} token
+ * @returns {Promise<object>}
+ */
+export const verify = (token) =>
+  fetch("/api/auth/verify?token=" + encodeURIComponent(token), { credentials: "same-origin" })
+    .then(async (res) => {
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `Activation failed (${res.status})`);
+      return json;
+    });

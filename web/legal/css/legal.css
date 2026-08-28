@@ -1,0 +1,54 @@
+/* The legal and info documents. Light by default, like every other page. */
+
+:root {
+  --bg: #eef1f4; --surface: #ffffff; --text: #1a232b; --muted: #44525c;
+  --border: #d0d7de; --primary: #2c5266; --primary-contrast: #ffffff;
+  --primary-soft: rgba(44, 82, 102, 0.10);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #131a20; --surface: #1c242b; --text: #e8eef2; --muted: #a3b2bc;
+  --border: #33404a; --primary: #8fb4c8; --primary-contrast: #131a20;
+  --primary-soft: rgba(143, 180, 200, 0.16);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 400 16px/1.65 "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+}
+
+/* A measure, not a full-width slab. Legal text at 1440px is unreadable. */
+main { max-width: 720px; margin: 0 auto; padding: 38px 22px 90px; }
+
+h1 { margin: 0 0 6px; font-size: 34px; letter-spacing: -.03em; line-height: 1.15; }
+.updated {
+  margin: 0 0 26px; color: var(--muted);
+  font: 500 12px/1 "IBM Plex Mono", ui-monospace, monospace;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.lede { margin: 0 0 16px; font-size: 17px; color: var(--text); }
+
+.doc-section { margin: 34px 0 0; }
+.doc-section h2 {
+  margin: 0 0 12px; font-size: 19px; letter-spacing: -.01em;
+  padding-bottom: 9px; border-bottom: 1px solid var(--border);
+}
+.doc-section p { margin: 0 0 12px; color: var(--muted); }
+.doc-section ul { margin: 0; padding-left: 20px; color: var(--muted); }
+.doc-section li { margin: 0 0 9px; }
+
+a { color: var(--primary); }
+a:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+/* One unbreakable link once pushed a document past a 375 viewport while every
+   element-width check found nothing. */
+a, li, p { overflow-wrap: anywhere; }
+
+@media (max-width: 560px) {
+  main { padding: 26px 16px 70px; }
+  h1 { font-size: 27px; }
+}

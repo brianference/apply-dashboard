@@ -403,3 +403,39 @@ header.site .site-search input::-webkit-search-cancel-button { cursor: pointer; 
   header.site .site-search { order: 3; flex: 1 1 100%; margin: 10px 0 2px; }
   header.site .spacer { order: 2; }
 }
+
+/* ---- footer ----
+ * Four documents reachable from nowhere are four documents nobody reads.
+ * Scoped like everything else in this file, which is loaded by pages it does
+ * not own. */
+footer.site-foot {
+  margin-top: 64px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+footer.site-foot .foot-inner {
+  max-width: 1120px; margin: 0 auto; padding: 40px 22px 26px;
+  display: grid; gap: 30px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+footer.site-foot h2 {
+  margin: 0 0 12px;
+  font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+  text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+}
+footer.site-foot ul { list-style: none; margin: 0; padding: 0; }
+footer.site-foot li { margin: 0 0 9px; }
+footer.site-foot a {
+  color: var(--text); text-decoration: none; font-size: 14px;
+  display: inline-flex; align-items: center; min-height: 26px;
+}
+footer.site-foot a:hover { color: var(--primary); text-decoration: underline; }
+footer.site-foot a:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+footer.site-foot .foot-bar {
+  max-width: 1120px; margin: 0 auto; padding: 18px 22px 30px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 18px; flex-wrap: wrap; align-items: baseline;
+  font-size: 13px; color: var(--muted);
+}
+footer.site-foot .foot-bar span:first-child { font-weight: 600; color: var(--text); }
+footer.site-foot .foot-note { flex: 1 1 320px; min-width: 0; }

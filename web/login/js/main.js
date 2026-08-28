@@ -17,6 +17,8 @@ import { wirePasswordToggle } from "./password-toggle.js";
 const params = new URLSearchParams(location.search);
 const token = params.get("token");
 const wantsReset = params.get("reset") === "1";
+const wantsSignup = params.get("signup") === "1";
+const verifyToken = params.get("verify");
 
 const ui = {
   heading: mount("#heading"),
@@ -135,12 +137,64 @@ function stateSetPassword() {
 
 wirePasswordToggle(mount("#pw-toggle"), ui.password, mount("#pw-toggle-text"));
 
-if (token) stateSetPassword();
+/** Make an account. */
+function stateSignUp() {
+  ui.heading.textContent = "Create your account";
+  ui.purpose.textContent = "Free. Your own job list, profile and portfolio.";
+  ui.passwordLabel.textContent = "Choose a password";
+  ui.password.setAttribute("autocomplete", "new-password");
+  ui.submit.dataset.label = "Create account";
+  ui.submit.textContent = "Create account";
+  ui.secondary.textContent = "Already have an account? Sign in";
+  ui.secondary.setAttribute("href", "/login/");
+  ui.form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    say("");
+    if (ui.password.value.length < 15) {
+      say("Password must be at least 15 characters.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await api.register(ui.email.value.trim(), ui.password.value);
+      /* The same message whether or not the address was already registered.
+         Saying "that email is taken" would answer a question a stranger should
+         not be able to ask. */
+      say(res.message, "ok");
+      ui.form.hidden = true;
+    } catch (error) {
+      say(String(error.message || error));
+      setBusy(false);
+    }
+  });
+}
+
+/** Activate from the emailed link. */
+async function stateVerify() {
+  ui.heading.textContent = "Activating your account";
+  ui.purpose.textContent = "";
+  ui.form.hidden = true;
+  ui.secondary.hidden = true;
+  try {
+    await api.verify(verifyToken);
+    location.href = "/";
+  } catch (error) {
+    ui.heading.textContent = "That link did not work";
+    say(String(error.message || error));
+    ui.secondary.hidden = false;
+    ui.secondary.textContent = "Back to sign in";
+    ui.secondary.setAttribute("href", "/login/");
+  }
+}
+
+if (verifyToken) stateVerify();
+else if (token) stateSetPassword();
 else if (wantsReset) stateRequestReset();
+else if (wantsSignup) stateSignUp();
 else stateSignIn();
 
 /* Already signed in? Do not show a sign-in form to someone who is. */
-if (!token) {
+if (!token && !verifyToken) {
   api.me().then((who) => {
     if (who.authenticated) location.href = "/";
   }).catch(() => { /* offline is not a reason to block the form */ });
