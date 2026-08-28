@@ -38,24 +38,11 @@
     --focus: #8fb4c8;
     color-scheme: dark;
   }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #131a20;
-      --surface: #1c242b;
-      --text: #e8eef2;
-      --muted: #a3b2bc;
-      --border: #33404a;
-      --primary: #8fb4c8;
-      --primary-contrast: #131a20;
-      --primary-soft: rgba(143, 180, 200, 0.16);
-      --error: #e8a070;
-      --error-bg: rgba(232, 160, 112, 0.14);
-      --error-border: rgba(232, 160, 112, 0.38);
-      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 16px 40px rgba(0, 0, 0, 0.45);
-      --focus: #8fb4c8;
-      color-scheme: dark;
-    }
-  }
+  /* Light is the default, whatever the operating system prefers.
+   The theme toggle already treats an unset data-theme as light, so honouring
+   prefers-color-scheme here made the two disagree: a dark-mode machine got a
+   dark page that the toggle then thought was light. Dark applies only when it
+   is explicitly chosen. */
 
   * { box-sizing: border-box; }
   html, body {
@@ -129,7 +116,11 @@
   /* `display: flex` on the class beats the `hidden` attribute, so the empty
      alert box painted on every load until this existed. Every numeric check
      passed while it was visible; only the screenshot showed it. */
-  .alert[hidden] { display: none; }
+  /* A class that sets `display` beats the `hidden` ATTRIBUTE. That bit twice:
+     the empty alert box painted on every load, and the password field stayed on
+     screen in the reset view where main.js had already set hidden on it. One
+     rule for all of them, rather than remembering a selector per component. */
+  [hidden] { display: none !important; }
   .alert.ok {
     background: var(--primary-soft);
     border-color: var(--border);

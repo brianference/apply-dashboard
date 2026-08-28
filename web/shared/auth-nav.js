@@ -61,12 +61,12 @@ export function renderAuthNav(container, who) {
   container.classList.add("authnav");
 
   if (!who.authenticated) {
-    const link = document.createElement("a");
-    link.className = "authnav-signin";
-    link.href = "/login/";
-    link.textContent = "Sign in";
-    link.title = "Sign in to record applications and outcomes";
-    container.append(link);
+    /* Signing in happens HERE, in a panel under the button, rather than on a
+       page of its own. Leaving the list to sign in and being dropped back at
+       the top of it is a worse trip than typing two fields in place. The
+       separate page still exists and still works, because a reset link has to
+       land somewhere, but nobody has to go there to sign in. */
+    container.append(buildSignInPopover());
     return;
   }
 
@@ -81,6 +81,107 @@ export function renderAuthNav(container, who) {
   out.addEventListener("click", signOut);
 
   container.append(who_, out);
+}
+
+/**
+ * The sign-in button and the panel it opens.
+ *
+ * Same card design as /login/, shrunk into a popover: brand line, error, email,
+ * password with a working show/hide, and the forgot link. On success the page
+ * reloads, so every gated control re-evaluates at once rather than each being
+ * switched on by hand.
+ *
+ * @returns {DocumentFragment}
+ */
+function buildSignInPopover() {
+  const frag = document.createDocumentFragment();
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "authnav-signin";
+  button.textContent = "Sign in";
+  button.setAttribute("aria-expanded", "false");
+  button.title = "Sign in to record applications and outcomes";
+
+  const panel = document.createElement("div");
+  panel.className = "authnav-panel";
+  panel.hidden = true;
+  panel.innerHTML = `
+    <p class="authnav-panel-why">Sign in to record applications and outcomes.</p>
+    <div class="authnav-error" hidden role="status"></div>
+    <label class="authnav-label" for="authnav-email">Email</label>
+    <input class="authnav-input" id="authnav-email" type="email" autocomplete="username"/>
+    <label class="authnav-label" for="authnav-password">Password</label>
+    <div class="authnav-pw">
+      <input class="authnav-input" id="authnav-password" type="password" autocomplete="current-password"/>
+      <button type="button" class="authnav-toggle" aria-pressed="false" aria-label="Show password">Show</button>
+    </div>
+    <button type="button" class="authnav-submit">Sign in</button>
+    <a class="authnav-forgot" href="/login/?reset=1">Forgot your password</a>
+  `;
+
+  const email = panel.querySelector("#authnav-email");
+  const password = panel.querySelector("#authnav-password");
+  const toggle = panel.querySelector(".authnav-toggle");
+  const submit = panel.querySelector(".authnav-submit");
+  const error = panel.querySelector(".authnav-error");
+
+  toggle.addEventListener("click", () => {
+    const showing = password.getAttribute("type") === "text";
+    password.setAttribute("type", showing ? "password" : "text");
+    toggle.setAttribute("aria-pressed", String(!showing));
+    toggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+    toggle.textContent = showing ? "Show" : "Hide";
+    password.focus();
+  });
+
+  const open = (yes) => {
+    panel.hidden = !yes;
+    button.setAttribute("aria-expanded", String(yes));
+    if (yes) email.focus();
+  };
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    open(panel.hidden);
+  });
+  /* Clicking anywhere else closes it, but a click INSIDE must not - otherwise
+     the panel shuts the moment you reach for the password field. */
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  document.addEventListener("click", () => open(false));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") open(false);
+  });
+
+  const attempt = async () => {
+    error.hidden = true;
+    submit.disabled = true;
+    submit.textContent = "Signing in…";
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email: email.value.trim(), password: password.value })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `Sign in failed (${res.status})`);
+      location.reload();
+    } catch (err) {
+      error.hidden = false;
+      error.textContent = String(err.message || err);
+      submit.disabled = false;
+      submit.textContent = "Sign in";
+    }
+  };
+  submit.addEventListener("click", attempt);
+  for (const field of [email, password]) {
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") attempt();
+    });
+  }
+
+  frag.append(button, panel);
+  return frag;
 }
 
 /**
@@ -112,6 +213,55 @@ export function injectAuthNavStyles() {
       outline: 2px solid var(--primary); outline-offset: 3px;
     }
     @media (max-width: 560px) { .authnav-who { display: none; } }
+
+    /* The panel hangs off the button, so the container has to be a positioning
+       context. Position fixed would escape any transformed ancestor. */
+    .authnav { position: relative; }
+    .authnav-panel[hidden] { display: none; }
+    .authnav-panel {
+      position: absolute; top: calc(100% + 10px); right: 0; z-index: 60;
+      width: min(320px, calc(100vw - 28px));
+      display: flex; flex-direction: column; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+      box-shadow: 0 12px 32px rgba(0,0,0,.18);
+      text-align: left;
+    }
+    .authnav-panel-why { margin: 0 0 2px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .authnav-label {
+      font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+      letter-spacing: .07em; text-transform: uppercase; color: var(--muted);
+    }
+    .authnav-input {
+      width: 100%; height: 42px; padding: 0 12px; border-radius: 9px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text);
+      font: 400 15px/1.4 "IBM Plex Sans", system-ui, sans-serif;
+    }
+    .authnav-pw { position: relative; }
+    .authnav-pw .authnav-input { padding-right: 74px; }
+    .authnav-toggle {
+      position: absolute; right: 3px; top: 3px; height: 36px; min-width: 62px;
+      border: 0; background: transparent; color: var(--primary); cursor: pointer;
+      font: 600 13px/1 "IBM Plex Sans", system-ui, sans-serif; border-radius: 7px;
+    }
+    .authnav-toggle:hover { background: var(--primary-soft); }
+    .authnav-submit {
+      height: 42px; margin-top: 4px; border: 0; border-radius: 9px; cursor: pointer;
+      background: var(--primary); color: var(--primary-contrast);
+      font: 600 15px/1 "IBM Plex Sans", system-ui, sans-serif;
+    }
+    .authnav-submit:hover { filter: brightness(1.06); }
+    .authnav-submit:disabled { opacity: .65; cursor: default; }
+    .authnav-error {
+      background: var(--warn-bg, rgba(139,46,26,.10)); color: var(--warn, #8b2e1a);
+      border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px;
+      font-size: 13px; line-height: 1.4;
+    }
+    .authnav-forgot {
+      color: var(--primary); text-decoration: none; font-size: 13px;
+      text-align: center; padding-top: 2px;
+    }
+    .authnav-forgot:hover { text-decoration: underline; }
   `;
   document.head.append(style);
 }

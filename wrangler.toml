@@ -19,4 +19,14 @@ database_id = "10e8a6c0-1fa7-4c33-a007-2044876ce6a7"
 # survived the same deploy.
 [vars]
 SITE_ORIGIN = "https://apply-dashboard.pages.dev"
-MAIL_FROM = "brianference@protonmail.com"
+# Sent FROM txeas.com, not from protonmail.com.
+#
+# protonmail.com publishes v=DMARC1; p=quarantine with strict SPF and DKIM
+# alignment (aspf=s, adkim=s), and Brevo is not in its SPF record. Sending as
+# that domain through Brevo therefore fails DMARC, and Proton is entitled to
+# quarantine or silently discard it - which is exactly what happened: Brevo
+# reported "delivered" for two messages that never appeared in the inbox.
+#
+# txeas.com is authenticated and verified in Brevo, its SPF includes
+# spf.brevo.com, and its DMARC is p=none. Verified against live DNS 2026-08-28.
+MAIL_FROM = "no-reply@txeas.com"
