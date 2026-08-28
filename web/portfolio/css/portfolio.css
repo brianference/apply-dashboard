@@ -241,29 +241,102 @@ a:hover { text-decoration: underline; }
     * { transition: none !important; filter: none !important; }
   }
 
-/* Sections the concept did not carry: the open-source list and the resume
-   blocks, which sit below the work rather than above it now. */
+
+/* ---- closing sections -----------------------------------------------------
+ *
+ * Open source and the resume facts. They ran edge to edge with no left padding
+ * because .band has no max-width - each .row supplies its own - so anything
+ * else dropped into a band inherited nothing. band-inner is the same column as
+ * the hero and the rows, to the pixel.
+ */
+.band-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  /* The SAME horizontal padding as .hero and .row, including the step up at
+     900px. It was a flat 16px, so at desktop every closing section started
+     twelve pixels left of the hero copy above it - the misalignment that made
+     these read as orphaned. Any change to the row padding has to change here
+     too, which is why the number is called out rather than buried. */
+  padding: 0 16px;
+}
+@media (min-width: 900px) {
+  .band-inner { padding: 0 28px; }
+}
+.band.closing { padding-top: 0; padding-bottom: 40px; }
+.band.closing + .band.closing { padding-top: 4px; }
+
 .section-title {
   font: 600 12px/1 "IBM Plex Mono", ui-monospace, monospace;
-  text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
-  margin: 34px 0 14px; padding-bottom: 9px; border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--muted);
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
-.section-title:first-child { margin-top: 0; }
 
-.repos { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+/* Repositories as cards in a responsive grid. A single full-width stack of thin
+   bars is what made this read as an orphaned list rather than part of the page;
+   twelve of them at 1440px is a lot of empty line to cross. */
+.repos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+}
 .repos li {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; padding: 12px 15px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 15px 17px;
+  min-width: 0;
 }
 .repos a { color: var(--primary); text-decoration: none; font-weight: 600; }
 .repos a:hover { text-decoration: underline; }
 .lang {
-  margin-left: 9px; font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
-  color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
+  margin-left: 9px;
+  font: 600 10px/1 "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
 }
-.repo-desc { display: block; color: var(--muted); font-size: 14px; margin-top: 4px; }
+.repo-desc {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
 
-.lines p { margin: 0 0 9px; }
-.lines strong { color: var(--text); }
+/* The resume facts. Each label sits in its own column at desktop width so the
+   eye has something to travel down, instead of five paragraphs that begin with
+   a bold run and then wrap the full width of the screen. */
+.facts { display: grid; gap: 34px; }
+.fact { min-width: 0; }
+.lines p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.lines p:last-child { margin-bottom: 0; }
+.lines strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (min-width: 900px) {
+  .lines p {
+    display: grid;
+    grid-template-columns: 210px 1fr;
+    gap: 20px;
+    align-items: baseline;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .lines p:last-child { border-bottom: 0; padding-bottom: 0; }
+  .lines strong { text-align: left; }
+}
 
 [hidden] { display: none !important; }
