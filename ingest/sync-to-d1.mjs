@@ -22,7 +22,7 @@
 
 import { readFile } from "node:fs/promises";
 import { isCli, parseArgs } from "./cli.mjs";
-import { assignLane, dedupeKey, scoreMatch } from "./match.mjs";
+import { assignLane, dedupeKey, dupeSignature, scoreMatch } from "./match.mjs";
 import { locationEligible, roleEligible } from "./location-eligible.mjs";
 
 const ACCOUNT = "dd01b432f0329f87bb1cc1a3fad590ee";
@@ -45,11 +45,27 @@ const READ_API = "https://apply-dashboard.pages.dev/api/jobs";
 export function normalizeUrl(raw) {
   let u;
   try { u = new URL(String(raw || "").trim()); } catch { return String(raw || "").trim().toLowerCase(); }
+  /* BuiltIn re-lists a job already captured from its own ATS (Lever, iCIMS)
+     and tags the re-scrape with its own query params -- lever-source and, on
+     iCIMS, hub/ss/mode/iis/iisn. Six queued duplicates on 2026-08-28 all had
+     this exact shape: same underlying job, missed because these weren't
+     stripped. */
   for (const k of [...u.searchParams.keys()]) {
-    if (/^(utm_|ref$|referer|source$|src$|gh_src|lever-origin|trackingid)/i.test(k)) u.searchParams.delete(k);
+    if (/^(utm_|ref$|referer|source$|src$|gh_src|lever-origin|lever-source|trackingid|hub$|ss$|mode$|iis$|iisn$)/i.test(k)) {
+      u.searchParams.delete(k);
+    }
   }
   const host = u.hostname.toLowerCase().replace(/^www\./, "");
-  const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+  let path = u.pathname.replace(/\/+$/, "").toLowerCase();
+  /* Lever/Ashby's own apply-page suffix, not part of the job's identity. */
+  path = path.replace(/\/apply$/, "");
+  /* iCIMS embeds the numeric job id in the path alongside a title slug that
+     BuiltIn re-derives with different spacing, punctuation and encoding. The
+     id is the job; the slug is decoration that defeats an exact match. */
+  if (host.endsWith(".icims.com")) {
+    const m = path.match(/^(\/jobs\/\d+)\//);
+    if (m) path = m[1];
+  }
   const q = [...u.searchParams.entries()].sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`).join("&");
   return `${host}${path}${q ? `?${q}` : ""}`;
@@ -96,7 +112,8 @@ async function d1(token, sql) {
 export function decide(candidates, existing) {
   const seenKeys = new Set(existing.map(r => String(r.dedupe_key || "").toLowerCase()));
   const seenUrls = new Set(existing.map(r => normalizeUrl(r.url)));
-  const rejected = { role: 0, location: 0, "duplicate-key": 0, "duplicate-url": 0, "no-url": 0 };
+  const seenSigs = new Set(existing.map(r => dupeSignature(r.company, r.title)));
+  const rejected = { role: 0, location: 0, "duplicate-key": 0, "duplicate-url": 0, "duplicate-signature": 0, "no-url": 0 };
   const fresh = [];
   for (const c of candidates) {
     const title = String(c.title || "");
@@ -108,10 +125,17 @@ export function decide(candidates, existing) {
     if (seenKeys.has(key.toLowerCase())) { rejected["duplicate-key"] += 1; continue; }
     const nurl = normalizeUrl(url);
     if (seenUrls.has(nurl)) { rejected["duplicate-url"] += 1; continue; }
+    /* Catches the case a key or URL match cannot: the same job re-listed by
+       an aggregator under a title that gained a "- CompanyName" suffix, on a
+       URL that shares no structure with the original (different host,
+       different query shape). */
+    const sig = dupeSignature(c.company, title);
+    if (seenSigs.has(sig)) { rejected["duplicate-signature"] += 1; continue; }
     /* Guard the batch against itself as well as against D1: two sources
        routinely carry the same posting, and nothing upstream has merged them. */
     seenKeys.add(key.toLowerCase());
     seenUrls.add(nurl);
+    seenSigs.add(sig);
     const row = { ...c, dedupe_key: key };
     row.match_pct = scoreMatch(row);
     row.lane = assignLane(row);

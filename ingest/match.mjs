@@ -113,3 +113,33 @@ export function assignLane(job) {
 export function dedupeKey(company, title) {
   return `${String(company || "").toLowerCase()}|${String(title || "").toLowerCase()}`;
 }
+
+const DECORATIVE_WORDS = /\b(remote|eligible|hybrid|onsite|on site|us|usa|united states|full time|contract)\b/g;
+
+/**
+ * Loose duplicate signature: company + title with punctuation and boilerplate
+ * words stripped, and a trailing "- CompanyName" dropped.
+ *
+ * `dedupeKey()` is an exact match and misses the case that actually produced
+ * duplicates in the live queue: BuiltIn re-lists a job already captured from
+ * its own ATS and appends "- CompanyName" to the title (e.g. "Principal
+ * Product Manager, AI Product" vs "Principal Product Manager, AI Product -
+ * Arcadia"), which is not one of the fixed decorations a word list would
+ * catch. Stripping the company's own name as a trailing word closes that
+ * specific gap without touching `dedupeKey()` itself, which is a stored
+ * identity column other tables key off of.
+ *
+ * @param {string} company
+ * @param {string} title
+ * @returns {string}
+ */
+export function dupeSignature(company, title) {
+  const co = String(company || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  let t = String(title || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  if (co) {
+    const suffix = new RegExp(`\\s+${co.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+    t = t.replace(suffix, "").trim();
+  }
+  t = t.replace(DECORATIVE_WORDS, " ").replace(/\s+/g, " ").trim();
+  return `${co}|${t}`;
+}
