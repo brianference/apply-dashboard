@@ -25,6 +25,10 @@
  *
  *   node ingest/fit-score.mjs --limit 40          # report
  *   node ingest/fit-score.mjs --limit 40 --write  # also update D1
+ *   node ingest/fit-score.mjs --clean-stale-ranks # one-time: null rank_pct
+ *                                                  # etc. on rows already
+ *                                                  # skipped as off-criteria
+ *                                                  # that still carry one
  */
 
 import fs from 'node:fs';
@@ -455,6 +459,35 @@ export function scoreOne(job, jd) {
 
 if (isCli(import.meta.url)) {
   const args = parseArgs();
+
+  /* One-time repair, not part of the normal scoring run. The write path below
+     only ever scores status='queued' rows, so a row already sitting at
+     status='skipped', blocked_reason='off-criteria' is never revisited by it
+     -- the rank_pct it carried from before it failed the gate would stay
+     forever even after the write path stopped writing new instances of the
+     same bug. 48 queued-turned-skipped rows were found in that state on
+     2026-08-28 (the $160k salary floor and the hybrid-location rule both
+     landed after they were first ranked). Safe to re-run: it only ever turns
+     matching fields to NULL, never sets one. */
+  if (args['clean-stale-ranks']) {
+    const CF = process.env.CF_D1_TOKEN || '';
+    if (!CF) { console.log('CF_D1_TOKEN not set - nothing cleaned.'); process.exit(1); }
+    const ACCOUNT = 'dd01b432f0329f87bb1cc1a3fad590ee';
+    const DATABASE = '10e8a6c0-1fa7-4c33-a007-2044876ce6a7';
+    const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/${DATABASE}/query`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${CF}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sql: `UPDATE jobs SET rank_pct=NULL, fit_pct=NULL, resume_pct=NULL, success_pct=NULL, rank_why=NULL
+              WHERE blocked_reason='off-criteria' AND rank_pct IS NOT NULL`
+      })
+    });
+    const j = await r.json();
+    if (!j.success) { console.log(`FAILED: ${JSON.stringify(j.errors)}`); process.exit(1); }
+    console.log(`cleaned ${j.result?.[0]?.meta?.changes ?? 0} stale-ranked off-criteria rows`);
+    process.exit(0);
+  }
+
   const limit = Number(args.limit || 40);
   const jobs = (await (await fetch(API, { headers: { 'cache-control': 'no-cache' } })).json()).jobs || [];
   /* Rank the postings whose description can actually be READ first. Sorting
@@ -507,10 +540,17 @@ if (isCli(import.meta.url)) {
         if (!s2.gate.ok) {
           /* A posting that fails the gate leaves the list entirely. It is not a
              low-ranked job, it is one he cannot take -- and leaving it queued is
-             how the runner applied to a security role and a San Francisco role. */
+             how the runner applied to a security role and a San Francisco role.
+             rank_pct (and the numbers under it) are cleared here too, not just
+             left alone: a row ranked before a rule tightened -- the $160k floor
+             was raised twice, the hybrid rule landed later -- otherwise keeps
+             its old number forever under a gate it no longer passes. 48 queued
+             rows were found in exactly that state on 2026-08-28. */
           await run(`UPDATE jobs SET status='skipped', blocked_reason='off-criteria',
             blocked_detail=${q(s2.gate.reasons.join('; ').slice(0, 400))},
-            blocked_at=${q(new Date().toISOString())} WHERE dedupe_key=${k}`);
+            blocked_at=${q(new Date().toISOString())},
+            rank_pct=NULL, fit_pct=NULL, resume_pct=NULL, success_pct=NULL, rank_why=NULL
+            WHERE dedupe_key=${k}`);
           ruledOut++;
           continue;
         }
