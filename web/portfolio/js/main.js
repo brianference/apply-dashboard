@@ -6,7 +6,7 @@ import { el } from "./render.js";
 import { fetchProfile } from "./api.js";
 import { PROJECTS } from "./projects.js";
 import { projectCard, repoList, lines } from "./render.js";
-import { mountAuthNav } from "/shared/auth-nav.js";
+import { mountSiteNav } from "/shared/site-nav.js";
 
 /**
  * @param {string} selector
@@ -22,9 +22,9 @@ const at = (selector) => {
  * @returns {Promise<void>}
  */
 async function start() {
-  /* The nav is shared with the rest of the product, but this page never
-     REQUIRES a session - it is the one thing here meant to be handed out. */
-  mountAuthNav("#authnav").catch(() => { /* signed out is the normal case here */ });
+  /* Shared with the rest of the product, but this page never REQUIRES a
+     session - it is the one thing here meant to be handed out. */
+  mountSiteNav("#sitenav").catch(() => { /* signed out is the normal case here */ });
 
   at("#projects").replaceChildren(...PROJECTS.map(projectCard));
 

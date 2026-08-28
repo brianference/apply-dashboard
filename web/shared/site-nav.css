@@ -1,0 +1,235 @@
+/* Every selector below is scoped under header.site.
+ *
+ * They were not, and `.panel` collided: the nav's sign-in dropdown is
+ * position:absolute, and the profile page's content card happens to use the
+ * same class name, so the card was pulled out of flow and that page rendered
+ * as an empty screen. The nav stylesheet is loaded by four pages it does not
+ * own, so a bare class name here is a landmine for all of them.
+ */
+
+/* The site header: brand and account on the top row, section tabs beneath.
+ *
+ * Concept 2 of three, chosen after seeing all of them rendered side by side in
+ * both themes. It is the only one of the three that gives each section a
+ * full-width target and marks the current one unambiguously, and the only one
+ * with no layout defect to fix first - concept 1 wrapped its four buttons into
+ * a 2x2 block at desktop width.
+ *
+ * Colour tokens are NOT defined here. Every page already defines them, and a
+ * second definition would fight whichever page hosts this.
+ */
+
+header.site :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+header.site { background: var(--surface); border-bottom: 1px solid var(--border); }
+header.site .top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: max(12px, env(safe-area-inset-top)) 12px 10px;
+  }
+header.site .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
+    min-height: 44px;
+  }
+header.site .brand:hover { text-decoration: none; }
+header.site .brand img {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    display: block;
+    flex: 0 0 auto;
+  }
+header.site .brand .name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+header.site .brand strong {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+header.site .brand em {
+    font: 600 11px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-style: normal;
+  }
+header.site .spacer { flex: 1 1 auto; }
+header.site .tools { display: flex; align-items: center; gap: 8px; position: relative; flex: 0 0 auto; }
+header.site .theme {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    padding: 0;
+  }
+header.site .theme:hover { border-color: var(--primary); color: var(--primary); }
+header.site .signin, header.site .who {
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: 600 14px/1 "IBM Plex Sans", system-ui, sans-serif;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+header.site .signin {
+    border: 1px solid var(--primary);
+    background: var(--primary);
+    color: var(--primary-contrast);
+  }
+header.site .signin:hover { filter: brightness(1.06); }
+header.site .who {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    max-width: min(42ch, 48vw);
+  }
+header.site .who .mail {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font: 500 13px/1 "IBM Plex Mono", ui-monospace, monospace;
+  }
+header.site nav.tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 12px;
+    border-top: 1px solid var(--border);
+  }
+header.site nav.tabs a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 8px 6px;
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+    border-bottom: 3px solid transparent;
+    text-align: center;
+  }
+header.site nav.tabs a:hover { color: var(--text); text-decoration: none; }
+header.site nav.tabs a[aria-current="page"] {
+    color: var(--text);
+    font-weight: 700;
+    border-bottom-color: var(--primary);
+  }
+header.site .panel, header.site .menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 40;
+    width: min(320px, calc(100vw - 24px));
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+header.site .panel[hidden], header.site .menu[hidden] { display: none; }
+header.site .panel { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+header.site .why { margin: 0 0 4px; color: var(--muted); font-size: 14px; line-height: 1.4; }
+header.site .panel label {
+    font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+header.site .panel input {
+    width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 16px/1.4 "IBM Plex Sans", system-ui, sans-serif;
+  }
+header.site .pw { position: relative; }
+header.site .pw input { padding-right: 72px; }
+header.site .pw-toggle {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    height: 36px;
+    min-width: 60px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--primary);
+    cursor: pointer;
+    font: 600 13px/1 "IBM Plex Sans", system-ui, sans-serif;
+  }
+header.site .pw-toggle:hover { background: var(--primary-soft); }
+header.site .submit {
+    height: 44px;
+    margin-top: 4px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--primary);
+    color: var(--primary-contrast);
+    font: 600 15px/1 "IBM Plex Sans", system-ui, sans-serif;
+    cursor: pointer;
+  }
+header.site .forgot {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 14px;
+    text-align: center;
+    min-height: 44px;
+    display: grid;
+    place-items: center;
+  }
+header.site .forgot:hover { text-decoration: underline; }
+header.site .menu { padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+header.site .menu a, header.site .menu button {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    text-decoration: none;
+    font: 600 15px/1 "IBM Plex Sans", system-ui, sans-serif;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+  }
+header.site .menu a:hover, header.site .menu button:hover { background: var(--primary-soft); text-decoration: none; }
+header.site .menu .out {
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 8px 8px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+header.site main.list { max-width: 1120px; margin: 0 auto; padding: 12px 12px 20px; }
+@media (max-width: 720px) {
+    .brand img { width: 48px; height: 48px; border-radius: 12px; }
+header.site .brand strong { font-size: 18px; white-space: nowrap; }
+header.site .brand em { display: none; }
+header.site .who { max-width: 16ch; padding: 0 10px; }
+header.site .who .mail { max-width: 11ch; }
+header.site nav.tabs a { font-size: 13px; min-height: 44px; }
+  }
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; filter: none !important; }
+  }
