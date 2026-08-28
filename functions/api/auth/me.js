@@ -19,7 +19,16 @@ export async function onRequestGet(context) {
   }
   const user = await currentUser(request, env);
   if (!user) return new Response(JSON.stringify({ authenticated: false }), { headers: HEADERS });
-  return new Response(JSON.stringify({ authenticated: true, email: user.email, since: user.since }), { headers: HEADERS });
+  /* The display name comes from the profile row rather than being guessed from
+     the address. "brianference" is one run of letters, so deriving initials
+     from the email gives BR; deriving them from "Brian Ference" gives BF, which
+     is what a person expects to see in their own avatar. */
+  let name = null;
+  try {
+    const row = await env.DB.prepare("SELECT display_name FROM profile WHERE id = 1").first();
+    name = (row && row.display_name) || null;
+  } catch { name = null; }
+  return new Response(JSON.stringify({ authenticated: true, email: user.email, name, since: user.since }), { headers: HEADERS });
 }
 
 /**

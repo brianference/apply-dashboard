@@ -233,3 +233,125 @@ header.site nav.tabs a { font-size: 13px; min-height: 44px; }
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; filter: none !important; }
   }
+
+/* ---- account control: the identity chip ----
+ *
+ * Concept 2 of three, chosen after seeing all of them rendered. The trigger is
+ * an initials avatar plus a caret in a pill; the address appears only INSIDE
+ * the open panel, under a who-you-are header. The header used to print the raw
+ * email as a button, which wrapped badly on a phone, put the address on screen
+ * for anyone looking over a shoulder, and gave no hint that a menu was behind
+ * it.
+ *
+ * Scoped under header.site like everything else here, after `.panel` collided
+ * with the profile page's content card and blanked that page.
+ */
+header.site .chip-btn:hover { border-color: var(--primary); }
+header.site .chip-btn[aria-expanded="true"] {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+  }
+header.site .chip-btn .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--primary);
+    color: var(--primary-contrast);
+    font: 600 13px/1 "IBM Plex Sans", system-ui, sans-serif;
+    letter-spacing: 0.06em;
+    user-select: none;
+    flex: 0 0 auto;
+  }
+header.site .caret {
+    display: block;
+    flex: 0 0 auto;
+    transition: transform 160ms ease;
+  }
+header.site .chip-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+header.site .menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 40;
+    width: min(320px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+header.site .menu[hidden] { display: none; }
+header.site .menu-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 4px;
+    background: var(--primary-soft);
+    border-radius: 12px;
+    min-width: 0;
+  }
+header.site .menu-head .avatar-lg {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--primary);
+    color: var(--primary-contrast);
+    font: 600 16px/1 "IBM Plex Sans", system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    flex: 0 0 auto;
+    user-select: none;
+  }
+header.site .who-copy { min-width: 0; }
+header.site .who-copy strong {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+header.site .who-copy .email {
+    display: block;
+    margin-top: 4px;
+    font: 500 12px/1.35 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+header.site .who-copy .signed {
+    display: block;
+    margin-top: 6px;
+    font: 600 10px/1 "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--primary);
+  }
+header.site .menu a, header.site .menu button.signout {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    text-decoration: none;
+    font: 600 15px/1 "IBM Plex Sans", system-ui, sans-serif;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+  }
+header.site .menu a:hover, header.site .menu button.signout:hover { background: var(--primary-soft); text-decoration: none; }
+header.site .menu-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 4px;
+  }
+header.site .menu button.signout { color: var(--muted); }

@@ -1,8 +1,30 @@
-/* Portfolio. Public page, same tokens as the rest of the product.
-   Light is the default whatever the operating system prefers, which is what
-   every other page here does; a prefers-color-scheme block would make this one
-   disagree with the toggle. */
+/* Portfolio: the split hero.
+ *
+ * Concept 1 of three, chosen after seeing all of them rendered. Identity and a
+ * short pitch on the left, a featured screenshot on the right, then full-width
+ * project rows where the screenshot and the words swap sides down the page.
+ *
+ * It replaces a layout that opened with four dense paragraphs before a single
+ * piece of work appeared, and stacked each screenshot above its own words so
+ * the images stayed small and the width went unused. The first screenshot now
+ * appears within the first screen.
+ *
+ * Tokens and the site header are NOT defined here: the page defines the first
+ * and /shared/site-nav.css owns the second.
+ */
 
+/* The tokens and the page frame.
+ *
+ * These were stripped out with the concept's header rules and nothing put them
+ * back, so every var(--bg) resolved to nothing and the body computed to
+ * rgba(0, 0, 0, 0) - a page with no background at all. site-nav.css does not
+ * define them either, on purpose: it is loaded by four pages that own their
+ * own palette.
+ *
+ * LIGHT IS THE DEFAULT whatever the operating system prefers. There is no
+ * prefers-color-scheme block, because the theme toggle treats an unset
+ * data-theme as light and honouring the OS made the two disagree.
+ */
 :root {
   --bg: #eef1f4;
   --surface: #ffffff;
@@ -12,7 +34,7 @@
   --primary: #2c5266;
   --primary-contrast: #ffffff;
   --primary-soft: rgba(44, 82, 102, 0.10);
-  --radius: 12px;
+  --shadow: 0 1px 2px rgba(26, 35, 43, .06), 0 8px 24px rgba(26, 35, 43, .08);
   color-scheme: light;
 }
 :root[data-theme="dark"] {
@@ -24,70 +46,211 @@
   --primary: #8fb4c8;
   --primary-contrast: #131a20;
   --primary-soft: rgba(143, 180, 200, 0.16);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 28px rgba(0, 0, 0, .4);
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
-[hidden] { display: none !important; }
 
 body {
-  margin: 0; background: var(--bg); color: var(--text);
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
   font: 400 16px/1.6 "IBM Plex Sans", system-ui, -apple-system, sans-serif;
 }
-.wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
 
-.masthead { background: var(--surface); border-bottom: 1px solid var(--border); }
-.bar { display: flex; align-items: center; gap: 14px; padding: 14px 24px; }
-.brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; font-weight: 700; }
-.brand img { border-radius: 10px; display: block; }
-.spacer { flex: 1 1 auto; }
+img { max-width: 100%; height: auto; display: block; }
 
-main { padding: 34px 0 72px; }
-section { margin: 0 0 40px; }
-h1 { margin: 0 0 6px; font-size: 40px; letter-spacing: -.03em; line-height: 1.1; }
-h2 {
+a { color: var(--primary); }
+
+a:hover { text-decoration: underline; }
+
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.skip {
+    position: absolute;
+    left: 8px;
+    top: -40px;
+    z-index: 100;
+    background: var(--primary);
+    color: var(--primary-contrast);
+    padding: 8px 14px;
+    min-height: 44px;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+.skip:focus { top: 8px; }
+
+.kicker {
+    font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+
+.where {
+    font: 500 12px/1.3 "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 16px;
+  }
+
+.links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+
+.pill, .visit, .source {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+.pill, .source {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+  }
+
+.pill:hover, .source:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+
+.visit {
+    border: 1px solid var(--primary);
+    background: var(--primary);
+    color: var(--primary-contrast);
+  }
+
+.visit:hover { filter: brightness(1.06); text-decoration: none; }
+
+.hero {
+    display: grid;
+    gap: 20px;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 28px 16px 12px;
+  }
+
+.hero-shot {
+    display: block;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    background: var(--surface);
+  }
+
+.hero-shot img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top center; }
+
+.hero-copy h1 {
+    margin: 0 0 8px;
+    font-size: clamp(32px, 5vw, 48px);
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+    font-weight: 700;
+  }
+
+.hero-copy .headline {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+.hero-copy .bio {
+    margin: 0 0 28px;
+    color: var(--muted);
+    max-width: 48ch;
+  }
+
+.hero-copy h2 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+
+.hero-copy .blurb { margin: 0 0 16px; color: var(--muted); max-width: 48ch; }
+
+.band { padding: 8px 0 64px; }
+
+.row {
+    display: grid;
+    gap: 20px;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 28px 16px;
+    align-items: center;
+  }
+
+.row + .row { border-top: 1px solid var(--border); }
+
+.row .shot {
+    display: block;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    background: var(--surface);
+  }
+
+.row .shot img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top center; }
+
+.row .copy h3 {
+    margin: 0 0 10px;
+    font-size: 26px;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+
+.row .copy p { margin: 0 0 16px; color: var(--muted); max-width: 42ch; }
+
+.row .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (min-width: 900px) {
+    .hero {
+      grid-template-columns: minmax(22rem, 0.85fr) minmax(0, 1.35fr);
+      gap: 40px;
+      padding: 40px 28px 20px;
+      align-items: center;
+    }
+    .hero-copy { order: -1; }
+    .row {
+      grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.85fr);
+      gap: 40px;
+      padding: 40px 28px;
+    }
+    .row.alt { grid-template-columns: minmax(18rem, 0.85fr) minmax(0, 1.35fr); }
+    .row.alt .shot { order: 2; }
+    .row.alt .copy { order: 1; }
+  }
+
+@media (max-width: 720px) {
+    header.site .brand img { width: 48px; height: 48px; border-radius: 12px; }
+    header.site .brand strong { font-size: 18px; white-space: nowrap; }
+    header.site .brand em { display: none; }
+    header.site nav.tabs a { font-size: 13px; min-height: 44px; }
+  }
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; filter: none !important; }
+  }
+
+/* Sections the concept did not carry: the open-source list and the resume
+   blocks, which sit below the work rather than above it now. */
+.section-title {
   font: 600 12px/1 "IBM Plex Mono", ui-monospace, monospace;
   text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
-  margin: 0 0 16px; padding-bottom: 9px; border-bottom: 1px solid var(--border);
+  margin: 34px 0 14px; padding-bottom: 9px; border-bottom: 1px solid var(--border);
 }
-h3 { margin: 0 0 7px; font-size: 19px; letter-spacing: -.01em; }
+.section-title:first-child { margin-top: 0; }
 
-.headline { margin: 0 0 3px; font-size: 19px; color: var(--text); }
-.location {
-  margin: 0 0 16px; color: var(--muted);
-  font: 500 12px/1 "IBM Plex Mono", ui-monospace, monospace;
-  text-transform: uppercase; letter-spacing: .06em;
-}
-.summary p { margin: 0 0 13px; }
-.muted { color: var(--muted); }
-
-.links { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 22px; }
-.biglink {
-  display: inline-flex; align-items: center; min-height: 42px; padding: 0 20px;
-  border-radius: 999px; text-decoration: none; font-weight: 600;
-  background: var(--primary); color: var(--primary-contrast);
-}
-.biglink:hover { filter: brightness(1.07); }
-.biglink:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
-
-.projects { display: grid; gap: 22px; }
-.project {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
-}
-.shot { display: block; border-bottom: 1px solid var(--border); }
-.shot img { width: 100%; height: auto; display: block; }
-.project-body { padding: 17px 19px 19px; }
-.project-body p { margin: 0 0 13px; color: var(--muted); }
-.project-links { display: flex; gap: 9px; }
-.project-links a {
-  text-decoration: none; color: var(--primary); font-weight: 600; font-size: 14px;
-  border: 1px solid var(--border); border-radius: 999px; padding: 7px 15px;
-  min-height: 38px; display: inline-flex; align-items: center;
-}
-.project-links a:hover { background: var(--primary-soft); }
-
-.repos { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+.repos { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .repos li {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; padding: 12px 15px;
@@ -103,11 +266,4 @@ h3 { margin: 0 0 7px; font-size: 19px; letter-spacing: -.01em; }
 .lines p { margin: 0 0 9px; }
 .lines strong { color: var(--text); }
 
-a:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
-
-@media (min-width: 760px) { .projects { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 620px) {
-  .wrap { padding: 0 15px; }
-  .bar { padding: 12px 15px; }
-  h1 { font-size: 30px; }
-}
+[hidden] { display: none !important; }

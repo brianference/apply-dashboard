@@ -13,40 +13,41 @@
 <link rel="stylesheet" href="./css/portfolio.css"/>
 </head>
 <body>
-
+<a class="skip" href="#main">Skip to work</a>
 <div id="sitenav"></div>
 
-<main class="wrap">
-  <section class="intro" id="intro">
-    <h1 id="name">Brian Ference</h1>
-    <p class="headline" id="headline"></p>
-    <p class="location" id="location"></p>
-    <div class="links" id="links"></div>
-    <div class="summary" id="summary"></div>
+<main id="main">
+  <!-- The hero is the featured project beside the identity: evidence in the
+       first screen rather than after four paragraphs of prose. -->
+  <section class="hero" aria-labelledby="who">
+    <a class="hero-shot" id="hero-shot" href="#"><img id="hero-img" src="" alt="" width="1280" height="800"/></a>
+    <div class="hero-copy">
+      <p class="kicker">Portfolio</p>
+      <h1 id="who">Brian Ference</h1>
+      <p class="headline" id="headline"></p>
+      <p class="where" id="where"></p>
+      <div class="links" id="links"></div>
+      <p class="bio" id="bio"></p>
+      <p class="kicker">Featured</p>
+      <h2 id="featured-name"></h2>
+      <p class="blurb" id="featured-blurb"></p>
+      <div class="links" id="featured-links"></div>
+    </div>
   </section>
 
-  <section>
-    <h2>Selected work</h2>
-    <div class="projects" id="projects"></div>
-  </section>
+  <section class="band" aria-label="More work" id="rows"></section>
 
-  <section>
-    <h2>Open source</h2>
+  <section class="band" aria-label="Open source">
+    <h2 class="section-title">Open source</h2>
     <div id="repos"></div>
   </section>
 
-  <section>
-    <h2>Skills</h2>
+  <section class="band" aria-label="Background">
+    <h2 class="section-title">Skills</h2>
     <div id="skills"></div>
-  </section>
-
-  <section>
-    <h2>Education</h2>
+    <h2 class="section-title">Education</h2>
     <div id="education"></div>
-  </section>
-
-  <section>
-    <h2>Certifications</h2>
+    <h2 class="section-title">Certifications</h2>
     <div id="certifications"></div>
   </section>
 </main>

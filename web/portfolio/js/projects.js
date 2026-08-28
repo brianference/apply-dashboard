@@ -45,6 +45,46 @@ export const PROJECTS = [
     shot: "./img/scholarship-one.png"
   },
   {
+    slug: "az-planting-calendar",
+    name: "AZ Planting Calendar",
+    url: "https://az-planting-calendar.pages.dev",
+    repo: null,
+    blurb: "What to plant now in the Maricopa County low desert, on a half-month timeline. Windows come from UA Cooperative Extension az1005 and frost dates from NOAA 1991-2020 normals, and the assistant answers from that database rather than from general knowledge.",
+    shot: "./img/az-planting-calendar.png"
+  },
+  {
+    slug: "quickflight",
+    name: "QuickFlight",
+    url: "https://quickflight.pages.dev",
+    repo: null,
+    blurb: "Search the lowest-cost flights for a route and set of dates.",
+    shot: "./img/quickflight.png"
+  },
+  {
+    slug: "sushi-finder",
+    name: "Sushi Finder",
+    url: "https://sushi-finder.pages.dev",
+    repo: null,
+    blurb: "Worldwide sushi discovery.",
+    shot: "./img/sushi-finder.png"
+  },
+  {
+    slug: "pet-sitter",
+    name: "Pet Sitter Finder",
+    url: "https://pet-sitter-vz1.pages.dev",
+    repo: null,
+    blurb: "Find and book a pet sitter.",
+    shot: "./img/pet-sitter.png"
+  },
+  {
+    slug: "kanban-board",
+    name: "FlowBoard",
+    url: "https://kanban-board-public.pages.dev",
+    repo: "https://github.com/brianference/kanban-board",
+    blurb: "Project kanban for makers and teams, with Python and CLI tooling behind the public board.",
+    shot: "./img/kanban-board.png"
+  },
+  {
     slug: "coleramsey",
     name: "Cole Ramsey Music",
     url: "https://coleramseymusic.com",
