@@ -27,20 +27,11 @@
   --primary-soft: rgba(143, 180, 200, 0.16);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #131a20;
-    --surface: #1c242b;
-    --text: #e8eef2;
-    --muted: #a3b2bc;
-    --border: #33404a;
-    --primary: #8fb4c8;
-    --primary-contrast: #131a20;
-    --success: #7ad7a8;
-    --warn: #e8b078;
-    --primary-soft: rgba(143, 180, 200, 0.16);
-  }
-}
+/* Light is the default, whatever the operating system prefers.
+   The theme toggle already treats an unset data-theme as light, so honouring
+   prefers-color-scheme here made the two disagree: a dark-mode machine got a
+   dark page that the toggle then thought was light. Dark applies only when it
+   is explicitly chosen. */
 
 * { box-sizing: border-box; }
 
