@@ -20,3 +20,10 @@ evidence/apply/
 backups/
 ingest/out/
 .hold-session/
+
+# LinkedIn capture set. The repo is PUBLIC and these are shots of a SIGNED-IN
+# session: one frame has the owner's email address in clear text, another has
+# his profile, and the list frames show which postings he has applied to. That
+# is the same thing backups/ is excluded to protect. The seven older
+# screenshots/*.png are signed-out views of public postings and stay tracked.
+screenshots/linkedin-*/

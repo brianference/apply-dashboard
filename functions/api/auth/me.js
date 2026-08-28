@@ -22,11 +22,20 @@ export async function onRequestGet(context) {
   /* The display name comes from the profile row rather than being guessed from
      the address. "brianference" is one run of letters, so deriving initials
      from the email gives BR; deriving them from "Brian Ference" gives BF, which
-     is what a person expects to see in their own avatar. */
+     is what a person expects to see in their own avatar.
+
+     Read by user_id. This said `WHERE id = 1` until 2026-08-28, a leftover from
+     when one person had an account: every signed-in stranger was handed the
+     OWNER's display name and photo, so their own header avatar showed his face
+     and their account menu called them by his name. The profile table was
+     re-keyed on user_id in v10 and this query was missed, because nothing that
+     reads it fails - it just quietly returns the wrong row. */
   let name = null;
   let avatar = null;
   try {
-    const row = await env.DB.prepare("SELECT display_name, avatar_data_url FROM profile WHERE id = 1").first();
+    const row = await env.DB.prepare(
+      "SELECT display_name, avatar_data_url FROM profile WHERE user_id = ?1"
+    ).bind(user.id).first();
     name = (row && row.display_name) || null;
     avatar = (row && row.avatar_data_url) || null;
   } catch { name = null; avatar = null; }

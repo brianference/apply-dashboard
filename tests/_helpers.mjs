@@ -62,3 +62,34 @@ export async function deleteAccount(email) {
   }
   await q('DELETE FROM users WHERE id = ?', [user.id]);
 }
+
+/**
+ * Does an account with this address exist?
+ *
+ * Registration answers HTTP 200 with the same generic message whether it
+ * created an account or refused one, because a different answer would let a
+ * stranger discover which addresses are registered. That also means a caller
+ * cannot tell success from refusal by the status code, so the row is the only
+ * honest signal.
+ *
+ * @param {string} email
+ * @returns {Promise<boolean>}
+ */
+export async function accountExists(email) {
+  return (await q('SELECT id FROM users WHERE email = ?', [email])).length > 0;
+}
+
+/**
+ * How many registrations this IP has attempted in the limiter's window.
+ * Registration is capped at 5 per hour, so a test run that has already made
+ * several is refused silently, and every later step then fails for a reason
+ * that has nothing to do with the product.
+ *
+ * @returns {Promise<number>}
+ */
+export async function recentRegisterAttempts() {
+  const rows = await q(
+    "SELECT COUNT(*) AS n FROM auth_attempts WHERE kind = 'register' AND at >= datetime('now', '-60 minutes')"
+  );
+  return Number((rows[0] && rows[0].n) || 0);
+}

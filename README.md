@@ -126,8 +126,17 @@ node ingest/test-sync.mjs                       # every dedupe and rejection rea
 Deployment is Cloudflare Pages **direct upload** — `git push` does not deploy:
 
 ```bash
-npx wrangler pages deploy . --project-name apply-dashboard --branch main
+./build-deploy.sh --deploy
 ```
+
+Deploy the built `.deploy/` tree, never the repository root. Pages serves the
+shared header from `/shared/site-nav.js`, but the source lives at
+`web/shared/site-nav.js`, so deploying `.` makes that URL fall through to
+`index.html`; the browser refuses it for having a `text/html` MIME type, the
+header module never runs, and anything waiting on it silently never renders.
+`build-deploy.sh` flattens `web/*` to the root of `.deploy/` and checks that the
+header module landed. This README documented `wrangler pages deploy .` until
+2026-08-28 and that command has never been the one that works.
 
 ---
 
