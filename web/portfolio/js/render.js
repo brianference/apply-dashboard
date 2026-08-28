@@ -1,5 +1,5 @@
 /**
- * Turning the data into the page. No fetching here, no fetching in main.
+ * Turning the data into the split-hero page. No fetching here.
  */
 
 /**
@@ -23,8 +23,15 @@ export function el(tag, attrs = {}, children = []) {
 }
 
 /**
- * Resume sections arrive as lines with " | " separators. Rendering them as a
- * wall of text loses the structure the resume itself has.
+ * Resume sections, one line per row, with their own structure preserved.
+ *
+ * Two shapes appear in this resume and both were being flattened into an
+ * undifferentiated block: "Category: a, b, c" in SKILLS, and "A | B | C" in
+ * EDUCATION and CERTIFICATIONS. The label is what the eye needs first.
+ *
+ * The colon has to be an EARLY one - the skills lines contain later colons
+ * inside their own contents, and splitting on those would promote a fragment
+ * of a list to a heading.
  *
  * @param {string} text
  * @returns {HTMLElement}
@@ -32,13 +39,6 @@ export function el(tag, attrs = {}, children = []) {
 export function lines(text) {
   const rows = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
   return el("div", { class: "lines" }, rows.map((row) => {
-    /* Two shapes appear in this resume and both were being flattened into an
-       undifferentiated block: "Category: a, b, c" in SKILLS, and "A | B | C"
-       in EDUCATION and CERTIFICATIONS. The label is what the eye needs first,
-       so it is emphasised and the rest trails it.
-       The colon has to be an EARLY one - the skills lines contain later colons
-       inside their own contents, and splitting on those would promote a
-       fragment of a list to a heading. */
     const colon = row.indexOf(": ");
     if (colon > 0 && colon < 46) {
       return el("p", {}, [el("strong", {}, [row.slice(0, colon)]), " " + row.slice(colon + 2)]);
@@ -50,33 +50,41 @@ export function lines(text) {
 }
 
 /**
+ * One project row: screenshot on one side, words on the other.
+ *
+ * The CSS alternates which side each lands on down the page; nothing here has
+ * to know its own index for that to work.
+ *
  * @param {import("./projects.js").Project} project
  * @returns {HTMLElement}
  */
-export function projectCard(project) {
-  return el("article", { class: "project" }, [
+export function projectRow(project) {
+  const actions = [el("a", { class: "visit", href: project.url, target: "_blank", rel: "noopener noreferrer" }, ["Visit"])];
+  if (project.repo) {
+    actions.push(el("a", { class: "source", href: project.repo, target: "_blank", rel: "noopener noreferrer" }, ["Source"]));
+  }
+  return el("article", { class: "row", id: "p-" + project.slug }, [
     el("a", { class: "shot", href: project.url, target: "_blank", rel: "noopener noreferrer" }, [
-      /* Real screenshots of the running sites, captured rather than mocked.
-         loading=lazy because there are five full-width images below the fold. */
-      el("img", { src: project.shot, alt: `${project.name} home page`, loading: "lazy", width: "1280", height: "800" })
+      /* loading=lazy because ten full-width screenshots sit below the fold.
+         They load on scroll; a viewport-sized capture will show some of them
+         as not-yet-loaded, which is the lazy attribute working rather than a
+         broken image. */
+      el("img", { src: project.shot, alt: `Screenshot of ${project.name}`, width: "1280", height: "800", loading: "lazy" })
     ]),
-    el("div", { class: "project-body" }, [
+    el("div", { class: "copy" }, [
       el("h3", {}, [project.name]),
       el("p", {}, [project.blurb]),
-      el("p", { class: "project-links" }, [
-        el("a", { href: project.url, target: "_blank", rel: "noopener noreferrer" }, ["Visit"]),
-        project.repo ? el("a", { href: project.repo, target: "_blank", rel: "noopener noreferrer" }, ["Source"]) : null
-      ])
+      el("div", { class: "actions" }, actions)
     ])
   ]);
 }
 
 /**
- * @param {Array<{name: string, description: string, html_url: string, language: string|null, pushed_at: string}>} repos
+ * @param {Array<{name: string, description: string, html_url: string, language: string|null}>} repos
  * @returns {HTMLElement|null}
  */
 export function repoList(repos) {
-  if (!repos.length) return null;
+  if (!repos || !repos.length) return null;
   return el("ul", { class: "repos" }, repos.slice(0, 12).map((r) => el("li", {}, [
     el("a", { href: r.html_url, target: "_blank", rel: "noopener noreferrer" }, [r.name]),
     r.language ? el("span", { class: "lang" }, [r.language]) : null,

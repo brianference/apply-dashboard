@@ -110,7 +110,7 @@ export async function onRequestGet(context) {
   }
   try {
     const row = await env.DB.prepare(
-      "SELECT headline, location, resume_text, linkedin_url, github_url, updated_at FROM profile WHERE id = 1"
+      "SELECT display_name, headline, location, resume_text, linkedin_url, github_url, updated_at FROM profile WHERE id = 1"
     ).first();
     if (!row) {
       return new Response(JSON.stringify({ error: "no profile yet" }), { status: 404, headers: HEADERS });
@@ -128,8 +128,10 @@ export async function onRequestGet(context) {
     const repos = await publicRepos(row.github_url);
     return new Response(JSON.stringify({
       /* Name and headline are public by intent. Phone and email are not, and
-         are never selected from the row above. */
-      name: "Brian Ference",
+         are never selected from the row above. The name is a COLUMN now: it was
+         a string literal in two different endpoints, which is a fact with no
+         source and two places to drift. */
+      name: row.display_name || null,
       headline: row.headline || null,
       location: row.location || null,
       summary: stripContact(section(resume, "SUMMARY")),

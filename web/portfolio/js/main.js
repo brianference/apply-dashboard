@@ -1,11 +1,10 @@
 /**
- * Entry point. Fetches, then renders. Nothing else.
+ * Entry point for the split-hero portfolio. Fetches, then renders.
  */
 
-import { el } from "./render.js";
+import { el, lines, projectRow, repoList } from "./render.js";
 import { fetchProfile } from "./api.js";
 import { PROJECTS } from "./projects.js";
-import { projectCard, repoList, lines } from "./render.js";
 import { mountSiteNav } from "/shared/site-nav.js";
 
 /**
@@ -19,6 +18,15 @@ const at = (selector) => {
 };
 
 /**
+ * @param {string} url
+ * @param {string} label
+ * @param {string} cls
+ * @returns {HTMLElement}
+ */
+const link = (url, label, cls) =>
+  el("a", { class: cls, href: url, target: "_blank", rel: "noopener noreferrer" }, [label]);
+
+/**
  * @returns {Promise<void>}
  */
 async function start() {
@@ -26,42 +34,53 @@ async function start() {
      session - it is the one thing here meant to be handed out. */
   mountSiteNav("#sitenav").catch(() => { /* signed out is the normal case here */ });
 
-  at("#projects").replaceChildren(...PROJECTS.map(projectCard));
+  /* The first project is the featured one in the hero; the rest become rows.
+     Rendering these before the profile arrives means the evidence is on screen
+     even if the API is slow, which is the whole point of the layout. */
+  const [featured, ...rest] = PROJECTS;
+  at("#hero-shot").setAttribute("href", featured.url);
+  at("#hero-img").setAttribute("src", featured.shot);
+  at("#hero-img").setAttribute("alt", `Screenshot of ${featured.name}`);
+  at("#featured-name").textContent = featured.name;
+  at("#featured-blurb").textContent = featured.blurb;
+  const featuredLinks = [link(featured.url, "Visit", "visit")];
+  if (featured.repo) featuredLinks.push(link(featured.repo, "Source", "source"));
+  at("#featured-links").replaceChildren(...featuredLinks);
+  at("#rows").replaceChildren(...rest.map(projectRow));
 
   let profile;
   try {
     profile = await fetchProfile();
-  } catch (error) {
-    at("#intro").replaceChildren(el("p", { class: "muted" }, [
-      "The profile could not be loaded just now. The work below is unaffected."
-    ]));
+  } catch {
+    at("#bio").textContent = "";
     return;
   }
 
-  document.title = `${profile.name} — ${profile.headline || "Portfolio"}`;
-  at("#name").textContent = profile.name;
+  if (profile.name) {
+    at("#who").textContent = profile.name;
+    document.title = `${profile.name} — ${profile.headline || "Portfolio"}`;
+  }
   at("#headline").textContent = profile.headline || "";
-  at("#location").textContent = profile.location || "";
-  /* The resume separates summary paragraphs with SINGLE newlines, so splitting
-     on blank lines produced one twenty-line block on a page whose entire job is
-     being read by someone in a hurry. */
-  at("#summary").replaceChildren(...String(profile.summary || "")
-    .split(String.fromCharCode(10)).map((t) => t.trim()).filter(Boolean)
-    .map((t) => el("p", {}, [t])));
+  at("#where").textContent = profile.location || "";
+
+  /* Only the FIRST paragraph of the summary goes in the hero. The rest of the
+     resume prose is what made the old page a wall of text before any work
+     appeared, and a portfolio is read for the work. */
+  const paragraphs = String(profile.summary || "")
+    .split(String.fromCharCode(10)).map((t) => t.trim()).filter(Boolean);
+  at("#bio").textContent = paragraphs[0] || "";
 
   const links = [];
-  if (profile.links.linkedin) links.push(el("a", { class: "biglink", href: profile.links.linkedin, target: "_blank", rel: "noopener noreferrer" }, ["LinkedIn"]));
-  if (profile.links.github) links.push(el("a", { class: "biglink", href: profile.links.github, target: "_blank", rel: "noopener noreferrer" }, ["GitHub"]));
+  if (profile.links.linkedin) links.push(link(profile.links.linkedin, "LinkedIn", "pill"));
+  if (profile.links.github) links.push(link(profile.links.github, "GitHub", "pill"));
   at("#links").replaceChildren(...links);
 
   for (const [id, text] of [["skills", profile.skills], ["education", profile.education], ["certifications", profile.certifications]]) {
-    const section = at(`#${id}`);
-    if (!text) { section.closest("section").hidden = true; continue; }
-    section.replaceChildren(lines(text));
+    const node = at(`#${id}`);
+    if (!text) { node.previousElementSibling.hidden = true; node.hidden = true; continue; }
+    node.replaceChildren(lines(text));
   }
 
-  /* Already in the payload: the API fetched it server-side, because the page's
-     CSP forbids the browser from reaching api.github.com. */
   const list = repoList(profile.repos || []);
   if (list) at("#repos").replaceChildren(list);
   else at("#repos").closest("section").hidden = true;

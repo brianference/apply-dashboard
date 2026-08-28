@@ -205,21 +205,81 @@ function signInControl() {
 }
 
 /**
- * The signed-in account control: the address, and a menu behind it.
+ * Initials for an account.
+ *
+ * The NAME is the right source and the email is only a fallback. Deriving them
+ * from "brianference@protonmail.com" gives BR, because that local part is one
+ * run of letters with nothing marking where the surname starts; deriving them
+ * from "Brian Ference" gives BF, which is what a person expects in their own
+ * avatar. The name is a column on the profile row, not a literal in the code.
+ *
+ * @param {string} email
+ * @param {string} [name]
+ * @returns {string} one or two uppercase letters
+ */
+export function initialsFor(email, name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  const local = String(email || "").split("@")[0].replace(/[^A-Za-z0-9._-]/g, "");
+  if (!local) return "?";
+  const parts = local.split(/[._-]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return local.slice(0, 2).toUpperCase();
+}
+
+/**
+ * The signed-in account control: an identity chip, and a menu behind it.
+ *
+ * Concept 2 of three. The trigger shows INITIALS, not the address: the header
+ * used to print the whole email as a button, which wrapped badly on a phone,
+ * put the address on screen for anyone nearby, and gave no affordance that a
+ * menu was behind it. The address appears inside the open panel, under a
+ * who-you-are header, where showing it is deliberate.
  *
  * @param {Who} who
  * @returns {DocumentFragment}
  */
 function accountControl(who) {
   const frag = document.createDocumentFragment();
-  const button = el("button", { type: "button", class: "account", "aria-expanded": "false" }, [who.email || "Account"]);
+  const email = who.email || "";
+  const initials = initialsFor(email, who.name);
+
+  const button = el("button", {
+    type: "button", class: "chip-btn", "aria-expanded": "false",
+    "aria-label": `Account menu for ${email || "this account"}`
+  }, [el("span", { class: "avatar", "aria-hidden": "true" }, [initials])]);
+  const caret = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  caret.setAttribute("class", "caret");
+  caret.setAttribute("width", "12");
+  caret.setAttribute("height", "12");
+  caret.setAttribute("viewBox", "0 0 12 12");
+  caret.setAttribute("aria-hidden", "true");
+  const caretPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  caretPath.setAttribute("d", "M2.5 4.5 6 8l3.5-3.5");
+  caretPath.setAttribute("stroke", "currentColor");
+  caretPath.setAttribute("stroke-width", "1.6");
+  caretPath.setAttribute("fill", "none");
+  caretPath.setAttribute("stroke-linecap", "round");
+  caret.append(caretPath);
+  button.append(caret);
+
   const menu = el("div", { class: "menu" });
   menu.hidden = true;
-
+  menu.append(el("div", { class: "menu-head" }, [
+    el("span", { class: "avatar-lg", "aria-hidden": "true" }, [initials]),
+    el("span", { class: "who-copy" }, [
+      el("strong", {}, [who.name || email]),
+      /* A text node, never innerHTML: this value comes from the database. */
+      el("span", { class: "email" }, [email]),
+      el("span", { class: "signed" }, ["Signed in"])
+    ])
+  ]));
   for (const s of SECTIONS) {
     if (s.href === "/") continue;
     menu.append(el("a", { href: s.href }, [s.label]));
   }
+  menu.append(el("div", { class: "menu-sep" }));
   menu.append(el("button", { type: "button", class: "signout", onclick: signOut }, ["Sign out"]));
 
   const open = (yes) => { menu.hidden = !yes; button.setAttribute("aria-expanded", String(yes)); };
