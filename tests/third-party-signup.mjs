@@ -70,11 +70,30 @@ console.log(`as ${STRANGER.email}\n`);
   record('open the portfolio signed out', res.ok, `HTTP ${res.status}`);
 }
 
-/* 3. Can they register? */
+/* 3. Can they register?
+
+   The status code cannot answer this. Registration returns the same 200 and
+   the same message whether it created an account or refused one, so that a
+   stranger cannot use it to discover which addresses are registered. The row
+   is the only honest signal, and checking the status alone once reported WORKS
+   for a run the rate limiter had silently refused - after which every later
+   step failed in ways that read like a data leak. */
 {
+  const { accountExists, recentRegisterAttempts } = await import('./_helpers.mjs');
+  const attempts = await recentRegisterAttempts();
   const { status, json } = await call('/api/auth/register', STRANGER);
-  const created = status === 200 || status === 201;
-  record('register an account', created, `HTTP ${status} ${JSON.stringify(json).slice(0, 90)}`);
+  const created = await accountExists(STRANGER.email);
+  const detail = created
+    ? `HTTP ${status} ${JSON.stringify(json).slice(0, 90)}`
+    : `HTTP ${status} but NO ROW. ${attempts} register attempts from this IP in the `
+      + 'last hour against a cap of 5. That is the rate limiter working, not a broken '
+      + 'signup. Wait an hour, or clear auth_attempts, then re-run.';
+  record('register an account', created, detail);
+  if (!created) {
+    console.log('');
+    console.log('STOPPING: no account exists, so every later step would report a failure caused by this one.');
+    process.exit(1);
+  }
 }
 
 /* 4. Signing in BEFORE activating must be refused.

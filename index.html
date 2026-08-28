@@ -423,6 +423,32 @@
   /* The signup invitation. Signed out only - a person with an account does not
      need to be sold one every time they open their list. */
   .invite { background: var(--surface); border-bottom: 1px solid var(--border); }
+  /* The signed-out invitation above the full-time rows. It sits inside the
+     rows container, so it is bounded by the same column the table uses. */
+  .ftpromo {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px;
+    padding: 14px 16px; margin: 0 0 2px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .ftpromo-t { margin: 0; font-weight: 650; color: var(--text); }
+  .ftpromo-b { margin: 0; color: var(--muted); font-size: 14px; flex: 1 1 320px; }
+  .ftpromo-b a { color: var(--primary); }
+  .ftpromo-cta {
+    flex: 0 0 auto; margin-left: auto;
+    background: var(--primary); color: #fff; text-decoration: none;
+    padding: 9px 16px; border-radius: 8px; font-weight: 650; font-size: 14px;
+  }
+  .ftpromo-cta:hover { filter: brightness(1.07); }
+  .ftpromo-cta:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+  @media (max-width: 620px) {
+    .ftpromo { flex-direction: column; align-items: flex-start; }
+    /* flex-grow applies along the COLUMN axis once the direction flips, so the
+       1 1 320px that shares the row on desktop stretches this paragraph down
+       the box and opens a dead gap above the button. Every assertion passed
+       while it looked like that; only the screenshot showed it. */
+    .ftpromo-b { flex: 0 0 auto; }
+    .ftpromo-cta { margin-left: 0; width: 100%; text-align: center; }
+  }
   .invite-inner {
     display: grid; gap: 26px; padding: 30px 24px 32px;
     grid-template-columns: 1fr;
@@ -1161,6 +1187,25 @@
     return '<div class="colhead">' + cells + "<span></span></div>";
   }
 
+  /* The invitation that sits directly above the full-time table.
+
+     Signed-out only: telling a signed-in person to create an account is noise,
+     and they already have the profile it offers. It waits for authKnown so it
+     cannot appear for a moment and then vanish, which reads as a glitch.
+
+     The possessive is a numeric entity, not an escaped apostrophe. A literal
+     one inside this single-quoted string is a syntax error that takes the
+     whole page script down, and it is invisible in a diff. */
+  function ftPromoHtml() {
+    if (!authKnown || signedIn) return "";
+    return '<div class="ftpromo">'
+      + '<p class="ftpromo-t">These roles are free to browse. An account keeps your own copy.</p>'
+      + '<p class="ftpromo-b">Mark what you applied to without changing anyone else&#8217;s list, and get a '
+      + '<a href="/portfolio/">free portfolio</a> and a <a href="/profile/">profile page</a> built from your resume.</p>'
+      + '<a class="ftpromo-cta" href="/login/?signup=1">Create a free account</a>'
+      + '</div>';
+  }
+
   function render() {
     var s = (document.getElementById("q").value || "").trim().toLowerCase();
     var vis = all.filter(function (j) {
@@ -1229,6 +1274,7 @@
         + (sec.hint ? '<span class="hint">' + sec.hint + "</span>" : "")
         + "</button>"
         + '<div class="rows" id="rows-' + sec.id + '"' + (open ? "" : " hidden") + ">"
+        + (sec.id === "ft" ? ftPromoHtml() : "")
         + colheadHtml(sec.id)
         + (jobs.length ? jobs.map(rowHtml).join("") : '<div class="empty">Nothing here.</div>')
         + "</div></section>";
@@ -1365,6 +1411,12 @@
      canWrite is that answer. The old localStorage token is still honoured for
      anyone who set one, because removing it would strand marks made under it. */
   var canWrite = false;
+  /* Whether an ACCOUNT is signed in, which canWrite does not answer: a
+     legacy localStorage token also sets canWrite, and a token holder has no
+     account to be invited to make. authKnown stops the invitation flashing
+     on screen for a signed-in person during the /api/auth/me round trip. */
+  var signedIn = false;
+  var authKnown = false;
   /* The auth control is a module and runs in its own scope, so it cannot assign
      this variable directly. It calls this instead. Assigning window.canWrite
      would have set a DIFFERENT variable and the banner would have stayed up
@@ -1382,6 +1434,8 @@
 
   window.__authReady = function (who) {
     canWrite = !!(who && who.authenticated);
+    signedIn = canWrite;
+    authKnown = true;
     markStale();
     render();
   };
