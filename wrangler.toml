@@ -6,3 +6,17 @@ compatibility_date = "2026-08-01"
 binding = "DB"
 database_name = "apply-dashboard"
 database_id = "10e8a6c0-1fa7-4c33-a007-2044876ce6a7"
+
+# Plain-text bindings live HERE, not only in the dashboard.
+#
+# `wrangler pages deploy` pushes this file as the project config, and any
+# plain_text var that is not in it is dropped from the deployment. Setting
+# SITE_ORIGIN through the API and then deploying silently removed it, every
+# write started answering "bad origin", and the only reason that was visible
+# rather than dangerous is that the Origin check fails CLOSED when SITE_ORIGIN
+# is missing. Secrets are not affected: those are stored separately and are not
+# expressed here, which is why APPLY_TOKEN, AUTH_PEPPER and BREVO_API_KEY
+# survived the same deploy.
+[vars]
+SITE_ORIGIN = "https://apply-dashboard.pages.dev"
+MAIL_FROM = "brianference@protonmail.com"

@@ -8,6 +8,7 @@ import * as api from "./api.js";
 import { renderSummary } from "./render/summary.js";
 import { renderTable } from "./render/table.js";
 import { trialsNeededPerArm } from "./lib/stats.js";
+import { mountAuthNav } from "/shared/auth-nav.js";
 
 const DEFAULT_STAGES = ["no-response", "rejected", "recruiter-screen", "hiring-manager", "interview", "onsite", "offer", "withdrawn"];
 
@@ -103,17 +104,36 @@ async function assignFromForm(event) {
 /**
  * @returns {Promise<void>}
  */
+/**
+ * Signed out, this page shows why it is empty rather than an empty tool. The
+ * job list is a deliberate free preview; an experiment is a record of what
+ * Brian did, so it needs the session.
+ * @returns {void}
+ */
+function renderSignInPrompt() {
+  const panel = el("div", { class: "panel" }, [
+    el("p", {}, ["Sign in to assign applications to an arm and record what came back."]),
+    el("p", { class: "note" }, ["The job list is readable without an account. Experiments are not, because they are a record of what you actually sent."]),
+    el("p", {}, [el("a", { class: "bannerbtn", href: "/login/" }, ["Sign in"])])
+  ]);
+  replace(mount("#summary"), [panel]);
+  replace(mount("#table"), []);
+  replace(mount("#picker"), []);
+}
+
 async function start() {
-  mount("#token").value = api.readToken();
-  mount("#token").addEventListener("change", (e) => {
-    api.storeToken(e.target.value);
-    flash("token saved to this browser");
-  });
   mount("#assign").addEventListener("submit", assignFromForm);
 
   /* The number that matters most on this page, said before any result is. */
   mount("#power").textContent =
     `At a 5 percent callback rate, telling a real doubling from noise takes about ${trialsNeededPerArm(0.05, 0.05)} applications in EACH arm.`;
+
+  const who = await mountAuthNav("#authnav");
+  if (!who.authenticated) {
+    mount("#assign").hidden = true;
+    renderSignInPrompt();
+    return;
+  }
 
   try {
     const [{ stages: fromApi }] = await Promise.all([api.fetchOutcomes(), loadExperiments()]);

@@ -8,11 +8,7 @@
  * Auth: the same APPLY_TOKEN header as /api/apply. Fails closed.
  */
 
-const HEADERS = {
-  "content-type": "application/json; charset=utf-8",
-  "access-control-allow-origin": "*",
-  "cache-control": "no-store"
-};
+import { HEADERS, refuseWrite, preflight } from "./_auth.js";
 
 /** Reasons the runner is allowed to record. */
 const ALLOWED = new Set([
@@ -43,30 +39,9 @@ const ALLOWED = new Set([
   "wd-review-reached-dry-run"
 ]);
 
-/**
- * Constant-time compare so a wrong token cannot be recovered by timing.
- * @param {string} a
- * @param {string} b
- * @returns {boolean}
- */
-function safeEqual(a, b) {
-  if (typeof a !== "string" || typeof b !== "string") return false;
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 /** @returns {Response} */
 export function onRequestOptions() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-headers": "content-type, x-apply-token"
-    }
-  });
+  return preflight("POST, OPTIONS");
 }
 
 /**
@@ -75,17 +50,8 @@ export function onRequestOptions() {
  */
 export async function onRequestPost(context) {
   const { request, env } = context;
-  if (!env || !env.DB) {
-    return new Response(JSON.stringify({ error: "D1 binding DB is not bound" }),
-      { status: 500, headers: HEADERS });
-  }
-  if (!env.APPLY_TOKEN) {
-    return new Response(JSON.stringify({ error: "writes disabled: APPLY_TOKEN not bound" }),
-      { status: 503, headers: HEADERS });
-  }
-  if (!safeEqual(request.headers.get("x-apply-token") || "", env.APPLY_TOKEN)) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: HEADERS });
-  }
+  const refused = await refuseWrite(request, env);
+  if (refused) return refused;
 
   let body;
   try { body = await request.json(); }

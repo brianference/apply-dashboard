@@ -410,6 +410,15 @@
     box-shadow: 0 6px 20px rgba(0,0,0,.28); max-width: 92vw;
   }
   .toast[hidden] { display: none; }
+  /* The banner's call to action is a LINK now, not a button, because it
+     navigates to the sign-in page rather than doing something in place. */
+  .bannerbtn {
+    display: inline-block; text-decoration: none;
+    font: 600 13px/1 "IBM Plex Sans", system-ui, sans-serif;
+    background: var(--primary); color: var(--primary-contrast);
+    border-radius: 999px; padding: 7px 14px; margin: 0 2px;
+  }
+  .bannerbtn:hover { filter: brightness(1.06); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
@@ -422,12 +431,7 @@
         <h1>AI PM Jobs</h1>
       </a>
       <div class="spacer"></div>
-      <button type="button" class="iconbtn" id="token" title="Set the write token so Apply records to D1" aria-label="Set write token">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
-          <circle cx="5.4" cy="10.6" r="3" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M7.6 8.4 13 3M11 5l1.6 1.6M9.6 6.4l1.6 1.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <div id="authnav"></div>
       <button type="button" class="iconbtn" id="theme" title="Toggle light / dark" aria-label="Toggle light or dark theme">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
           <circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-width="1.5"/>
@@ -1320,29 +1324,25 @@
   /* ---------- write token ----------
      Never baked into this file. The owner pastes it once; it lives only in
      this browser's localStorage and is sent as x-apply-token. */
+  /* A signed-in session is what authorises a write now. The cookie is HttpOnly
+     so this page cannot read it; the server answers /api/auth/me instead, and
+     canWrite is that answer. The old localStorage token is still honoured for
+     anyone who set one, because removing it would strand marks made under it. */
+  var canWrite = false;
+  /* The auth control is a module and runs in its own scope, so it cannot assign
+     this variable directly. It calls this instead. Assigning window.canWrite
+     would have set a DIFFERENT variable and the banner would have stayed up
+     while signed in - which looks exactly like a broken login. */
+  window.__authReady = function (who) {
+    canWrite = !!(who && who.authenticated);
+    markStale();
+    render();
+  };
   function writeToken() {
     try { return localStorage.getItem("apply-token") || ""; } catch (e) { return ""; }
   }
-  function askToken() {
-    var cur = writeToken();
-    var next = window.prompt(
-      "Write token for /api/apply.\n\nWithout it, Apply still opens the posting and remembers your click in this browser, but cannot record the status in D1.\n\nLeave blank to clear.",
-      cur);
-    if (next === null) return;
-    next = next.trim();
-    try {
-      if (next) { localStorage.setItem("apply-token", next); toast("Write token saved in this browser."); }
-      else { localStorage.removeItem("apply-token"); toast("Write token cleared — Apply will only record locally."); }
-    } catch (e) { toast("Could not save the token: " + e.message); }
-    markTokenState();
-  }
-  function markTokenState() {
-    var b = document.getElementById("token");
-    var on = !!writeToken();
-    b.style.color = on ? "var(--success)" : "";
-    b.title = on ? "Write token set — Apply records to D1" : "No write token — Apply records locally only";
-  }
-  document.getElementById("token").addEventListener("click", askToken);
+  function mayWrite() { return canWrite || !!writeToken(); }
+  function markTokenState() { markStale(); }
 
   /* The owner's name and email, kept OUT of this file. It is served from a
      public URL, so shipping a real contact detail in the page source publishes
@@ -1407,17 +1407,22 @@
        instead of hiding it. The banner's own button is the only place that ever
        asks, because the person clicked it. */
     var tok = writeToken();
-    if (!tok) {
-      toast("Not saved — this browser has no write token. Use the banner at the top to set it.");
+    if (!mayWrite()) {
+      toast("Not saved — sign in first. Use the banner at the top.");
       markStale();
       return Promise.resolve(false);
     }
+    var headers = { "content-type": "application/json" };
+    /* Only send the header when a token actually exists. An empty one would be
+       treated as a token attempt and refused, hiding the session behind it. */
+    if (tok) headers["x-apply-token"] = tok;
     return fetch("/api/apply", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-apply-token": tok },
+      headers: headers,
+      credentials: "same-origin",
       body: JSON.stringify({ dedupe_key: job.dedupe_key, status: "submitted" })
     }).then(function (r) {
-      if (r.status === 401) throw new Error("this browser's write token is wrong - it does not match the server's APPLY_TOKEN");
+      if (r.status === 401) throw new Error("you are signed out - sign in again to record marks");
       if (r.status === 503) throw new Error("writes are disabled on this deployment");
       if (!r.ok) throw new Error("HTTP " + r.status);
       /* Remember that THIS one is safely in D1, so reconcile stops retrying it. */
@@ -1461,12 +1466,12 @@
        outside that is indistinguishable from a dead button -- which is exactly
        how it was reported: "the check mark is completely broken and does
        nothing". The button worked; the save was refused and nothing said so. */
-    if (!writeToken()) {
+    if (!mayWrite()) {
       el.hidden = false;
       el.innerHTML = "<strong>Marks are not being saved.</strong> "
-        + "This browser has no write token, so ticking a job cannot record it in the "
-        + "database and the row stays on your list on purpose. "
-        + '<button type="button" id="fixstale">Set the write token</button>'
+        + "You are signed out, so ticking a job cannot record it in the database "
+        + "and the row stays on your list on purpose. "
+        + '<a class="bannerbtn" href="/login/">Sign in</a>'
         + (n ? " <span>" + n + " mark" + (n === 1 ? "" : "s") + " waiting.</span>" : "");
       return;
     }
@@ -1483,10 +1488,10 @@
   function reconcile(interactive) {
     var keys = unsynced();
     if (!keys.length) { markStale(); return Promise.resolve(0); }
-    if (!writeToken()) {
-      if (!interactive) { markStale(); return Promise.resolve(0); }
-      askToken();
-      if (!writeToken()) { markStale(); return Promise.resolve(0); }
+    if (!mayWrite()) {
+      if (interactive) toast("Sign in first, then these will be recorded.");
+      markStale();
+      return Promise.resolve(0);
     }
     var done = 0;
     return keys.reduce(function (chain, k) {
@@ -1505,12 +1510,7 @@
 
   document.addEventListener("click", function (ev) {
     if (ev.target.id === "fixstale") {
-      /* Asking here is fine and always was: the person clicked this button.
-         The ban is on prompting from a row click, which is a different thing. */
-      if (!writeToken()) {
-        askToken();
-        if (!writeToken()) { markStale(); return; }
-      }
+      if (!mayWrite()) { location.href = "/login/"; return; }
       reconcile(true);
       return;
     }
@@ -1696,6 +1696,17 @@
     document.getElementById("main").innerHTML = '<div class="empty">Empty — the API is unavailable.</div>';
   });
 })();
+</script>
+
+<script type="module">
+  /* The shared control, so the dashboard, the experiments tool and the
+     portfolio all answer "who is signed in" the same way. */
+  import { mountAuthNav } from "/shared/auth-nav.js";
+  mountAuthNav("#authnav").then(function (who) {
+    /* The page script owns canWrite; hand it the answer and let it re-render
+       the banner, which is what tells Brian whether ticking will save. */
+    if (typeof window.__authReady === "function") window.__authReady(who);
+  });
 </script>
 </body>
 </html>

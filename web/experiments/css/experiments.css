@@ -141,3 +141,12 @@ form.assign button { flex: 0 0 auto; padding: 8px 18px; }
   .arm b { font-size: 30px; }
   form.assign input, form.assign input[name="dedupe_key"] { min-width: 0; width: 100%; flex: 1 1 100%; }
 }
+
+/* Shared with the dashboard banner: a call to action that navigates. */
+.bannerbtn {
+  display: inline-block; text-decoration: none;
+  font: 600 13px/1 "IBM Plex Sans", system-ui, sans-serif;
+  background: var(--primary); color: var(--primary-contrast);
+  border-radius: 999px; padding: 9px 16px;
+}
+.bannerbtn:hover { filter: brightness(1.06); }
