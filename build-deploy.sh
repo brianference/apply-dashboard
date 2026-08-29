@@ -22,6 +22,23 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 
 cp index.html _headers "$OUT"/
+
+# Stamp the build so a page served from an older deploy says so rather than
+# looking identical to a fresh one. A ranking rule once changed in code without
+# the rows being re-scored, and nothing on the page distinguished the two.
+STAMP="$(date -u '+%Y-%m-%d %H:%MZ')"
+node -e '
+  const fs = require("fs");
+  const file = process.argv[1];
+  const stamp = process.argv[2];
+  const html = fs.readFileSync(file, "utf8");
+  if (!html.includes("__BUILD_STAMP__")) {
+    console.error("FAIL: __BUILD_STAMP__ placeholder is missing from index.html");
+    process.exit(1);
+  }
+  fs.writeFileSync(file, html.split("__BUILD_STAMP__").join(stamp));
+' "$OUT/index.html" "$STAMP"
+echo "stamped build $STAMP"
 cp ./*.png "$OUT"/ 2>/dev/null || true
 cp -r functions "$OUT"/functions
 for d in web/*/; do

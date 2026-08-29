@@ -391,6 +391,11 @@
      version of this warning was one line of grey text in a screen-reader-only
      status region, and jobs Brian had marked applied kept being applied to
      again for days without anything visible saying why. */
+  .freshness {
+    margin: 6px 0 0; color: var(--muted); font-size: 12.5px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  .freshness b { font-weight: 600; color: var(--text); }
   .stale {
     margin: 10px 14px 0; padding: 10px 12px; border-radius: 8px;
     background: var(--warn-bg); border: 1px solid var(--warn);
@@ -543,6 +548,14 @@
     <span class="pair"><span class="ats wall">INDEED</span> sign-in or bot check first</span>
     <span class="pair"><span class="ats board">NOMADS</span> job board &#8212; bounces you to the real form</span>
   </p>
+  <!-- How fresh is what you are looking at.
+
+       This exists because a ranking rule was changed in the code and the rows
+       were never re-scored, so a posting kept showing its old number and there
+       was no way to tell from the page whether an update had been applied. The
+       page was never the stale part: index.html and /api/jobs both answer
+       no-store. The DATA was. -->
+  <p class="freshness" id="freshness" hidden></p>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -1206,6 +1219,52 @@
       + '</div>';
   }
 
+  /* The build this page was deployed from. build-deploy.sh replaces the
+     placeholder at deploy time, so a page served from an old deploy says so
+     instead of looking identical to a new one. */
+  var BUILD_STAMP = "__BUILD_STAMP__";
+
+  /**
+   * How long ago, in words. Whole units only; a rank is not worth a stopwatch.
+   * @param {number} ms milliseconds in the past
+   * @returns {string}
+   */
+  function agoWords(ms) {
+    var mins = Math.floor(ms / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + (mins === 1 ? " minute ago" : " minutes ago");
+    var hours = Math.floor(mins / 60);
+    if (hours < 24) return hours + (hours === 1 ? " hour ago" : " hours ago");
+    var days = Math.floor(hours / 24);
+    return days + (days === 1 ? " day ago" : " days ago");
+  }
+
+  /**
+   * Say when the rows were last written and which build is serving them.
+   *
+   * The freshest updated_at across the loaded rows is when the pipeline last
+   * touched this data. Reading it from the rows themselves means it cannot
+   * disagree with what is on screen, which a separately reported timestamp can.
+   *
+   * @param {Array<object>} jobs
+   * @returns {void}
+   */
+  function showFreshness(jobs) {
+    var el = document.getElementById("freshness");
+    if (!el) return;
+    var newest = 0;
+    for (var i = 0; i < jobs.length; i++) {
+      var t = Date.parse(jobs[i].updated_at || "");
+      if (!isNaN(t) && t > newest) newest = t;
+    }
+    var parts = [];
+    if (newest) parts.push("Ranked <b>" + agoWords(Date.now() - newest) + "</b>");
+    if (BUILD_STAMP.indexOf("__BUILD") !== 0) parts.push("build <b>" + BUILD_STAMP + "</b>");
+    if (!parts.length) { el.hidden = true; return; }
+    el.innerHTML = parts.join(" &#183; ");
+    el.hidden = false;
+  }
+
   function render() {
     var s = (document.getElementById("q").value || "").trim().toLowerCase();
     var vis = all.filter(function (j) {
@@ -1280,6 +1339,7 @@
         + "</div></section>";
     }).join("");
     document.getElementById("legend").hidden = false;
+    showFreshness(all);
     wireColumnFilters();
   }
 
