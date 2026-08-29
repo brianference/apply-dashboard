@@ -414,6 +414,60 @@ export async function fetchJd(url) {
 }
 
 /**
+ * Domains Brian has not built his career in.
+ *
+ * "Staff Product Manager, Marketing Pro" scored 76 and sat near the top of the
+ * list. It is a genuine product-management role, so excluding it would be
+ * wrong, and the resume overlap is real because the PRODUCT vocabulary matches
+ * regardless of what the product is for. What the score had no way to express
+ * is that the DOMAIN is one he has not worked in, so a strong match on
+ * "roadmap", "discovery" and "stakeholders" reads as a strong fit for a job he
+ * would not take.
+ *
+ * This list holds only what Brian has actually said. He named marketing on
+ * 2026-08-29. Nothing else is in here, because a domain he has not ruled out is
+ * not a domain to penalise on my guess.
+ */
+const OFF_FOCUS = [
+  /* Word boundaries are real \b escapes. The first version of this line went
+     through a shell heredoc, which turned every one of them into a literal
+     backspace character, and the pattern then matched nothing at all: the
+     penalty was in the code, the reason was wired into the row, and the score
+     never moved. It read as implemented. Running the matcher against the very
+     title that prompted it is what caught it. */
+  { name: 'marketing', pattern: /\bmarketing\b|\bdemand gen(eration)?\b|\bmartech\b|\bcampaign management\b/i }
+];
+
+/**
+ * How many points an off-focus domain costs.
+ *
+ * Large enough to move a posting out of the band a person reads first, small
+ * enough that an otherwise excellent match is still visible rather than buried:
+ * the role that prompted this drops from 76 to 51, below every posting in his
+ * actual domain and above the noise.
+ */
+const OFF_FOCUS_PENALTY = 25;
+
+/**
+ * Which off-focus domain a posting belongs to, by title.
+ *
+ * The TITLE only, deliberately. Nearly every product description mentions
+ * marketing somewhere - a stakeholder, an adjacent team, a go-to-market
+ * paragraph - so matching the description would penalise most of the queue.
+ * The title is where a product's domain is actually declared.
+ *
+ * @param {string} title
+ * @returns {{name: string}|null}
+ */
+export function offFocusDomain(title) {
+  const t = String(title || '');
+  for (const domain of OFF_FOCUS) {
+    if (domain.pattern.test(t)) return { name: domain.name };
+  }
+  return null;
+}
+
+/**
  * Score one posting end to end.
  * @param {Record<string, any>} job
  * @param {string|null} jd
@@ -447,10 +501,15 @@ export function scoreOne(job, jd) {
   /* The headline is deliberately NOT an average. A posting that fails the gate
      has no headline at all, and one whose description was unreadable carries
      its success score alone, clearly marked. */
-  const rank = !gate.ok ? null
+  const base = !gate.ok ? null
     : fit === null ? Math.round(success.pct * 0.6)
       : Math.round(fit.pct * 0.55 + success.pct * 0.45);
-  return { gate, fit, success, rank, jdRead: !!jd };
+  /* A domain he does not work in costs points rather than the whole posting.
+     Applied after the blend, not inside it, so the penalty is visible in the
+     reason rather than dissolved into a component score. */
+  const offFocus = base === null ? null : offFocusDomain(job && job.title);
+  const rank = offFocus ? Math.max(0, base - OFF_FOCUS_PENALTY) : base;
+  return { gate, fit, success, rank, offFocus, jdRead: !!jd };
 }
 
 if (isCli(import.meta.url)) {

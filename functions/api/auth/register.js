@@ -31,7 +31,8 @@ const TTL_MS = 24 * 60 * 60 * 1000;
 
 const GENERIC = {
   ok: true,
-  message: "A link to activate your account has been emailed to the address provided."
+  message: "A link to activate your account has been emailed to the address provided. "
+    + "Make sure to check your spam folder."
 };
 
 /** A handle is a URL path segment, so it is constrained to what belongs in one. */

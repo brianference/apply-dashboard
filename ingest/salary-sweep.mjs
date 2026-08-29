@@ -179,25 +179,52 @@ if (isCli(import.meta.url)) {
       };
       let wroteBands = 0;
       let ruledOut = 0;
+      /* Per-row failures are collected, not thrown.
+
+         This loop used to let the first rejected UPDATE escape, which abandoned
+         every remaining write. Nine rows held match_pct = '' instead of NULL,
+         and SQLite compares text as greater than any integer, so '' > 100 is
+         TRUE and the range trigger rejected any update to them. The sweep
+         reported "205 bands found", wrote seven, and exited zero. The count it
+         printed was what it had MEASURED, not what it had SAVED, and nothing
+         connected the two. */
+      const writeFailures = [];
       for (const r of results) {
         if (r.band.min != null) {
-          await run(
-            'UPDATE jobs SET salary_min = ?, salary_max = ?, salary_source = ? WHERE dedupe_key = ?',
-            [r.band.min, r.band.max, 'posting:' + r.via, r.dedupe_key]
-          );
-          wroteBands += 1;
+          try {
+            await run(
+              'UPDATE jobs SET salary_min = ?, salary_max = ?, salary_source = ? WHERE dedupe_key = ?',
+              [r.band.min, r.band.max, 'posting:' + r.via, r.dedupe_key]
+            );
+            wroteBands += 1;
+          } catch (error) {
+            writeFailures.push({ dedupe_key: r.dedupe_key, what: 'band', error: String(error.message || error).slice(0, 160) });
+          }
         }
         /* Rule out only what is BELOW the floor and still open. A submitted row
            is history: marking it off-criteria now would rewrite what happened. */
         if (r.verdict === 'below-floor' && r.status !== 'submitted') {
-          await run(
-            "UPDATE jobs SET blocked_reason = 'off-criteria', blocked_detail = ? WHERE dedupe_key = ?",
-            [`published band starts at $${r.band.min}, under the $${FLOOR} floor`, r.dedupe_key]
-          );
-          ruledOut += 1;
+          try {
+            await run(
+              "UPDATE jobs SET blocked_reason = 'off-criteria', blocked_detail = ? WHERE dedupe_key = ?",
+              [`published band starts at $${r.band.min}, under the $${FLOOR} floor`, r.dedupe_key]
+            );
+            ruledOut += 1;
+          } catch (error) {
+            writeFailures.push({ dedupe_key: r.dedupe_key, what: 'rule-out', error: String(error.message || error).slice(0, 160) });
+          }
         }
       }
-      logInfo('written to D1', { bands: wroteBands, ruledOut });
+      logInfo('written to D1', { bands: wroteBands, ruledOut, failed: writeFailures.length });
+      /* Loud, and non-zero. A sweep that measured more than it saved has not
+         done its job, and saying so beats a green run that quietly did less. */
+      if (writeFailures.length) {
+        for (const f of writeFailures.slice(0, 10)) logWarn('write rejected', f);
+        logWarn('some rows were measured but not saved', {
+          measured: found.length, saved: wroteBands, failed: writeFailures.length
+        });
+        process.exitCode = 1;
+      }
     }
   }
 }

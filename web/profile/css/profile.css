@@ -99,3 +99,47 @@ a { color: var(--primary); }
 }
 .visually-hidden:focus-visible + * , label.cta:focus-within { outline: 2px solid var(--primary); outline-offset: 3px; }
 @media (max-width: 560px) { .photo-row { flex-direction: column; } }
+
+/* The portfolio address field.
+
+   The /portfolio/ prefix is shown as part of the control rather than as hint
+   text, because the thing a person is choosing is the last segment of a URL and
+   typing "magnus" into a bare box does not look like an address. */
+.handle-row {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.handle-row:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.handle-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 2px 0 12px;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.handle-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+#handle-hint a { margin-left: 8px; }
+
+@media (max-width: 420px) {
+  /* The prefix plus a 30-character handle does not fit on a narrow phone, and
+     shrinking the input to make room leaves too little of the value visible. */
+  .handle-row { flex-direction: column; align-items: stretch; }
+  .handle-prefix { padding: 8px 12px 0; }
+  .handle-row input { padding: 4px 12px 10px; }
+}
