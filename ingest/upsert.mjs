@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isCli, parseArgs } from "./cli.mjs";
 import { logError, logInfo } from "./logger.mjs";
-import { assignLane, dedupeKey, scoreMatch } from "./match.mjs";
+import { assignLane, dedupeKey, normalizedJobKey, scoreMatch } from "./match.mjs";
 import { renderInsertIgnore } from "./sql.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -51,7 +51,17 @@ export function toJobRow(job, updatedAt) {
 }
 
 /**
- * First row for a given dedupe_key wins.
+ * First row for a given dedupe_key wins. dedupe_key is an exact lowercase
+ * match, so it misses the same posting scraped twice with a title that
+ * gained a suffix (an aggregator appending the company's own name) or
+ * different punctuation joining title and qualifier -- exactly what let
+ * Hopper and Applied Systems postings queue twice under different keys.
+ * A second, normalised check (ingest/match.mjs normalizedJobKey, the same
+ * key apply/batch.mjs's submit-time guard uses) catches those within this
+ * batch. It only catches duplicates arriving in the SAME run -- a posting
+ * already sitting in D1 from a previous run isn't visible here, since this
+ * function never connects to a database. ingest/find-duplicates.mjs covers
+ * that gap by checking the live queue instead.
  *
  * @param {Array<{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null }>} jobs
  * @returns {ReturnType<typeof toJobRow>[]}
@@ -59,12 +69,16 @@ export function toJobRow(job, updatedAt) {
 export function buildRows(jobs) {
   const updatedAt = new Date().toISOString();
   const seen = new Set();
+  const seenNormalized = new Set();
   const rows = [];
   for (const job of jobs) {
     const row = toJobRow(job, updatedAt);
     if (!row.dedupe_key || row.dedupe_key === "|") continue;
     if (seen.has(row.dedupe_key)) continue;
+    const normalized = normalizedJobKey(row.company, row.title);
+    if (seenNormalized.has(normalized)) continue;
     seen.add(row.dedupe_key);
+    seenNormalized.add(normalized);
     rows.push(row);
   }
   return rows;

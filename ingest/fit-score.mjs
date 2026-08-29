@@ -578,11 +578,18 @@ if (isCli(import.meta.url)) {
         if (!s2.gate.ok) {
           /* A posting that fails the gate leaves the list entirely. It is not a
              low-ranked job, it is one he cannot take -- and leaving it queued is
-             how the runner applied to a security role and a San Francisco role. */
+             how the runner applied to a security role and a San Francisco role.
+             A rank computed on an earlier pass, before this posting failed the
+             gate (salary corrected, location re-read, criteria tightened), is
+             not "low ranked" either -- it is the same false signal, just stale
+             instead of fresh. "gate failed -> no rank at all" (RANKING.md) means
+             every one of these columns, not only status and blocked_reason. */
           await run(`UPDATE jobs SET status='skipped', blocked_reason='off-criteria',
             blocked_detail=${q(s2.gate.reasons.join('; ').slice(0, 400))},
             excluded_domain=${q(s2.gate.excludedDomain)},
-            blocked_at=${q(new Date().toISOString())} WHERE dedupe_key=${k}`);
+            blocked_at=${q(new Date().toISOString())},
+            rank_pct=NULL, fit_pct=NULL, resume_pct=NULL, success_pct=NULL, rank_why=NULL
+            WHERE dedupe_key=${k}`);
           ruledOut++;
           continue;
         }
