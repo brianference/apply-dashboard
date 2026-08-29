@@ -19,6 +19,7 @@ import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import { compareCandidates } from './order.mjs';
 import { isVerdict, reopensOnAnswers, crashCapApplies } from './ledger-rules.mjs';
+import { sameJob as sameNormalizedJob } from '../ingest/match.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
@@ -605,18 +606,16 @@ while (processed < SAFETY_CAP) {
       const isDone = (f) => f.lane === 'submitted' || f.status === 'submitted';
       /* Aggressive: an exact key or URL match is not enough. The same job is
          listed under different keys when a title picks up or loses a suffix
-         ("(Remote Eligible)", "- US", "II"), or when a company name is written
+         ("(Remote Eligible)", "- US", "II") or an aggregator appends the
+         company's own name to the title, or when a company name is written
          two ways, and an exact test would let the second copy through and send
-         a duplicate application. Compare on a NORMALISED company and title:
-         punctuation dropped, and the decorations that vary between boards
-         removed. Brian's rule, 2026-08-25: aggressively prevent duplicates. */
-      const norm = (v) => String(v || '').toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .replace(/\b(remote|eligible|hybrid|onsite|on site|us|usa|united states|full time|contract)\b/g, ' ')
-        .replace(/\s+/g, ' ').trim();
-      const sameJob = (f) => norm(f.company) === norm(j.company) && norm(f.title) === norm(j.title);
+         a duplicate application. Compare on the same normalised company/title
+         key ingest/match.mjs uses everywhere else, so a posting that slips
+         past upsert's within-batch check is still caught here, at the last
+         line of defence. Brian's rule, 2026-08-25: aggressively prevent
+         duplicates. */
       const clash = fresh.find(f => isDone(f)
-        && (f.url === j.url || f.dedupe_key === j.dedupe_key || sameJob(f)));
+        && (f.url === j.url || f.dedupe_key === j.dedupe_key || sameNormalizedJob(f, j)));
       if (clash) {
         console.log(`[skip] ${j.company} — already applied to this posting as "${clash.company} | ${clash.title}"\n`);
         ledger[j.dedupe_key] = {

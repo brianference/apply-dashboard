@@ -113,3 +113,51 @@ export function assignLane(job) {
 export function dedupeKey(company, title) {
   return `${String(company || "").toLowerCase()}|${String(title || "").toLowerCase()}`;
 }
+
+const DECORATION_WORDS = /\b(remote|eligible|hybrid|onsite|on site|us|usa|united states|full time|contract)\b/g;
+
+/**
+ * @param {string} value
+ */
+function normalizeWords(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(DECORATION_WORDS, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Same job, different listing: aggregator boards re-title a posting with a
+ * trailing "- CompanyName" (Applied Systems on iCims/BuiltIn) or swap the
+ * punctuation joining title and qualifier (an en dash on Ashby vs. a comma on
+ * Jobspresso for the same Hopper posting). Neither changes the job.
+ *
+ * This is deliberately narrower than "titles that look similar" -- Brian's
+ * rule (2026-08-25) is that the guard must also never collapse two real,
+ * different postings at the same company, the way "Product Manager" and
+ * "Product Manager - Partner Experience" are different jobs at Cisco. Only a
+ * suffix that is EXACTLY the company's own name is stripped; any other
+ * qualifier (a team, a product area) is left alone and the titles stay
+ * distinct.
+ *
+ * @param {string} company
+ * @param {string} title
+ * @returns {string}
+ */
+export function normalizedJobKey(company, title) {
+  const c = normalizeWords(company);
+  let t = normalizeWords(title);
+  if (c && t.endsWith(" " + c) && t !== c) t = t.slice(0, -(c.length + 1)).trim();
+  return `${c}|${t}`;
+}
+
+/**
+ * @param {{ company?: string, title?: string }} a
+ * @param {{ company?: string, title?: string }} b
+ * @returns {boolean}
+ */
+export function sameJob(a, b) {
+  return normalizedJobKey(a && a.company, a && a.title) === normalizedJobKey(b && b.company, b && b.title);
+}
