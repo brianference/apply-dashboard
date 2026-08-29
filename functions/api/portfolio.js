@@ -113,13 +113,19 @@ export async function onRequestGet(context) {
        handle it falls back to the first profile ever created, which keeps every
        existing link to /portfolio/ working. It was pinned to id = 1, so every
        account would have shown the same person's work. */
-    const handle = new URL(request.url).searchParams.get("u");
+    const handle = (new URL(request.url).searchParams.get("u") || "").trim().toLowerCase();
+    /* Which profile is the owner's. The curated project list lives in the page
+       as JavaScript, with screenshots of the owner's own running sites, and it
+       was rendered for EVERY handle - so a new account's portfolio showed its
+       own name above somebody else's work. The page needs to be told whether
+       the profile it is showing is the one those projects belong to. */
+    const first = await env.DB.prepare("SELECT user_id FROM profile ORDER BY id LIMIT 1").first();
     const row = handle
       ? await env.DB.prepare(
-          "SELECT display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE handle = ?1"
+          "SELECT user_id, display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE lower(handle) = ?1"
         ).bind(handle).first()
       : await env.DB.prepare(
-          "SELECT display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile ORDER BY id LIMIT 1"
+          "SELECT user_id, display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile ORDER BY id LIMIT 1"
         ).first();
     if (!row) {
       return new Response(JSON.stringify({ error: "no profile yet" }), { status: 404, headers: HEADERS });
@@ -142,6 +148,8 @@ export async function onRequestGet(context) {
          source and two places to drift. */
       name: row.display_name || null,
       handle: row.handle || null,
+      /* True only for the profile the built-in project list belongs to. */
+      owner: !!(first && row.user_id && first.user_id === row.user_id),
       /* The photo is public on a portfolio by intent; the phone number and the
          address are not, and are never selected. */
       avatar: row.avatar_data_url || null,

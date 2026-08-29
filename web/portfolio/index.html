@@ -10,7 +10,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/shared/site-nav.css"/>
-<link rel="stylesheet" href="./css/portfolio.css"/>
+<!-- Absolute, not "./css/...". This page is now served at /portfolio/<handle>
+     as well as /portfolio/, and a relative path resolves against the current
+     directory: at /portfolio/magnus/ it becomes /portfolio/magnus/css/... and
+     404s, so the page renders unstyled with no script. -->
+<link rel="stylesheet" href="/portfolio/css/portfolio.css"/>
 </head>
 <body>
 <a class="skip" href="#main">Skip to work</a>
@@ -28,7 +32,7 @@
       <p class="where" id="where"></p>
       <div class="links" id="links"></div>
       <p class="bio" id="bio"></p>
-      <p class="kicker">Featured</p>
+      <p class="kicker" id="featured-kicker">Featured</p>
       <h2 id="featured-name"></h2>
       <p class="blurb" id="featured-blurb"></p>
       <div class="links" id="featured-links"></div>
@@ -67,6 +71,6 @@
   </section>
 </main>
 
-<script type="module" src="./js/main.js"></script>
+<script type="module" src="/portfolio/js/main.js"></script>
 </body>
 </html>

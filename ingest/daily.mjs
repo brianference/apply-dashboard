@@ -231,6 +231,10 @@ for (const job of needsRank) {
       }
       if (s.fit) why.push(...s.fit.hits.slice(0, 3));
       why.push(...s.success.reasons);
+      /* Say the penalty out loud on the row. A score that quietly dropped 25
+         points is indistinguishable from a weak match, and the whole reason
+         this column exists is that a rank should be arguable. */
+      if (s.offFocus) why.unshift(`${s.offFocus.name} is outside your focus: 25 points off`);
       await d1(`UPDATE jobs SET rank_pct=${s.rank ?? 'NULL'},
         fit_pct=${s.fit ? s.fit.pct : 'NULL'},
         resume_pct=${s.fit && s.fit.resumePct != null ? s.fit.resumePct : 'NULL'},

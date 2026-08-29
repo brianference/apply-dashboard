@@ -17,7 +17,11 @@ import { sendMail, linkEmail } from "../_mail.js";
 
 /** One hour. Long enough to find the mail, short enough to matter. */
 const TTL_MS = 60 * 60 * 1000;
-const GENERIC = { ok: true, message: "If that email address is in our database, we will send you an email to reset your password." };
+const GENERIC = {
+  ok: true,
+  message: "If that email address is in our database, we will send you an email to reset "
+    + "your password. Make sure to check your spam folder."
+};
 
 /**
  * @returns {Response}

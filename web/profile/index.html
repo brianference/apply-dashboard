@@ -47,6 +47,18 @@
     </div>
 
     <form class="panel" id="form">
+      <label for="handle">Portfolio address</label>
+      <div class="handle-row">
+        <span class="handle-prefix" aria-hidden="true">/portfolio/</span>
+        <input id="handle" name="handle" type="text" maxlength="30"
+               autocapitalize="none" autocorrect="off" spellcheck="false"
+               aria-describedby="handle-hint"/>
+      </div>
+      <p class="hint" id="handle-hint">
+        Lowercase letters, numbers and hyphens.
+        <a id="handle-link" href="/portfolio/" target="_blank" rel="noopener noreferrer">Open your portfolio</a>
+      </p>
+
       <label for="headline">Headline</label>
       <input id="headline" name="headline" type="text" maxlength="200"/>
 

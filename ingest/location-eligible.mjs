@@ -110,8 +110,19 @@ export function locationEligible(workType, title) {
   return { ok: true, why: 'remote' };
 }
 
+/* Product marketing is a different job family, not a flavour of product
+   management, and it was passing the gate: "Director of Product Marketing,
+   Investing" contains "director of product", which IS_PRODUCT matches, and
+   NOT_PRODUCT only knew about "marketing manager". Two product marketing roles
+   were sitting in the open queue because of it.
+
+   Checked against the case that must NOT be excluded: "Staff Product Manager,
+   Marketing Pro" is a product manager working on a marketing product. It does
+   not contain "product marketing", so it still passes the gate and is handled
+   by the off-focus penalty in fit-score.mjs instead. Exclusion and de-ranking
+   are different answers to different questions. */
 /** Titles that are engineering management, not product management. */
-const NOT_PRODUCT = /engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
+const NOT_PRODUCT = /product marketing|pmm|engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
 
 /* Product operations counts, per Brian on 2026-08-27: "you can find product
    operations that are similar based on description". The title alone cannot

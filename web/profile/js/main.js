@@ -11,6 +11,11 @@ import { toAvatarDataUrl } from "./avatar.js";
 
 const FIELDS = ["headline", "location", "linkedin_url", "github_url", "resume_filename"];
 
+/* The handle is sent with the other fields but is NOT one of them: it is
+   lowercased on the way out, and the server answers 409 when it is taken, which
+   the save handler has to report differently from a validation message. */
+const HANDLE_FIELD = "handle";
+
 /**
  * @param {string} selector
  * @returns {HTMLElement}
@@ -20,6 +25,21 @@ const at = (selector) => {
   if (!node) throw new Error(`no element matches ${selector}`);
   return node;
 };
+
+/**
+ * Point the "Open your portfolio" link at whatever is currently typed.
+ *
+ * The link is the only thing on this page that shows a person what their
+ * address will actually be, so it tracks the box rather than the saved value.
+ * With the box empty it falls back to /portfolio/, which is where an account
+ * with no handle is served from.
+ *
+ * @returns {void}
+ */
+function updateHandleLink() {
+  const typed = at(`#${HANDLE_FIELD}`).value.trim().toLowerCase();
+  at("#handle-link").setAttribute("href", typed ? `/portfolio/${encodeURIComponent(typed)}` : "/portfolio/");
+}
 
 /**
  * @param {string} message
@@ -57,6 +77,9 @@ async function start() {
   at("#editor").hidden = false;
   const profile = data.profile || {};
   for (const field of FIELDS) at(`#${field}`).value = profile[field] || "";
+  at(`#${HANDLE_FIELD}`).value = profile.handle || "";
+  updateHandleLink();
+  at(`#${HANDLE_FIELD}`).addEventListener("input", updateHandleLink);
 
   /* ---- photo ---- */
   const preview = at("#avatar-preview");
@@ -135,6 +158,7 @@ async function start() {
     try {
       const payload = {};
       for (const field of FIELDS) payload[field] = at(`#${field}`).value.trim();
+      payload[HANDLE_FIELD] = at(`#${HANDLE_FIELD}`).value.trim().toLowerCase();
       const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "content-type": "application/json" },

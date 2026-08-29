@@ -18,6 +18,50 @@ import { currentUser, originAllowed } from "./_session.js";
 const EDITABLE = ["display_name", "headline", "location", "resume_filename", "linkedin_url", "github_url"];
 
 /**
+ * A handle is a path segment on a public URL, so it is constrained to what
+ * belongs in one: lowercase letters, digits and single hyphens between them.
+ * Deliberately NOT in EDITABLE - that loop only trims to 500 characters, and a
+ * handle needs a shape check, a reserved-word check and a uniqueness check that
+ * the loop cannot do.
+ */
+const HANDLE_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const HANDLE_MIN = 3;
+const HANDLE_MAX = 30;
+
+/**
+ * Words that already mean something under /portfolio/ or that a person would
+ * reasonably read as belonging to the site rather than to an account.
+ * `index` and anything with a dot are excluded by the route itself; these are
+ * the ones only this check can catch.
+ */
+const RESERVED_HANDLES = new Set([
+  "index", "api", "js", "css", "assets", "static", "img", "images", "fonts",
+  "admin", "login", "logout", "signup", "signin", "register", "verify", "reset",
+  "profile", "portfolio", "jobs", "experiments", "legal", "shared", "about",
+  "terms", "privacy", "contact", "settings", "account", "new", "edit", "search",
+  "me", "you", "null", "undefined", "true", "false"
+]);
+
+/**
+ * Check a requested handle and say why it is refused, or null if it is fine.
+ *
+ * @param {string} handle already lowercased and trimmed
+ * @returns {string|null} the reason to send back, or null when acceptable
+ */
+export function handleProblem(handle) {
+  if (handle.length < HANDLE_MIN || handle.length > HANDLE_MAX) {
+    return `Your address must be between ${HANDLE_MIN} and ${HANDLE_MAX} characters.`;
+  }
+  if (!HANDLE_SHAPE.test(handle)) {
+    return "Use lowercase letters, numbers and single hyphens, starting and ending with a letter or number.";
+  }
+  if (RESERVED_HANDLES.has(handle)) {
+    return "That address is reserved. Please choose another.";
+  }
+  return null;
+}
+
+/**
  * The largest avatar accepted, as a data URL.
  *
  * The page resizes to 256px before sending, which lands well under this; the
@@ -109,6 +153,30 @@ export async function onRequestPut(context) {
       values.push(value);
     }
   }
+  /* The handle changes the address of a PUBLIC page, so it is checked for
+     shape, for reserved words and for collision before anything is written.
+     Compared case-insensitively because the stored value is lowercase and a
+     person typing "Magnus" must not be able to claim a second address next to
+     an existing "magnus". */
+  if ("handle" in body) {
+    const wanted = String(body.handle || "").trim().toLowerCase();
+    if (!wanted) {
+      return new Response(JSON.stringify({ error: "Your portfolio address cannot be empty." }), { status: 400, headers: HEADERS });
+    }
+    const problem = handleProblem(wanted);
+    if (problem) {
+      return new Response(JSON.stringify({ error: problem }), { status: 400, headers: HEADERS });
+    }
+    const taken = await env.DB.prepare(
+      "SELECT user_id FROM profile WHERE lower(handle) = ?1 AND user_id <> ?2"
+    ).bind(wanted, user.id).first();
+    if (taken) {
+      return new Response(JSON.stringify({ error: "That address is already taken." }), { status: 409, headers: HEADERS });
+    }
+    sets.push("handle = ?");
+    values.push(wanted);
+  }
+
   for (const field of EDITABLE) {
     if (!(field in body)) continue;
     const value = body[field] === null || body[field] === "" ? null : String(body[field]).slice(0, 500);
