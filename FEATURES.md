@@ -25,6 +25,8 @@ projects.
 | Location and role eligibility | `ingest/test-location.mjs` | n/a | Remote or Arizona, product roles only |
 | Pay floor rules a posting out | — | — | **Gap.** `ingest/salary-sweep.mjs` has no test. Its write loop threw on the first rejected row and abandoned the rest, reporting 205 bands found while saving 7 |
 | Off-focus domain penalty | `ingest/test-off-focus.mjs` | n/a | Marketing costs 25 points; product marketing is excluded outright as a different family |
+| Healthcare, construction and clearance excluded | `ingest/test-domain.mjs` | yes | Read from the DESCRIPTION. Fixtures include the two false positives it produced first: Vanta (HIPAA as a compliance framework) and Elastic (the Employee Polygraph Protection Act notice) |
+| Advanced search puts them back | — | yes | **Gap.** Switches are covered by a browser check that is not yet in the repo |
 | Apply queue ordering | `apply/test-order.mjs` | n/a | Carries a known-bad block that runs the retired comparator and asserts it fails |
 | Stat tiles match their rows | `apply/test-counts.mjs` | yes | Runs against production in CI |
 | Resolve an aggregator link to the employer's form | `ingest/test-resolve-by-board.mjs` | n/a | |
@@ -79,6 +81,7 @@ projects.
 The rows marked **Gap** above, in one place, so they can be worked through:
 
 1. The pay floor has no test, and it is the rule that decides what is shown.
+2. The advanced-search switches are verified by a browser run and a screenshot, but that check is not yet a file in `tests/`.
 2. `stripContact` has no unit test, and it is what keeps a phone number off a
    public page.
 3. Header search, filter chips, theme toggle and the legal pages are verified by

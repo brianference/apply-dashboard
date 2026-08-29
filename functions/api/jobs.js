@@ -20,7 +20,7 @@ const COLUMNS = [
    enforced instead of merely stated. Without these in the SELECT the backfill
    lands in D1 but nothing downstream can read it. */
 const SELECT = `
-  SELECT ${COLUMNS.join(", ")}, link_status, link_checked_at, blocked_reason, blocked_detail,
+  SELECT ${COLUMNS.join(", ")}, link_status, link_checked_at, blocked_reason, blocked_detail, excluded_domain,
          salary_min, salary_max, salary_source,
          rank_pct, fit_pct, resume_pct, success_pct, rank_why, jd_read
   FROM jobs

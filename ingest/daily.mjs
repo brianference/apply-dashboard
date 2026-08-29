@@ -194,8 +194,13 @@ for (const job of needsRank) {
   }
   try {
     if (!s.gate.ok) {
+      /* excluded_domain is written as a bare value so the list can offer it as
+         a switch. A signed-in account can turn healthcare, construction or
+         clearance postings back on, and that needs something switchable rather
+         than a phrase to parse out of blocked_detail. */
       await d1(`UPDATE jobs SET status='skipped', blocked_reason='off-criteria',
         blocked_detail=${q(s.gate.reasons.join('; ').slice(0, 400))},
+        excluded_domain=${q(s.gate.excludedDomain)},
         blocked_at=${q(new Date().toISOString())} WHERE dedupe_key=${q(job.dedupe_key)}`);
       stats.ruledOut++;
     } else {
