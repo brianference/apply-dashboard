@@ -391,6 +391,46 @@
      version of this warning was one line of grey text in a screen-reader-only
      status region, and jobs Brian had marked applied kept being applied to
      again for days without anything visible saying why. */
+  /* Advanced: the categories the rules removed, offered back. */
+  .adv-toggle[aria-expanded="true"] { background: var(--primary-soft); border-color: var(--primary); }
+  .advanced {
+    margin: 10px 0 2px; padding: 14px 16px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .advanced[hidden] { display: none; }
+  .adv-lede { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+  .adv-switches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .adv-switch {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 9px 14px; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--bg); cursor: pointer; font: inherit; font-size: 14px; color: var(--text);
+  }
+  .adv-switch:hover { border-color: var(--primary); }
+  .adv-switch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .adv-switch[aria-pressed="true"] { background: var(--primary); color: var(--primary-contrast); border-color: var(--primary); }
+  .adv-switch[disabled] { opacity: .55; cursor: not-allowed; }
+  .adv-switch .count { font-variant-numeric: tabular-nums; opacity: .75; }
+  /* The track reads as on or off without relying on colour alone. */
+  .adv-track {
+    width: 30px; height: 17px; border-radius: 999px; position: relative;
+    background: var(--border); flex: 0 0 auto; transition: background .12s ease;
+  }
+  .adv-switch[aria-pressed="true"] .adv-track { background: var(--primary-contrast); }
+  .adv-track::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 13px; height: 13px; border-radius: 50%; background: var(--surface);
+    transition: transform .12s ease;
+  }
+  .adv-switch[aria-pressed="true"] .adv-track::after { transform: translateX(13px); background: var(--primary); }
+  @media (prefers-reduced-motion: reduce) {
+    .adv-track, .adv-track::after { transition: none; }
+  }
+  .adv-gate { margin: 12px 0 0; font-size: 14px; color: var(--muted); }
+  .domain-badge {
+    display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px;
+    background: var(--warn-bg); color: var(--warn);
+    font-size: 11px; font-weight: 600; letter-spacing: .02em; white-space: nowrap;
+  }
   .freshness {
     margin: 6px 0 0; color: var(--muted); font-size: 12.5px;
     font-family: "IBM Plex Mono", ui-monospace, monospace;
@@ -532,7 +572,26 @@
         <button type="button" class="chip" data-kind="manual" aria-pressed="false" title="Auto-apply could not finish these - they need you">Needs you <span id="nmanual"></span></button>
         <button type="button" class="chip" data-kind="under" aria-pressed="false" title="Also show postings that publish a salary below $180k">Under $180k</button>
         <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="Applies on the company's own site - no aggregator in the way, no account to make first">Apply direct <span id="ndirect"></span></button>
+        <button type="button" class="chip adv-toggle" id="adv-toggle" aria-expanded="false" aria-controls="advanced"
+                title="Show postings the rules removed">Advanced</button>
       </div>
+    </div>
+
+    <!-- Postings the rules removed, offered back rather than hidden.
+
+         CRITERIA.md rules out healthcare, construction and anything needing a
+         security clearance, and those rules are right for Brian. They are not
+         right for everyone, and a list that silently drops 35 postings looks
+         thinner than it is. So the exclusions are shown, counted, and
+         switchable, and a row switched back on keeps a badge saying which rule
+         it broke. -->
+    <div class="advanced" id="advanced" hidden>
+      <p class="adv-lede" id="adv-lede"></p>
+      <div class="adv-switches" id="adv-switches" role="group" aria-label="Excluded categories"></div>
+      <p class="adv-gate" id="adv-gate" hidden>
+        <a href="/login/?signup=1">Create a free account</a> to search these, or
+        <a href="/login/">sign in</a>.
+      </p>
     </div>
     <p class="err" id="err" hidden></p>
   </div>
@@ -707,6 +766,14 @@
    get. "Easiest to apply" put a 28% above an 81% because its form was simpler,
    which optimises the wrong thing -- a form he can submit to a job he will not
    get is not a better use of his morning. */
+  /* Domains the person has asked to see despite the rules. A view preference,
+     so it lives in this browser rather than on the account: it says what they
+     want on screen right now, not something about who they are. */
+  var includedDomains = [];
+  try {
+    includedDomains = JSON.parse(localStorage.getItem("apply-included-domains") || "[]") || [];
+  } catch (e) { includedDomains = []; }
+
   var all = [], kind = "all", sortBy = "match";
   /* Sorting by clicking a column header, which is where Brian looked for it.
      The dropdown had "Pay: high to low" in it, but a table you cannot click to
@@ -770,6 +837,11 @@
     /* Quarantined: inserted by something other than the daily pipeline and not
        yet through Brian's rules. */
     if (j.status === "pending-review") return false;
+    /* A posting ruled out for its DOMAIN comes back when that domain is switched
+       on. The row keeps blocked_reason either way - the rule has not changed its
+       mind, the person has asked to see past it - so the badge on the row still
+       says which domain it is and why. */
+    if (j.excluded_domain && includedDomains.indexOf(j.excluded_domain) !== -1) return true;
     if (!isApplied(j) && RULED_OUT.indexOf(String(j.blocked_reason || "")) !== -1) return false;
     return true;
   }
@@ -909,6 +981,13 @@
     return '<div class="row" data-k="' + k + '">'
       + '<span class="pct' + (hi ? " hi" : "") + (scored ? "" : " unscored") + '" title="' + esc(pctWhy) + '">' + esc(pct) + "</span>"
       + '<span class="main"><span class="ttl">' + esc(j.title || "Untitled")
+      /* A posting switched back on still says which rule it broke. Showing it
+         without the badge would quietly present an off-criteria row as if it
+         had passed. */
+      + (j.excluded_domain
+          ? '<span class="domain-badge" title="' + esc(String(j.blocked_detail || "")) + '">'
+            + esc(DOMAIN_LABELS[j.excluded_domain] || j.excluded_domain) + "</span>"
+          : "")
         + '</span><span class="co">' + esc(j.company || "") + "</span></span>"
       + '<span class="meta">'
         + '<span class="ats ' + a.cls + '">' + esc(a.label) + "</span>"
@@ -1265,6 +1344,90 @@
     el.hidden = false;
   }
 
+  /* Human names for the categories the rules remove. The key is the value the
+     pipeline writes to jobs.excluded_domain; nothing here invents a category. */
+  var DOMAIN_LABELS = {
+    healthcare: "Healthcare and medical",
+    construction: "Construction and architecture",
+    clearance: "Needs a security clearance"
+  };
+
+  /**
+   * Draw the advanced panel from what is actually in the data.
+   *
+   * A category with no postings is not offered, so the panel never advertises a
+   * switch that would do nothing. The counts come from the rows themselves
+   * rather than a separate tally, so they cannot disagree with the list.
+   *
+   * @param {Array<object>} jobs
+   * @returns {void}
+   */
+  function renderAdvanced(jobs) {
+    var wrap = document.getElementById("adv-switches");
+    var lede = document.getElementById("adv-lede");
+    var gate = document.getElementById("adv-gate");
+    if (!wrap) return;
+
+    var counts = {};
+    for (var i = 0; i < jobs.length; i++) {
+      var d = jobs[i].excluded_domain;
+      if (d) counts[d] = (counts[d] || 0) + 1;
+    }
+    var names = Object.keys(counts).sort();
+    var total = 0;
+    for (var n = 0; n < names.length; n++) total += counts[names[n]];
+
+    lede.textContent = total
+      ? total + (total === 1 ? " posting is" : " postings are") + " held back by the criteria. Switch a category on to search it."
+      : "Nothing is being held back by the criteria right now.";
+
+    /* Signed out, the switches are visible but inert. Hiding them would make
+       the feature invisible to the people it is meant to bring in; enabling
+       them would promise something the account does not have. */
+    gate.hidden = mayWrite();
+
+    wrap.replaceChildren();
+    for (var k = 0; k < names.length; k++) {
+      var name = names[k];
+      var on = includedDomains.indexOf(name) !== -1;
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "adv-switch";
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.dataset.domain = name;
+      if (!mayWrite()) b.disabled = true;
+      var track = document.createElement("span");
+      track.className = "adv-track";
+      track.setAttribute("aria-hidden", "true");
+      var label = document.createElement("span");
+      label.textContent = DOMAIN_LABELS[name] || name;
+      var count = document.createElement("span");
+      count.className = "count";
+      count.textContent = counts[name];
+      b.append(track, label, count);
+      wrap.appendChild(b);
+    }
+  }
+
+  /**
+   * Turn one category on or off and redraw.
+   * @param {string} domain
+   * @returns {void}
+   */
+  function toggleDomain(domain) {
+    var at = includedDomains.indexOf(domain);
+    if (at === -1) includedDomains.push(domain); else includedDomains.splice(at, 1);
+    try {
+      localStorage.setItem("apply-included-domains", JSON.stringify(includedDomains));
+    } catch (e) { /* a browser refusing storage is not a reason to refuse the filter */ }
+    render();
+    var live = document.getElementById("live");
+    if (live) {
+      live.textContent = (DOMAIN_LABELS[domain] || domain)
+        + (includedDomains.indexOf(domain) !== -1 ? " included" : " hidden again");
+    }
+  }
+
   function render() {
     var s = (document.getElementById("q").value || "").trim().toLowerCase();
     var vis = all.filter(function (j) {
@@ -1340,6 +1503,7 @@
     }).join("");
     document.getElementById("legend").hidden = false;
     showFreshness(all);
+    renderAdvanced(all);
     wireColumnFilters();
   }
 
@@ -1770,10 +1934,31 @@
     if (this.value !== "__col") sortCol = null;
     render();
   });
-  document.querySelectorAll(".chip").forEach(function (b) {
+  /* The Advanced chip opens a panel rather than filtering, so it is wired on its
+     own and kept out of the loop below - which sets aria-pressed on every chip
+     and would fight the disclosure state. */
+  var advToggle = document.getElementById("adv-toggle");
+  var advPanel = document.getElementById("advanced");
+  if (advToggle && advPanel) {
+    advToggle.addEventListener("click", function () {
+      var open = advToggle.getAttribute("aria-expanded") === "true";
+      advToggle.setAttribute("aria-expanded", open ? "false" : "true");
+      advPanel.hidden = open;
+    });
+  }
+  var advSwitches = document.getElementById("adv-switches");
+  if (advSwitches) {
+    advSwitches.addEventListener("click", function (ev) {
+      var b = ev.target.closest(".adv-switch");
+      if (!b || b.disabled) return;
+      toggleDomain(b.dataset.domain);
+    });
+  }
+
+  document.querySelectorAll(".chip:not(.adv-toggle)").forEach(function (b) {
     b.addEventListener("click", function () {
       kind = b.getAttribute("data-kind") || "all";
-      document.querySelectorAll(".chip").forEach(function (o) {
+      document.querySelectorAll(".chip:not(.adv-toggle)").forEach(function (o) {
         o.setAttribute("aria-pressed", o === b ? "true" : "false");
       });
       /* filtering to a section that happens to be collapsed must not look empty */

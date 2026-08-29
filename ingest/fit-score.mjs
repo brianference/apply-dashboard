@@ -31,6 +31,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isCli, parseArgs } from './cli.mjs';
 import { locationEligible, roleEligible } from './location-eligible.mjs';
+import { domainSignals } from './domain-eligible.mjs';
 import { corpus, resumeText, resumeMatch, calibrate } from './resume-match.mjs';
 
 /* Built once, lazily: the corpus is a pass over every cached description and
@@ -206,6 +207,14 @@ export function requirementsGate(job, jd) {
     const sec = securitySignals(jd);
     if (sec.ruled) reasons.push(`role: security product - ${sec.why}`);
   }
+  /* Healthcare and construction have been in CRITERIA.md as skips from the
+     start and nothing enforced them, and a clearance requirement only cost 40
+     points off the success score rather than ruling the posting out. All three
+     are decided here now, and all three read the DESCRIPTION: SmarterDx's
+     "Group Product Manager, SmarterDenials" sat at 70 percent because neither
+     its title nor its company name says health anywhere. */
+  const domain = domainSignals(job, jd);
+  if (domain.ruled) reasons.push(`domain: ${domain.domain} - ${domain.why}`);
   const role = roleEligible(job.title);
   if (!role.ok) reasons.push(`role: ${role.why}`);
   const loc = locationEligible(job.work_type, job.title);
@@ -221,7 +230,10 @@ export function requirementsGate(job, jd) {
      and dropping them would empty the list. Only a PUBLISHED figure can fail. */
   if (top > 0 && top < SECOND_TIER) reasons.push(`salary: publishes $${Math.round(top / 1000)}k, below the $160k second tier`);
   else if (top > 0 && top < FLOOR) reasons.push(`salary: publishes $${Math.round(top / 1000)}k, under the $180k floor (second tier)`);
-  return { ok: reasons.length === 0, reasons };
+  /* The domain is returned separately from the prose reason so the list can
+     offer it as a switch. A signed-in account can turn these back on, and a
+     string it has to parse out of a sentence is not something to switch on. */
+  return { ok: reasons.length === 0, reasons, excludedDomain: domain.ruled ? domain.domain : null };
 }
 
 /**
@@ -569,6 +581,7 @@ if (isCli(import.meta.url)) {
              how the runner applied to a security role and a San Francisco role. */
           await run(`UPDATE jobs SET status='skipped', blocked_reason='off-criteria',
             blocked_detail=${q(s2.gate.reasons.join('; ').slice(0, 400))},
+            excluded_domain=${q(s2.gate.excludedDomain)},
             blocked_at=${q(new Date().toISOString())} WHERE dedupe_key=${k}`);
           ruledOut++;
           continue;
