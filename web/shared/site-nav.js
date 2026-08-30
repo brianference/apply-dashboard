@@ -11,7 +11,7 @@
  * can actually be recorded.
  */
 
-/** @typedef {{authenticated: boolean, email?: string, since?: string}} Who */
+/** @typedef {{authenticated: boolean, email?: string, since?: string, name?: string, avatar?: string, tour_seen_at?: string|null}} Who */
 
 /** Every destination, in the order they appear. */
 export const SECTIONS = [
@@ -287,6 +287,15 @@ function accountControl(who) {
     if (s.href === "/") continue;
     menu.append(el("a", { href: s.href }, [s.label]));
   }
+  const takeTour = el("a", { href: "/?tour=1" }, ["Take the tour"]);
+  takeTour.addEventListener("click", (event) => {
+    const onJobs = location.pathname === "/" || location.pathname === "/index.html";
+    if (!onJobs) return;
+    event.preventDefault();
+    open(false);
+    document.dispatchEvent(new CustomEvent("start-tour"));
+  });
+  menu.append(takeTour);
   menu.append(el("div", { class: "menu-sep" }));
   menu.append(el("button", { type: "button", class: "signout", onclick: signOut }, ["Sign out"]));
 
