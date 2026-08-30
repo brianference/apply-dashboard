@@ -10,6 +10,7 @@
 <link rel="icon" href="01-light-32.png" type="image/png" media="(prefers-color-scheme: light)"/>
 <link rel="icon" href="01-dark-32.png" type="image/png" media="(prefers-color-scheme: dark)"/>
 <link rel="stylesheet" href="/shared/site-nav.css"/>
+<link rel="stylesheet" href="/shared/tour.css"/>
 <style>
   /* Steel Mist (palette-04) - design-refs/palettes/palettes.json */
   :root {
@@ -2048,6 +2049,7 @@
   /* The shared control, so the dashboard, the experiments tool and the
      portfolio all answer "who is signed in" the same way. */
   import { mountSiteNav } from "/shared/site-nav.js";
+  import { startTour, tourAvailable } from "/shared/tour.js";
   mountSiteNav("#sitenav").then(function (who) {
     var initial = new URLSearchParams(location.search).get("q");
     if (initial) {
@@ -2059,6 +2061,22 @@
     var invite = document.getElementById("invite");
     if (invite) invite.hidden = !!who.authenticated;
     if (typeof window.__authReady === "function") window.__authReady(who);
+
+    var params = new URLSearchParams(location.search);
+    var replay = params.get("tour") === "1";
+    if (replay) {
+      params.delete("tour");
+      var next = params.toString();
+      history.replaceState(null, "", location.pathname + (next ? "?" + next : "") + location.hash);
+      startTour({ persist: false });
+      return;
+    }
+    if (who && who.authenticated && !who.tour_seen_at && tourAvailable()) {
+      startTour({ persist: true });
+    }
+  });
+  document.addEventListener("start-tour", function () {
+    startTour({ persist: false });
   });
 </script>
 </body>
