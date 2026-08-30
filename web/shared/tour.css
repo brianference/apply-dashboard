@@ -1,0 +1,163 @@
+/* Spotlight coach-marks. Colours come from the page's :root tokens
+   (--bg, --surface, --text, --muted, --border, --primary, --radius, --shadow).
+   Dim is mixed from those tokens so this file never introduces a hex. */
+
+#tour-root[hidden] { display: none; }
+
+.tour-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#tour-root .cutout {
+  position: fixed;
+  background: transparent;
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 4000px color-mix(in srgb, var(--text) 55%, transparent);
+  outline: 2px solid var(--primary);
+  outline-offset: 0;
+  pointer-events: none;
+  z-index: 81;
+  /* No position transition: animating the hole slides it through the
+     popover, which is the overlap the spec forbids. Reduced-motion is
+     still honoured below for any other animation. */
+}
+
+:root[data-theme="dark"] #tour-root .cutout {
+  /* --text is light in dark theme, so dim from the canvas instead. */
+  box-shadow: 0 0 0 4000px color-mix(in srgb, var(--bg) 62%, transparent);
+}
+
+#tour-root .popover {
+  position: fixed;
+  z-index: 90;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 16px 16px 14px;
+  pointer-events: auto;
+}
+
+#tour-root .popover:focus { outline: none; }
+#tour-root .popover:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+#tour-root .popover-pointer {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+#tour-root .popover[data-place="below"] .popover-pointer {
+  top: -7px;
+  border-bottom: 0;
+  border-right: 0;
+}
+#tour-root .popover[data-place="above"] .popover-pointer {
+  bottom: -7px;
+  border-top: 0;
+  border-left: 0;
+}
+#tour-root .popover[data-place="right"] .popover-pointer {
+  left: -7px;
+  border-top: 0;
+  border-right: 0;
+}
+#tour-root .popover[data-place="left"] .popover-pointer {
+  right: -7px;
+  border-bottom: 0;
+  border-left: 0;
+}
+
+#tour-root .step-count {
+  margin: 0 0 8px;
+  font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+#tour-root .popover h2 {
+  margin: 0 0 8px;
+  font: 700 18px/1.2 "IBM Plex Sans", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+#tour-root .popover p {
+  margin: 0 0 14px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+#tour-root .popover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+#tour-root .popover-actions .grow { flex: 1 1 auto; min-width: 8px; }
+
+#tour-root .btn {
+  appearance: none;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 9px;
+  font: 600 14px/1 "IBM Plex Sans", system-ui, sans-serif;
+}
+
+#tour-root .btn-ghost {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+#tour-root .btn-ghost:hover { color: var(--text); }
+
+#tour-root .btn-back {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+#tour-root .btn-back:hover { border-color: var(--primary); }
+#tour-root .btn-back:disabled { opacity: 0.45; cursor: not-allowed; }
+
+#tour-root .btn-next {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--primary-contrast, var(--bg));
+}
+#tour-root .btn-next:hover { filter: brightness(1.06); }
+
+#tour-root .kbd {
+  display: inline-block;
+  min-width: 1.3em;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  font: 600 12px/1.7 "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tour-root .cutout,
+  #tour-root .popover,
+  #tour-root .btn {
+    transition: none;
+  }
+}
