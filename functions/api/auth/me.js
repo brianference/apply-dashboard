@@ -32,14 +32,18 @@ export async function onRequestGet(context) {
      reads it fails - it just quietly returns the wrong row. */
   let name = null;
   let avatar = null;
+  let tour_seen_at = null;
   try {
     const row = await env.DB.prepare(
-      "SELECT display_name, avatar_data_url FROM profile WHERE user_id = ?1"
+      "SELECT display_name, avatar_data_url, tour_seen_at FROM profile WHERE user_id = ?1"
     ).bind(user.id).first();
     name = (row && row.display_name) || null;
     avatar = (row && row.avatar_data_url) || null;
-  } catch { name = null; avatar = null; }
-  return new Response(JSON.stringify({ authenticated: true, email: user.email, name, avatar, since: user.since }), { headers: HEADERS });
+    tour_seen_at = (row && row.tour_seen_at) || null;
+  } catch { name = null; avatar = null; tour_seen_at = null; }
+  return new Response(JSON.stringify({
+    authenticated: true, email: user.email, name, avatar, since: user.since, tour_seen_at
+  }), { headers: HEADERS });
 }
 
 /**
