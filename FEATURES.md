@@ -56,6 +56,16 @@ projects.
 | Header search and the `/` shortcut | — | yes | **Gap.** Verified by screenshot only |
 | Filter chips | — | yes | **Gap.** No test |
 
+## Onboarding
+
+| Feature | Automated | Seen | Notes |
+|---|---|---|---|
+| First-run spotlight tour | `tests/tour.mjs` | yes | Five steps at 1280 and 390; the overlap check was confirmed to FAIL when the popover is forced onto the cutout |
+| Runs once per account | `tests/tour.mjs` | yes | `profile.tour_seen_at`, marked on finish or skip, never on open |
+| Replay from the account menu | `tests/tour.mjs` | yes | Does not re-mark seen |
+| `POST /api/tour/seen` is guarded | — | n/a | 401 without a session and 403 on a bad origin, both checked by hand against production |
+| Step screenshots | `tests/tour-shots.mjs` | yes | Regenerates every step at both widths |
+
 ## Profile and portfolio
 
 | Feature | Automated | Seen | Notes |
