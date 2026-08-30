@@ -36,8 +36,19 @@
   z-index: 90;
   width: min(360px, calc(100vw - 24px));
   max-height: calc(100vh - 24px);
-  overflow-x: hidden;
-  overflow-y: auto;
+  /* A COLUMN, not one scrolling box.
+
+     This scrolled as a single element, which put Skip/Back/Next inside the
+     scrolled region: whenever the content was taller than max-height, the
+     buttons sat below the fold and were cut off by the popover's own edge, with
+     a scrollbar beside them. Brian hit it and sent a screenshot; it needs a
+     zoom level or a text size I could not reproduce headlessly, which is
+     exactly why the layout must not depend on the content fitting.
+
+     The body scrolls. The counter, the title and the actions never do. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   overscroll-behavior: contain;
   background: var(--surface);
   color: var(--text);
@@ -103,11 +114,25 @@
   line-height: 1.45;
 }
 
+/* The counter and the title hold their size; only the body gives. */
+#tour-root #tour-count,
+#tour-root #tour-title { flex: 0 0 auto; }
+
+#tour-root #tour-body {
+  flex: 1 1 auto;
+  min-height: 0;          /* without this a flex item refuses to shrink */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 #tour-root .popover-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  /* Never shrinks and never scrolls away: this is the way out of the tour. */
+  flex: 0 0 auto;
+  margin-top: 4px;
 }
 
 #tour-root .popover-actions .grow { flex: 1 1 auto; min-width: 8px; }

@@ -65,6 +65,7 @@ projects.
 | Replay from the account menu | `tests/tour.mjs` | yes | Does not re-mark seen |
 | `POST /api/tour/seen` is guarded | — | n/a | 401 without a session and 403 on a bad origin, both checked by hand against production |
 | Step screenshots | `tests/tour-shots.mjs` | yes | Regenerates every step at both widths |
+| The tour's buttons never scroll away | `tests/tour-overflow.mjs` | yes | Forces the body to overflow and checks the action row is still inside the popover and clickable. Confirmed to FAIL on the CSS that shipped in v13 |
 
 ## Profile and portfolio
 
@@ -106,7 +107,14 @@ CF_D1_TOKEN=<token> node tests/browser-signup.mjs
 node tests/promo-strip.mjs
 node tests/portfolio-addresses.mjs
 node tests/check-coverage.mjs
+node tests/tour.mjs
+node tests/tour-overflow.mjs --site http://127.0.0.1:8798
 ```
+
+The browser tests need Playwright, which this repo does not depend on. It is
+linked in from a sibling checkout rather than installed here, so `node_modules`
+may contain junctions: never `rm -rf` it without checking, or the delete follows
+the link and takes the real install with it.
 
 The two signup tests create a throwaway account and delete it again. They clear
 their own registration attempts first, because the limiter would otherwise
