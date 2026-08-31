@@ -145,6 +145,7 @@
     padding: 4px 2px; color: var(--text); font: 600 13px/1 inherit;
     text-transform: uppercase; letter-spacing: .05em;
   }
+  .sechead-divider { cursor: default; }
   .sechead .n {
     font: 600 11px/1 "IBM Plex Mono", monospace; color: var(--muted);
     background: var(--bg); border: 1px solid var(--border);
@@ -1123,7 +1124,14 @@
     }
     if (sortBy === "match") {
       var sc = function (j) { return Number(j.rank_pct != null ? j.rank_pct : j.match_pct) || 0; };
-      c.sort(function (x, y) { return sc(y) - sc(x); });
+      var tier = function (j) {
+        var t = Number(j.pay_tier);
+        return (t === 1 || t === 2 || t === 3) ? t : 99;
+      };
+      c.sort(function (x, y) {
+        var dt = tier(x) - tier(y);
+        return dt ? dt : sc(y) - sc(x);
+      });
     } else if (sortBy === "company") {
       c.sort(function (x, y) { return clean(x.company).localeCompare(clean(y.company)); });
     } else if (sortBy === "pay-desc" || sortBy === "pay-asc") {
@@ -1144,6 +1152,33 @@
       });
     }
     return c;
+  }
+
+  /**
+   * Full-time "Best match" groups by pay lane so the order is legible.
+   * Only a lane that has rows in the current filter gets a divider.
+   * Other sorts and other sections stay a flat list.
+   * @param {string} secId
+   * @param {object[]} jobs
+   * @returns {string}
+   */
+  function rowsWithTiers(secId, jobs) {
+    if (secId !== "ft" || sortBy !== "match" || sortCol) {
+      return jobs.map(rowHtml).join("");
+    }
+    var labels = { 1: "Confirmed $180k+", 2: "Pay not published", 3: "Confirmed $160-180k", none: "Not yet ranked" };
+    var html = [];
+    var last = null;
+    for (var i = 0; i < jobs.length; i++) {
+      var t = Number(jobs[i].pay_tier);
+      var key = (t === 1 || t === 2 || t === 3) ? t : "none";
+      if (key !== last) {
+        html.push('<div class="sechead sechead-divider">' + labels[key] + "</div>");
+        last = key;
+      }
+      html.push(rowHtml(jobs[i]));
+    }
+    return html.join("");
   }
 
   var SECTIONS = [
@@ -1499,7 +1534,7 @@
         + '<div class="rows" id="rows-' + sec.id + '"' + (open ? "" : " hidden") + ">"
         + (sec.id === "ft" ? ftPromoHtml() : "")
         + colheadHtml(sec.id)
-        + (jobs.length ? jobs.map(rowHtml).join("") : '<div class="empty">Nothing here.</div>')
+        + (jobs.length ? rowsWithTiers(sec.id, jobs) : '<div class="empty">Nothing here.</div>')
         + "</div></section>";
     }).join("");
     document.getElementById("legend").hidden = false;
@@ -1841,7 +1876,7 @@
       return;
     }
     var sec = ev.target.closest(".sechead");
-    if (sec) {
+    if (sec && sec.getAttribute("data-sec")) {
       var id = sec.getAttribute("data-sec");
       collapsed[id] = !collapsed[id];
       try { localStorage.setItem("apply-collapsed", JSON.stringify(collapsed)); } catch (e) {}

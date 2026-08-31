@@ -26,9 +26,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from './cli.mjs';
 import { decide } from './sync-to-d1.mjs';
-import { fetchJd, scoreOne, boardRef, requirementsGate } from './fit-score.mjs';
+import { fetchJd, scoreOne, boardRef, requirementsGate, rankWrite } from './fit-score.mjs';
 import { salaryFromText } from './salary-from-posting.mjs';
 import { judgeBand, FLOOR } from './salary-sweep.mjs';
+import { ensurePayColumns } from './pay-columns.mjs';
 import { runUpsert } from './upsert.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
@@ -175,18 +176,30 @@ for (const [key, jd] of descriptions) {
 }
 say(`pay bands read from those descriptions: ${bands.size}`);
 
+if (WRITE) {
+  try { await ensurePayColumns(d1); }
+  catch (e) { stats.errors++; say(`schema ensure failed: ${e.message}`); }
+}
+
 for (const job of needsRank) {
   const jd = descriptions.get(job.dedupe_key) || null;
   const band = bands.get(job.dedupe_key) || null;
-  const s = scoreOne(job, jd);
+  /* Score against the band we just read, not the stale stored one. Otherwise
+     pay_tier is computed as unknown on the same pass that writes the band. */
+  const scoredJob = band
+    ? { ...job, salary_min: band.min, salary_max: band.max }
+    : job;
+  const s = scoreOne(scoredJob, jd);
   /* A published band under the floor rules the row out here, before it can be
      ranked well and shown. An ABSENT band is unknown, not low, and never
      rules anything out - that distinction is the whole point. */
-  if (band && judgeBand(band) === 'below-floor') {
+  if (band && judgeBand(band) === 'below-floor' && s.gate.ok) {
     s.gate.ok = false;
     s.gate.reasons = (s.gate.reasons || []).concat(
       `published band starts at $${band.min}, under the $${FLOOR} floor`
     );
+    s.rank = null;
+    s.pay_tier = null;
   }
   if (!WRITE) {
     detail(`  ${String(s.rank ?? 'GATE').padStart(4)} ${job.company} - ${String(job.title).slice(0, 46)}`);
@@ -197,11 +210,11 @@ for (const job of needsRank) {
       /* excluded_domain is written as a bare value so the list can offer it as
          a switch. A signed-in account can turn healthcare, construction or
          clearance postings back on, and that needs something switchable rather
-         than a phrase to parse out of blocked_detail. */
-      await d1(`UPDATE jobs SET status='skipped', blocked_reason='off-criteria',
-        blocked_detail=${q(s.gate.reasons.join('; ').slice(0, 400))},
-        excluded_domain=${q(s.gate.excludedDomain)},
-        blocked_at=${q(new Date().toISOString())} WHERE dedupe_key=${q(job.dedupe_key)}`);
+         than a phrase to parse out of blocked_detail.
+         rank_pct and pay_tier are cleared in the same statement: a later band
+         that fails the gate used to leave the old rank sitting. */
+      const w = rankWrite({ ...s, job });
+      await d1(w.sql, w.params);
       stats.ruledOut++;
     } else {
       /* Passing the gate releases a quarantined row into the queue. */
@@ -229,24 +242,8 @@ for (const job of needsRank) {
           );
         }
       }
-      const why = [];
-      if (s.fit && s.fit.resumePct != null) {
-        why.push(`resume: better than ${s.fit.resumePct}% of your queue - matches ${s.fit.matched.slice(0, 6).join(', ')}`);
-        if (s.fit.missing.length) why.push(`not in your resume: ${s.fit.missing.slice(0, 6).join(', ')}`);
-      }
-      if (s.fit) why.push(...s.fit.hits.slice(0, 3));
-      why.push(...s.success.reasons);
-      /* Say the penalty out loud on the row. A score that quietly dropped 25
-         points is indistinguishable from a weak match, and the whole reason
-         this column exists is that a rank should be arguable. */
-      if (s.offFocus) why.unshift(`${s.offFocus.name} is outside your focus: 25 points off`);
-      await d1(`UPDATE jobs SET rank_pct=${s.rank ?? 'NULL'},
-        fit_pct=${s.fit ? s.fit.pct : 'NULL'},
-        resume_pct=${s.fit && s.fit.resumePct != null ? s.fit.resumePct : 'NULL'},
-        success_pct=${s.success.pct},
-        jd_read=${q(s.jdRead ? 'yes' : 'no')},
-        rank_why=${q(why.join(' | ').slice(0, 800))}
-        WHERE dedupe_key=${q(job.dedupe_key)}`);
+      const w = rankWrite({ ...s, job });
+      await d1(w.sql, w.params);
       stats.ranked++;
     }
   } catch (e) { stats.errors++; say(`rank write failed: ${e.message}`); }

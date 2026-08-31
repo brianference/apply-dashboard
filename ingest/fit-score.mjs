@@ -30,9 +30,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { isCli, parseArgs } from './cli.mjs';
+import { ensurePayColumns } from './pay-columns.mjs';
 import { locationEligible, roleEligible } from './location-eligible.mjs';
 import { domainSignals } from './domain-eligible.mjs';
 import { corpus, resumeText, resumeMatch, calibrate } from './resume-match.mjs';
+import {
+  BLOCKED_EMPLOYERS,
+  employerBlockReason,
+  findBlockedEmployer
+} from './blocked-employers.mjs';
 
 /* Built once, lazily: the corpus is a pass over every cached description and
    the resume is one file read. */
@@ -52,6 +58,82 @@ const SECOND_TIER = 160000;
    an offer conversation that opens at its bottom, and the top is the number a
    company almost never pays. Exactly $160k passes; below it does not. */
 const FLOOR_START = 160000;
+
+/**
+ * Published start as a number. Strips `$` and thousands separators so
+ * `"180,000"` and `"$180,000"` are $180k. A negative or non-finite value
+ * is unknown, never a published figure -- do not invent a band.
+ *
+ * Failing inputs: `{salary_min:-1}` must not count as published;
+ * `{salary_min:"180,000"}` must not fall through to unknown.
+ *
+ * @param {unknown} raw
+ * @returns {number|null}
+ */
+/**
+ * Which blocked employer, if any, this company is -- and why.
+ * The list, the normalising and the reason wording live in
+ * ./blocked-employers.mjs; this is the shape the gate and the tests use.
+ *
+ * @param {string|null|undefined} company
+ * @returns {{name: string, reason: string}|null}
+ */
+export function blockedEmployer(company) {
+  const entry = findBlockedEmployer(company);
+  return entry ? { name: entry.name, reason: entry.reason } : null;
+}
+
+export function parsePayStart(raw) {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'number') {
+    if (!Number.isFinite(raw) || raw < 0) return null;
+    return raw;
+  }
+  const n = Number(String(raw).replace(/[$,]/g, '').trim());
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
+/**
+ * Which pay lane a posting belongs to. Decided on the published START only:
+ * a top figure with no start is unknown, not confirmed, matching the gate
+ * rule that a range whose start is below FLOOR_START fails however high
+ * its top goes.
+ *
+ * @param {Record<string, any>} job
+ * @returns {1|2|3|null} 1 = confirmed at or above FLOOR, 3 = confirmed
+ *   second lane (SECOND_TIER up to FLOOR), 2 = unpublished start, null =
+ *   start below FLOOR_START (already fails the gate)
+ */
+export function payTier(job) {
+  /* Failing inputs: {salary_min:-1} is unknown, not a published figure;
+     {salary_min:"180,000"} and {salary_min:"$180,000"} are $180k. */
+  const start = parsePayStart(job && job.salary_min);
+  if (start == null || start === 0) return 2;
+  if (start >= FLOOR) return 1;
+  if (start >= SECOND_TIER && start < FLOOR) return 3;
+  if (start > 0 && start < FLOOR_START) return null;
+  return 2;
+}
+
+/**
+ * Best-match order: pay tier first (1, then 2, then 3; missing last), then
+ * rank_pct descending, then the keyword match_pct as a last resort.
+ *
+ * @param {{pay_tier?: number|null, rank_pct?: number|null, match_pct?: number|null}} a
+ * @param {{pay_tier?: number|null, rank_pct?: number|null, match_pct?: number|null}} b
+ * @returns {number}
+ */
+export function compareMatchSort(a, b) {
+  const tierOf = (row) => {
+    const t = Number(row && row.pay_tier);
+    return t === 1 || t === 2 || t === 3 ? t : 99;
+  };
+  const dTier = tierOf(a) - tierOf(b);
+  if (dTier) return dTier;
+  const score = (row) => Number(row.rank_pct != null ? row.rank_pct : row.match_pct) || 0;
+  return score(b) - score(a);
+}
 
 /* ------------------------------------------------------------------ *
  * Brian's evidence. Every phrase below is drawn from his own words in
@@ -194,8 +276,17 @@ export function securitySignals(jd) {
  * @param {Record<string, any>} job
  * @returns {{ok: boolean, reasons: string[]}}
  */
-export function requirementsGate(job, jd) {
+export function requirementsGate(job, jd, options = {}) {
   const reasons = [];
+  /* Checked before anything else: an employer he has ruled out is not a
+     scoring question. Brian, 2026-08-31: Coinbase caps how many times you may
+     apply and does not reply. */
+  /* options.blockedEmployers lets a test supply its own list. Without it the
+     'a blocked employer fails' check would also pass on a gate that rejects
+     everything, so the control is the same row with an EMPTY list. */
+  const blockList = options.blockedEmployers || BLOCKED_EMPLOYERS;
+  const blockedCo = findBlockedEmployer(job && job.company, blockList);
+  if (blockedCo) reasons.push(employerBlockReason(blockedCo));
   /* The role rule reads the TITLE only, and a security product does not have to
      say so in its title. Measured 2026-08-26: Delinea "Senior Product Manager -
      Platform" and "... Non-Human Identity" ranked 1st and 4th -- Delinea is a
@@ -221,15 +312,27 @@ export function requirementsGate(job, jd) {
   if (!loc.ok) reasons.push(`location: ${loc.why}`);
   /* The bottom of the band is checked before the top. An unpublished start is
      unknown and passes; a published one at or below the floor does not. */
-  const bottom = Number(job.salary_min) || 0;
+  const bottom = parsePayStart(job.salary_min) || 0;
   if (bottom > 0 && bottom < FLOOR_START) {
     reasons.push(`salary: the range starts at $${Math.round(bottom / 1000)}k, below the $${FLOOR_START / 1000}k start floor`);
   }
-  const top = Number(job.salary_max) || Number(job.salary_min) || 0;
   /* An unpublished salary is UNKNOWN, not low. Most postings publish nothing
-     and dropping them would empty the list. Only a PUBLISHED figure can fail. */
-  if (top > 0 && top < SECOND_TIER) reasons.push(`salary: publishes $${Math.round(top / 1000)}k, below the $160k second tier`);
-  else if (top > 0 && top < FLOOR) reasons.push(`salary: publishes $${Math.round(top / 1000)}k, under the $180k floor (second tier)`);
+     and dropping them would empty the list. Only a PUBLISHED figure can fail.
+
+     The TOP no longer rules anything out. Brian, 2026-08-31: $160-180k is a
+     second lane, not a reject, and this rule contradicted that -- a band
+     published as $165k-$175k was dropped for topping out under $180k, so the
+     `Confirmed $160-180k` lane could only ever hold ranges that ALSO reached
+     $180k+. The lane carries that distinction now (payTier returns 3), and the
+     gate decides only whether the money is under his floor at all.
+
+     A top with no start published is the one case the start rule cannot see:
+     $150k with no floor stated is a published band under the floor, not an
+     unknown one, so it still fails. */
+  const top = parsePayStart(job.salary_max) || 0;
+  if (bottom === 0 && top > 0 && top < FLOOR_START) {
+    reasons.push(`salary: publishes $${Math.round(top / 1000)}k and no start, below the $${FLOOR_START / 1000}k floor`);
+  }
   /* The domain is returned separately from the prose reason so the list can
      offer it as a switch. A signed-in account can turn these back on, and a
      string it has to parse out of a sentence is not something to switch on. */
@@ -481,8 +584,20 @@ export function offFocusDomain(title) {
 
 /**
  * Score one posting end to end.
+ * Pay is not blended into rank; it is a separate tier so the list can sort
+ * confirmed $180k+ first without pretending pay is a component of fit.
+ *
  * @param {Record<string, any>} job
  * @param {string|null} jd
+ * @returns {{
+ *   gate: {ok: boolean, reasons: string[], excludedDomain: string|null},
+ *   fit: object|null,
+ *   success: {pct: number, reasons: string[]},
+ *   rank: number|null,
+ *   pay_tier: 1|2|3|null,
+ *   offFocus: {name: string}|null,
+ *   jdRead: boolean
+ * }}
  */
 export function scoreOne(job, jd) {
   const gate = requirementsGate(job, jd);
@@ -521,7 +636,84 @@ export function scoreOne(job, jd) {
      reason rather than dissolved into a component score. */
   const offFocus = base === null ? null : offFocusDomain(job && job.title);
   const rank = offFocus ? Math.max(0, base - OFF_FOCUS_PENALTY) : base;
-  return { gate, fit, success, rank, offFocus, jdRead: !!jd };
+  /* A failed gate clears the tier the same way it clears the rank: the row
+     is off the list, not a low-ranked job in a pay lane. */
+  const pay_tier = gate.ok ? payTier(job) : null;
+  return { gate, fit, success, rank, pay_tier, offFocus, jdRead: !!jd };
+}
+
+/**
+ * The prose stored in rank_why for one scored row.
+ *
+ * @param {{fit: object|null, success: {reasons: string[]}, offFocus: {name: string}|null}} s
+ * @returns {string}
+ */
+export function rankWhy(s) {
+  const why = [];
+  if (s.offFocus) why.push(`${s.offFocus.name} is outside your focus: ${OFF_FOCUS_PENALTY} points off`);
+  if (s.fit && s.fit.resumePct != null) {
+    why.push(`resume: better than ${s.fit.resumePct}% of your queue - matches ${(s.fit.matched || []).slice(0, 6).join(', ')}`);
+    if ((s.fit.missing || []).length) why.push(`not in your resume: ${s.fit.missing.slice(0, 6).join(', ')}`);
+  }
+  if (s.fit) why.push(...(s.fit.hits || []).slice(0, 3));
+  why.push(...(s.success && s.success.reasons || []));
+  return why.join(' | ').slice(0, 800);
+}
+
+/**
+ * The D1 UPDATE for one scored row. A failed gate clears rank_pct and
+ * pay_tier rather than leaving the previous score sitting on a posting he
+ * cannot take.
+ *
+ * @param {{
+ *   job: Record<string, any>,
+ *   gate: {ok: boolean, reasons: string[], excludedDomain?: string|null},
+ *   rank: number|null,
+ *   pay_tier: 1|2|3|null,
+ *   fit: object|null,
+ *   success: {pct: number, reasons: string[]},
+ *   jdRead: boolean,
+ *   offFocus: {name: string}|null
+ * }} s
+ * @returns {{sql: string, params: Array<string|number|null>}}
+ */
+export function rankWrite(s) {
+  /* Named, not a TypeError on `undefined.dedupe_key`. daily.mjs called this
+     with the bare scoreOne() result, which carries no job, and every write
+     in the twice-daily pipeline threw into a catch that only counted it. */
+  const key = s.job && s.job.dedupe_key;
+  if (!key) throw new Error('rankWrite: no job.dedupe_key - pass { ...scoreOne(job, jd), job }');
+  if (!s.gate.ok) {
+    return {
+      sql: `UPDATE jobs SET status = ?, blocked_reason = ?,
+        blocked_detail = ?, excluded_domain = ?, blocked_at = ?,
+        rank_pct = NULL, pay_tier = NULL
+        WHERE dedupe_key = ?`,
+      params: [
+        'skipped',
+        'off-criteria',
+        (s.gate.reasons || []).join('; ').slice(0, 400),
+        s.gate.excludedDomain ?? null,
+        new Date().toISOString(),
+        key
+      ]
+    };
+  }
+  return {
+    sql: `UPDATE jobs SET rank_pct = ?, fit_pct = ?, resume_pct = ?, success_pct = ?,
+      jd_read = ?, rank_why = ?, pay_tier = ?
+      WHERE dedupe_key = ?`,
+    params: [
+      s.rank,
+      s.fit ? s.fit.pct : null,
+      s.fit && s.fit.resumePct != null ? s.fit.resumePct : null,
+      s.success.pct,
+      s.jdRead ? 'yes' : 'no',
+      rankWhy(s),
+      s.pay_tier,
+      key
+    ]
+  };
 }
 
 if (isCli(import.meta.url)) {
@@ -561,46 +753,28 @@ if (isCli(import.meta.url)) {
     else {
       const ACCOUNT = 'dd01b432f0329f87bb1cc1a3fad590ee';
       const DATABASE = '10e8a6c0-1fa7-4c33-a007-2044876ce6a7';
-      const q = v => v === null || v === undefined ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`;
-      const run = async (sql) => {
+      const run = async (sql, params) => {
         const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/${DATABASE}/query`, {
           method: 'POST',
           headers: { authorization: `Bearer ${CF}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ sql })
+          body: JSON.stringify(params === undefined ? { sql } : { sql, params })
         });
         const j = await r.json();
         if (!j.success) throw new Error(JSON.stringify(j.errors));
         return j;
       };
+      await ensurePayColumns(run);
       let scoredRows = 0, ruledOut = 0;
       for (const s2 of scored) {
-        const k = q(s2.job.dedupe_key);
-        if (!s2.gate.ok) {
-          /* A posting that fails the gate leaves the list entirely. It is not a
-             low-ranked job, it is one he cannot take -- and leaving it queued is
-             how the runner applied to a security role and a San Francisco role. */
-          await run(`UPDATE jobs SET status='skipped', blocked_reason='off-criteria',
-            blocked_detail=${q(s2.gate.reasons.join('; ').slice(0, 400))},
-            excluded_domain=${q(s2.gate.excludedDomain)},
-            blocked_at=${q(new Date().toISOString())} WHERE dedupe_key=${k}`);
-          ruledOut++;
-          continue;
-        }
-        const why = [];
-        if (s2.fit && s2.fit.resumePct != null) {
-          why.push(`resume: better than ${s2.fit.resumePct}% of your queue - matches ${s2.fit.matched.slice(0, 6).join(', ')}`);
-          if (s2.fit.missing.length) why.push(`not in your resume: ${s2.fit.missing.slice(0, 6).join(', ')}`);
-        }
-        if (s2.fit) why.push(...s2.fit.hits.slice(0, 3));
-        why.push(...s2.success.reasons);
-        await run(`UPDATE jobs SET rank_pct=${s2.rank ?? 'NULL'},
-          fit_pct=${s2.fit ? s2.fit.pct : 'NULL'},
-          resume_pct=${s2.fit && s2.fit.resumePct != null ? s2.fit.resumePct : 'NULL'},
-          success_pct=${s2.success.pct},
-          jd_read=${q(s2.jdRead ? 'yes' : 'no')},
-          rank_why=${q(why.join(' | ').slice(0, 800))}
-          WHERE dedupe_key=${k}`);
-        scoredRows++;
+        /* A posting that fails the gate leaves the list entirely. It is not a
+           low-ranked job, it is one he cannot take -- and leaving it queued is
+           how the runner applied to a security role and a San Francisco role.
+           The previous score is cleared in the same statement: a later band
+           that fails the gate used to leave the old rank_pct sitting. */
+        const w = rankWrite(s2);
+        await run(w.sql, w.params);
+        if (!s2.gate.ok) ruledOut++;
+        else scoredRows++;
       }
       console.log(`\nwrote ${scoredRows} ranked rows to D1; ${ruledOut} ruled out as off-criteria`);
     }

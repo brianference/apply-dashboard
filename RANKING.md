@@ -60,14 +60,34 @@ not an application until a human finishes it.
 
 ## The headline
 
-    gate failed        -> no rank at all, off the list
+    gate failed        -> no rank at all, off the list; rank_pct and pay_tier cleared
     description unread -> success_pct * 0.6, marked as unread
     normal             -> fit_pct * 0.55 + success_pct * 0.45
 
-On the dashboard the number is `rank_pct` when it exists. Where nothing has been
-ranked yet the old `match_pct` still shows, greyed and italic, and hovering says
-"keyword score only — the job description has not been read". A provisional
-score must never look like a measured one.
+Pay is not in that blend. It is a separate `pay_tier` decided on the published
+start only (a top figure with no start is unknown, not confirmed):
+
+    1  salary_min >= $180k     confirmed at or above the floor
+    2  no published start      unknown — crawled, or not yet priced
+    3  $160k <= salary_min < $180k   confirmed second lane
+    null  salary_min < $160k   already fails the gate
+The gate decides only whether the money is under his floor at all. It used to
+reject any published TOP under $180k, which meant a band advertised as
+$165k-$175k was dropped and the second lane could only ever hold ranges that
+ALSO reached $180k+. Retired 2026-08-31: a published START under $160k still
+fails, and a top published with no start still fails if it is under $160k, but
+the $160-180k distinction is now the LANE's job, not the gate's.
+
+An employer on `ingest/blocked-employers.json` fails the gate before anything
+else is measured. `ingest/regate.mjs` applies a rule change to rows already in
+the queue -- re-running the WHOLE gate, never the one rule that changed.
+
+On the dashboard, Best match sorts by `pay_tier` ascending (1, then 2, then 3;
+missing last), then `rank_pct` descending. The number shown is still `rank_pct`
+when it exists. Where nothing has been ranked yet the old `match_pct` still
+shows, greyed and italic, and hovering says "keyword score only — the job
+description has not been read". A provisional score must never look like a
+measured one.
 
 ## What five runs actually found
 
@@ -101,7 +121,8 @@ than reading it.
     CF_D1_TOKEN=... node ingest/fit-score.mjs --limit 200 --readable --write
 
     node ingest/test-fit.mjs            # every rejection reason, on inputs built to trip it
+    node ingest/test-pay-tier.mjs       # pay-first tiers; the retired sort must fail
 
 `--write` updates `rank_pct`, `fit_pct`, `success_pct`, `jd_read` and
-`rank_why`, and rules out anything failing the gate. Descriptions are cached
+`rank_why`, `pay_tier`, and rules out anything failing the gate. Descriptions are cached
 under `ingest/out/jd-cache/` so a re-run does not re-fetch.

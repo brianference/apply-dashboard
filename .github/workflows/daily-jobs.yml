@@ -78,6 +78,8 @@ jobs:
         run: |
           node ingest/test-location.mjs
           node ingest/test-fit.mjs
+          node ingest/test-pay-tier.mjs
+          node ingest/test-employer-block.mjs
           node ingest/test-sync.mjs
           node ingest/resume-match.mjs --self-check
           node apply/test-order.mjs

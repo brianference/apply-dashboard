@@ -63,6 +63,16 @@ check('gate rejects program manager', !requirementsGate({ title: 'Senior Technic
 check('gate rejects published $120k', !requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US', salary_max: 120000 }).ok);
 check('gate ALLOWS unknown salary', requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US' }).ok);
 check('gate allows a good one', requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US', salary_max: 220000 }).ok);
+/* Failing input: a $165k-$175k band used to be dropped because the top sat
+   under $180k. That is now a lane, not a reject. */
+check('gate allows a published $165k-$175k band',
+  requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 165000, salary_max: 175000 }).ok);
+check('gate allows a $160k start with no max',
+  requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 160000 }).ok);
+check('gate rejects a max-only $150k (under the floor, not unknown)',
+  !requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US', salary_max: 150000 }).ok);
+check('gate still rejects a $159999 start',
+  !requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 159999 }).ok);
 
 /* board refs */
 check('greenhouse url parses', boardRef('https://job-boards.greenhouse.io/mercury/jobs/6126980004')?.ats === 'greenhouse');
@@ -105,6 +115,9 @@ if (!s1.ruled || s2.ruled) process.exitCode = 1;
     [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 180000, salary_max: 250000 }, true,  'a good band'],
     [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_max: 200000 }, true,  'no published start is unknown, not low'],
     [{ title: 'Senior Product Manager', work_type: 'Remote US' }, true, 'no salary at all is still fine'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 165000, salary_max: 175000 }, true,  'the $165k-$175k case that used to be dropped'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_min: 160000 }, true,  'start at $160k with no max is lane 3, not a reject'],
+    [{ title: 'Senior Product Manager', work_type: 'Remote US', salary_max: 150000 }, false, 'max-only under the floor is a published band, not unknown'],
   ];
   let bad = 0;
   for (const [job, want, note] of cases) {

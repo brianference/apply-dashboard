@@ -120,6 +120,9 @@ node ingest/fit-score.mjs --limit 80 --readable # ranking report
 node ingest/resume-match.mjs --self-check       # prove the resume match discriminates
 node ingest/test-location.mjs                   # location, role, hybrid and product-ops rules
 node ingest/test-fit.mjs                        # the fit score, including the security gate
+node ingest/test-pay-tier.mjs                   # pay-first tiers and the sort they produce
+node ingest/test-employer-block.mjs             # blocked employers and the reopen reversal
+node ingest/regate.mjs                          # apply a rule change to rows already queued
 node ingest/test-sync.mjs                       # every dedupe and rejection reason
 ```
 
