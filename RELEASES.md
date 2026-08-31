@@ -32,6 +32,13 @@ hold ranges that also reached $180k+. A published start under $160k still fails,
 and a top published with no start still fails when it is under $160k. Everything
 between is a lane, not a reject.
 
+The page hid them too. `meetsFloor()` decided on the band's TOP while the lane
+decides on its START, so a $160k-$170k posting was filtered off the default list
+and the Full-time tile counted a row the list refused to draw -- caught by
+`apply/test-counts.mjs` in CI, at tile 270 against 269 rows. It reads the start
+now, and the `Under $180k` chip has its own predicate instead of being the
+inverse of what the list contains.
+
 Rows skipped under the retired rule were re-examined by `ingest/regate.mjs`,
 which re-runs the WHOLE gate with the cached description rather than the one
 rule that changed. Reversing a rejection by re-checking a subset of the rules

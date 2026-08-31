@@ -572,7 +572,7 @@
         <button type="button" class="chip" data-kind="ptc2c" aria-pressed="false" title="Contract, corp-to-corp, part-time, freelance, fractional and fixed-term postings">Part-time &amp; contract</button>
         <button type="button" class="chip" data-kind="submitted" aria-pressed="false">Applied</button>
         <button type="button" class="chip" data-kind="manual" aria-pressed="false" title="Auto-apply could not finish these - they need you">Needs you <span id="nmanual"></span></button>
-        <button type="button" class="chip" data-kind="under" aria-pressed="false" title="Also show postings that publish a salary below $180k">Under $180k</button>
+        <button type="button" class="chip" data-kind="under" aria-pressed="false" title="Only the postings that publish a band topping out below $180k">Under $180k</button>
         <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="Applies on the company's own site - no aggregator in the way, no account to make first">Apply direct <span id="ndirect"></span></button>
         <button type="button" class="chip adv-toggle" id="adv-toggle" aria-expanded="false" aria-controls="advanced"
                 title="Show postings the rules removed">Advanced</button>
@@ -1230,9 +1230,38 @@
     return "under $160k";
   }
   /** Does this posting clear Brian's floor, or is its pay simply unknown? */
+  /**
+   * Is this posting on the default list on pay grounds?
+   *
+   * Decided on the published START, the same figure the lane uses. It read the
+   * TOP until 2026-08-31, so a band published as $160k-$170k was hidden by
+   * default -- the `Confirmed $160-180k` lane existed and could not be seen,
+   * and the Full-time tile counted a row the list refused to draw.
+   *
+   * @param {Record<string, any>} j
+   * @returns {boolean}
+   */
   function meetsFloor(j) {
+    var lo = Number(j.salary_min) || 0;
+    var hi = Number(j.salary_max) || 0;
+    if (lo > 0) return lo >= 160000;
+    /* A top with no start published is the only figure there is. */
+    if (hi > 0) return hi >= 160000;
+    /* Publishes nothing: unknown is not low. */
+    return true;
+  }
+
+  /**
+   * Does this posting publish a band that does not reach his $180k floor?
+   * This is what the `Under $180k` chip filters to -- a lens over the list
+   * rather than the thing that decides what the list contains.
+   *
+   * @param {Record<string, any>} j
+   * @returns {boolean}
+   */
+  function publishesUnderFloor(j) {
     var hi = Number(j.salary_max) || Number(j.salary_min) || 0;
-    return !hi || hi >= 180000;
+    return hi > 0 && hi < 180000;
   }
 
   /**
@@ -1485,7 +1514,7 @@
          hiding it would drop most of the list. The "Under $180k" chip brings
          the published-low ones back. */
       if (kind !== "under" && !meetsFloor(j) && !isApplied(j)) return false;
-      if (kind === "under") { if (meetsFloor(j) || isApplied(j)) return false; }
+      if (kind === "under") { if (!publishesUnderFloor(j) || isApplied(j)) return false; }
       if (kind === "manual") { if (!j.blocked_reason || isApplied(j)) return false; }
       else if (kind === "direct") { if (atsOf(j).cls !== "direct") return false; }
       else if (kind !== "all" && kind !== bucketOf(j)) return false;
