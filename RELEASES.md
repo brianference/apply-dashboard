@@ -1,6 +1,8 @@
 # Releases
 
-## v11.0.0 — Pay decides the order (2026-08-31)
+Started at v14.0.0; earlier releases are in the git tags.
+
+## v14.0.0 — Pay decides the order (2026-08-31)
 
 Ranking never looked at pay. `scoreOne()` blended description fit with
 win-likelihood, and the salary rule was a gate that a posting with no published
