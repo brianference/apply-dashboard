@@ -30,8 +30,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isCli, parseArgs } from './cli.mjs';
 import { logInfo, logWarn } from './logger.mjs';
-import { fetchJd } from './fit-score.mjs';
+import { fetchJd, payTier } from './fit-score.mjs';
 import { salaryFromText } from './salary-from-posting.mjs';
+import { ensurePayColumns } from './pay-columns.mjs';
+
+/* Re-exported so existing importers keep working; the definition lives in
+   pay-columns.mjs because fit-score needs it too and cannot import this. */
+export { ensurePayColumns } from './pay-columns.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
   .replace(/^\/([A-Za-z]:)/, '$1'), '..');
@@ -44,6 +49,14 @@ export const FLOOR = 160000;
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/** Board API bodies shorter than this are not treated as the posting. */
+const BOARD_TEXT_MIN = 200;
+
+/** `via` values that mean we actually read a posting. */
+const FETCH_OK_VIA = ['page', 'board-api'];
+
+
 
 /**
  * Strip tags and collapse whitespace, so a band split across markup still reads
@@ -80,20 +93,136 @@ export function judgeBand(band, floor = FLOOR) {
 }
 
 /**
- * The posting text for a row: the board API when it is a board we can read,
- * otherwise the destination page itself.
+ * Does this board-API body already contain a published start, so the page
+ * fetch can be skipped?
  *
- * The page fetch is the part Brian asked for - crawl the final apply page
- * rather than trusting whatever the index said.
+ * @param {string|null} text
+ * @returns {boolean}
+ */
+export function boardTextHasBand(text) {
+  if (!text || String(text).length <= BOARD_TEXT_MIN) return false;
+  const band = salaryFromText(text);
+  return !!(band && band.min != null);
+}
+
+/**
+ * Did this fetch actually reach a posting, so salary_checked_at can be stamped.
+ * A 404 is not a check; a page that loaded and published no band is.
+ *
+ * Allowlist, not denylist. Failing inputs: `page-502`, `page-429`, `page-400`,
+ * `page-408` and an empty `via` used to stamp salary_checked_at because the
+ * old suffix list never named them.
+ *
+ * `via: 'board-api'` is also returned when the page fetch fails but a
+ * band-less board body exists (`postingText`). That is a board-API read,
+ * which IS a real check, so the allowlist keeps it -- it reads like a page
+ * check that never happened.
+ *
+ * @param {string} via
+ * @returns {boolean}
+ */
+export function fetchSucceeded(via) {
+  return FETCH_OK_VIA.includes(String(via || ''));
+}
+
+/**
+ * How many rows a D1 statement actually changed.
+ *
+ * Failing input: an UPDATE against a missing `dedupe_key` returns success
+ * with `meta.changes = 0` and must not increment wroteBands.
+ *
+ * @param {any} response
+ * @returns {number}
+ */
+export function d1Changes(response) {
+  const meta = (response && response.result && response.result[0] && response.result[0].meta)
+    || (response && response.meta)
+    || null;
+  const n = meta && meta.changes;
+  return Number.isFinite(Number(n)) ? Number(n) : 0;
+}
+
+/**
+ * The UPDATE that records a published band. If the row already has a rank,
+ * recompute its pay lane from the NEW band in the same statement. An
+ * unranked row has no lane -- `pay_tier` is left as-is when `rank_pct`
+ * is NULL.
+ *
+ * Failing input: a ranked row whose sweep finds $190,000-$220,000 must
+ * write pay_tier = 1, not leave pay_tier = 2.
+ *
+ * @param {{band: {min: number, max: number|null}, via: string, dedupe_key: string}} r
+ * @param {string} checkedAt
+ * @returns {{sql: string, params: Array<string|number|null>}}
+ */
+export function bandWrite(r, checkedAt) {
+  const lane = payTier({ salary_min: r.band.min, salary_max: r.band.max });
+  return {
+    sql: `UPDATE jobs SET salary_min = ?, salary_max = ?, salary_source = ?, salary_checked_at = ?,
+      pay_tier = CASE WHEN rank_pct IS NOT NULL THEN ? ELSE pay_tier END
+      WHERE dedupe_key = ?`,
+    params: [r.band.min, r.band.max, 'posting:' + r.via, checkedAt, lane, r.dedupe_key]
+  };
+}
+
+/**
+ * Stamp salary_checked_at on a successful fetch that published no band.
+ *
+ * @param {{dedupe_key: string}} r
+ * @param {string} checkedAt
+ * @returns {{sql: string, params: Array<string|number|null>}}
+ */
+export function checkedWrite(r, checkedAt) {
+  return {
+    sql: 'UPDATE jobs SET salary_checked_at = ? WHERE dedupe_key = ?',
+    params: [checkedAt, r.dedupe_key]
+  };
+}
+
+/**
+ * The UPDATE that rules a below-floor row out. Matches rankWrite's gate-fail
+ * branch: status skipped, rank_pct NULL, pay_tier NULL. A submitted row is
+ * history and is never passed here.
+ *
+ * Failing input: a ranked row whose sweep finds $135,000-$155,000 must not
+ * keep its old rank_pct and pay_tier.
+ *
+ * @param {{band: {min: number}, dedupe_key: string}} r
+ * @returns {{sql: string, params: Array<string|number|null>}}
+ */
+export function belowFloorWrite(r) {
+  return {
+    sql: `UPDATE jobs SET blocked_reason = ?, blocked_detail = ?,
+      status = ?, rank_pct = NULL, pay_tier = NULL
+      WHERE dedupe_key = ?`,
+    params: [
+      'off-criteria',
+      `published band starts at $${r.band.min}, under the $${FLOOR} floor`,
+      'skipped',
+      r.dedupe_key
+    ]
+  };
+}
+
+
+/**
+ * The posting text for a row: the board API when it is a board we can read
+ * AND that text already has a published band; otherwise the destination page.
+ *
+ * Board-API-first used to return as soon as the board body was long enough,
+ * even when it contained no pay line. The page often has the band the board
+ * API stripped. The page is not fetched when the board text already produced
+ * a band.
  *
  * @param {{url: string}} job
  * @param {boolean} refetch
  * @returns {Promise<{text: string|null, via: string}>}
  */
 export async function postingText(job, refetch = false) {
+  let boardText = null;
   if (!refetch) {
-    const fromBoard = await fetchJd(job.url).catch(() => null);
-    if (fromBoard && fromBoard.length > 200) return { text: fromBoard, via: 'board-api' };
+    boardText = await fetchJd(job.url).catch(() => null);
+    if (boardTextHasBand(boardText)) return { text: boardText, via: 'board-api' };
   }
   try {
     const res = await fetch(job.url, {
@@ -101,10 +230,14 @@ export async function postingText(job, refetch = false) {
       redirect: 'follow',
       signal: AbortSignal.timeout(25000)
     });
-    if (!res.ok) return { text: null, via: `page-${res.status}` };
+    if (!res.ok) {
+      if (boardText && boardText.length > BOARD_TEXT_MIN) return { text: boardText, via: 'board-api' };
+      return { text: null, via: `page-${res.status}` };
+    }
     const body = await res.text();
     return { text: textOf(body), via: 'page' };
   } catch (error) {
+    if (boardText && boardText.length > BOARD_TEXT_MIN) return { text: boardText, via: 'board-api' };
     return { text: null, via: 'page-error' };
   }
 }
@@ -166,65 +299,95 @@ if (isCli(import.meta.url)) {
     const token = process.env.CF_D1_TOKEN;
     if (!token) {
       logWarn('CF_D1_TOKEN is not set', {});
-    } else {
-      /** @param {string} sql @param {Array<string|number|null>} params */
-      const run = async (sql, params) => {
-        const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/${DATABASE}/query`, {
-          method: 'POST',
-          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ sql, params })
-        });
-        const j = await r.json();
-        if (!j.success) throw new Error(JSON.stringify(j.errors));
-      };
-      let wroteBands = 0;
-      let ruledOut = 0;
-      /* Per-row failures are collected, not thrown.
+      process.exit(1);
+    }
+    /** @param {string} sql @param {Array<string|number|null>} [params] */
+    const run = async (sql, params = []) => {
+      const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/${DATABASE}/query`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ sql, params })
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(JSON.stringify(j.errors));
+      return j;
+    };
+    await ensurePayColumns(run);
+    const checkedAt = new Date().toISOString();
+    let wroteBands = 0;
+    let wroteChecked = 0;
+    let ruledOut = 0;
+    /* Per-row failures are collected, not thrown.
 
-         This loop used to let the first rejected UPDATE escape, which abandoned
-         every remaining write. Nine rows held match_pct = '' instead of NULL,
-         and SQLite compares text as greater than any integer, so '' > 100 is
-         TRUE and the range trigger rejected any update to them. The sweep
-         reported "205 bands found", wrote seven, and exited zero. The count it
-         printed was what it had MEASURED, not what it had SAVED, and nothing
-         connected the two. */
-      const writeFailures = [];
-      for (const r of results) {
-        if (r.band.min != null) {
-          try {
-            await run(
-              'UPDATE jobs SET salary_min = ?, salary_max = ?, salary_source = ? WHERE dedupe_key = ?',
-              [r.band.min, r.band.max, 'posting:' + r.via, r.dedupe_key]
-            );
+       This loop used to let the first rejected UPDATE escape, which abandoned
+       every remaining write. Nine rows held match_pct = '' instead of NULL,
+       and SQLite compares text as greater than any integer, so '' > 100 is
+       TRUE and the range trigger rejected any update to them. The sweep
+       reported "205 bands found", wrote seven, and exited zero. The count it
+       printed was what it had MEASURED, not what it had SAVED, and nothing
+       connected the two. */
+    const writeFailures = [];
+    const writeUnchanged = [];
+    for (const r of results) {
+      if (r.band.min != null) {
+        try {
+          const w = bandWrite(r, checkedAt);
+          const res = await run(w.sql, w.params);
+          if (d1Changes(res) > 0) {
             wroteBands += 1;
-          } catch (error) {
-            writeFailures.push({ dedupe_key: r.dedupe_key, what: 'band', error: String(error.message || error).slice(0, 160) });
+            wroteChecked += 1;
+          } else {
+            writeUnchanged.push({ dedupe_key: r.dedupe_key, what: 'band' });
           }
+        } catch (error) {
+          writeFailures.push({ dedupe_key: r.dedupe_key, what: 'band', error: String(error.message || error).slice(0, 160) });
         }
-        /* Rule out only what is BELOW the floor and still open. A submitted row
-           is history: marking it off-criteria now would rewrite what happened. */
-        if (r.verdict === 'below-floor' && r.status !== 'submitted') {
-          try {
-            await run(
-              "UPDATE jobs SET blocked_reason = 'off-criteria', blocked_detail = ? WHERE dedupe_key = ?",
-              [`published band starts at $${r.band.min}, under the $${FLOOR} floor`, r.dedupe_key]
-            );
+      } else if (fetchSucceeded(r.via)) {
+        /* A successful fetch that found no band is still a check. Leaving
+           salary_checked_at NULL made "crawled, publishes nothing" look
+           identical to "never crawled". Do not invent a band. */
+        try {
+          const w = checkedWrite(r, checkedAt);
+          const res = await run(w.sql, w.params);
+          if (d1Changes(res) > 0) {
+            wroteChecked += 1;
+          } else {
+            writeUnchanged.push({ dedupe_key: r.dedupe_key, what: 'checked' });
+          }
+        } catch (error) {
+          writeFailures.push({ dedupe_key: r.dedupe_key, what: 'checked', error: String(error.message || error).slice(0, 160) });
+        }
+      }
+      /* Rule out only what is BELOW the floor and still open. A submitted row
+         is history: marking it off-criteria now would rewrite what happened. */
+      if (r.verdict === 'below-floor' && r.status !== 'submitted') {
+        try {
+          const w = belowFloorWrite(r);
+          const res = await run(w.sql, w.params);
+          if (d1Changes(res) > 0) {
             ruledOut += 1;
-          } catch (error) {
-            writeFailures.push({ dedupe_key: r.dedupe_key, what: 'rule-out', error: String(error.message || error).slice(0, 160) });
+          } else {
+            writeUnchanged.push({ dedupe_key: r.dedupe_key, what: 'rule-out' });
           }
+        } catch (error) {
+          writeFailures.push({ dedupe_key: r.dedupe_key, what: 'rule-out', error: String(error.message || error).slice(0, 160) });
         }
       }
-      logInfo('written to D1', { bands: wroteBands, ruledOut, failed: writeFailures.length });
-      /* Loud, and non-zero. A sweep that measured more than it saved has not
-         done its job, and saying so beats a green run that quietly did less. */
-      if (writeFailures.length) {
-        for (const f of writeFailures.slice(0, 10)) logWarn('write rejected', f);
-        logWarn('some rows were measured but not saved', {
-          measured: found.length, saved: wroteBands, failed: writeFailures.length
-        });
-        process.exitCode = 1;
-      }
+    }
+    logInfo('written to D1', {
+      bands: wroteBands, checked: wroteChecked, ruledOut,
+      failed: writeFailures.length, unchanged: writeUnchanged.length
+    });
+    /* Loud, and non-zero. A sweep that measured more than it saved has not
+       done its job, and saying so beats a green run that quietly did less. */
+    if (writeFailures.length || writeUnchanged.length) {
+      for (const f of writeFailures.slice(0, 10)) logWarn('write rejected', f);
+      for (const u of writeUnchanged.slice(0, 10)) logWarn('write changed nothing', u);
+      logWarn('some rows were measured but not saved', {
+        measured: found.length, saved: wroteBands,
+        failed: writeFailures.length, unchanged: writeUnchanged.length
+      });
+      process.exitCode = 1;
     }
   }
 }

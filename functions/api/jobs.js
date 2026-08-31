@@ -21,8 +21,8 @@ const COLUMNS = [
    lands in D1 but nothing downstream can read it. */
 const SELECT = `
   SELECT ${COLUMNS.join(", ")}, link_status, link_checked_at, blocked_reason, blocked_detail, excluded_domain,
-         salary_min, salary_max, salary_source,
-         rank_pct, fit_pct, resume_pct, success_pct, rank_why, jd_read
+         salary_min, salary_max, salary_source, salary_checked_at,
+         rank_pct, fit_pct, resume_pct, success_pct, rank_why, jd_read, pay_tier
   FROM jobs
   ORDER BY
     CASE lane WHEN 'submitted' THEN 0 WHEN 'ft' THEN 1 ELSE 2 END,

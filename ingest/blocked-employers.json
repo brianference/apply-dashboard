@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Coinbase",
+    "match": "coinbase",
+    "since": "2026-08-31",
+    "reason": "employer application limit reached"
+  }
+]
