@@ -170,11 +170,35 @@ console.log(String.fromCharCode(10) + (bad ? bad + ' failed' : 'both rules hold 
   if (bad) process.exitCode = 1;
 }
 
+/* Product success is customer success, not product management. Teamworks
+   "Senior Product Success Manager I (Nutrition, Pro)" sat in the queue
+   because IS_PRODUCT's "product ... manager" window matched it. NOT_PRODUCT
+   already had "customer success" and is tested first. A PM who owns a
+   success PRODUCT still has to pass -- "Senior Product Manager, Success
+   Platform" does not contain the phrase "product success". */
+{
+  BLOCKS_RUN += 1;
+  const success = [
+    ['Senior Product Success Manager I (Nutrition, Pro)', false, 'THE ONE HE FLAGGED - Teamworks, customer success not product'],
+    ['Customer Success Manager',                          false, 'already excluded as customer success'],
+    ['Senior Product Manager, Success Platform',          true,  'a PM who owns a success product is still a PM'],
+  ];
+  let bad = 0;
+  for (const [title, want, note] of success) {
+    const got = roleEligible(title);
+    const ok = got.ok === want;
+    if (!ok) bad++;
+    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${String(got.ok).padEnd(5)} ${title.padEnd(52)} ${got.why.padEnd(34)} ${note}`);
+  }
+  console.log(bad ? `\n${bad} PRODUCT-SUCCESS CASES FAILED` : '\nproduct success is out, and a PM who owns a success product is not');
+  if (bad) process.exitCode = 1;
+}
+
 /* A suite that silently runs less than it contains reports green for cases that
    never executed. Nine product-operations cases were appended after an exit
    that had been moved to the end of the file, and the suite still said it
    passed. Count what actually ran and fail if a block went missing. */
-const EXPECTED_BLOCKS = 3;   // location+role, hybrid, product operations
+const EXPECTED_BLOCKS = 4;   // location+role, hybrid, product operations, product success
 if (BLOCKS_RUN !== EXPECTED_BLOCKS) {
   console.log(`
 FAIL only ${BLOCKS_RUN} of ${EXPECTED_BLOCKS} test blocks ran -- the rest never executed`);

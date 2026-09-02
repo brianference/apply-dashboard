@@ -208,9 +208,9 @@ for (const job of needsRank) {
   try {
     if (!s.gate.ok) {
       /* excluded_domain is written as a bare value so the list can offer it as
-         a switch. A signed-in account can turn healthcare, construction or
-         clearance postings back on, and that needs something switchable rather
-         than a phrase to parse out of blocked_detail.
+         a switch. A signed-in account can turn healthcare, construction,
+         clearance or risk-compliance postings back on, and that needs
+         something switchable rather than a phrase to parse out of blocked_detail.
          rank_pct and pay_tier are cleared in the same statement: a later band
          that fails the gate used to leave the old rank sitting. */
       const w = rankWrite({ ...s, job });

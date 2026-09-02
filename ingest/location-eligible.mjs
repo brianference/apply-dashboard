@@ -120,9 +120,16 @@ export function locationEligible(workType, title) {
    Marketing Pro" is a product manager working on a marketing product. It does
    not contain "product marketing", so it still passes the gate and is handled
    by the off-focus penalty in fit-score.mjs instead. Exclusion and de-ranking
-   are different answers to different questions. */
-/** Titles that are engineering management, not product management. */
-const NOT_PRODUCT = /product marketing|pmm|engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
+   are different answers to different questions.
+
+   Product success is customer success under a product-shaped title.
+   Teamworks "Senior Product Success Manager I (Nutrition, Pro)" sat in the
+   queue because IS_PRODUCT's "product ... manager" window matches it.
+   NOT_PRODUCT is tested first, so adding the phrase is enough.
+   "Senior Product Manager, Success Platform" does not contain the phrase
+   and is a product manager who owns a success product -- it stays. */
+/** Titles that are not product management, even when they contain "product". */
+const NOT_PRODUCT = /product marketing|product success|\bpmm\b|engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
 
 /* Product operations counts, per Brian on 2026-08-27: "you can find product
    operations that are similar based on description". The title alone cannot

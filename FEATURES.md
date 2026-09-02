@@ -22,11 +22,11 @@ projects.
 |---|---|---|---|
 | Read employers' boards twice a day | `ingest/test-sync.mjs` | n/a | 269 companies in `ingest/companies.json`, plus eight source modules in `ingest/sources/` |
 | Rank a posting against the resume | `ingest/test-fit.mjs` | n/a | Inverse document frequency over the cached descriptions |
-| Location and role eligibility | `ingest/test-location.mjs` | n/a | Remote or Arizona, product roles only |
+| Location and role eligibility | `ingest/test-location.mjs` | n/a | Remote or Arizona, product roles only. Product success is customer success, not product management; a PM who owns a success product still passes |
 | Pay floor rules a posting out | — | — | **Gap.** `ingest/salary-sweep.mjs` has no test of the write loop. The extractor and floor cases live in `ingest/test-fit.mjs` |
 | Pay-first ranking | `ingest/test-pay-tier.mjs` | n/a | Confirmed $180k+ first, then unpublished, then $160-180k. A $180k start at rank 59 beats an unpriced 83. A failed gate clears `rank_pct` and `pay_tier`. Known-bad block runs the retired rank-only sort and requires it to fail |
 | Off-focus domain penalty | `ingest/test-off-focus.mjs` | n/a | Marketing costs 25 points; product marketing is excluded outright as a different family |
-| Healthcare, construction and clearance excluded | `ingest/test-domain.mjs` | yes | Read from the DESCRIPTION. Fixtures include the two false positives it produced first: Vanta (HIPAA as a compliance framework) and Elastic (the Employee Polygraph Protection Act notice) |
+| Healthcare, construction, clearance and risk-compliance excluded | `ingest/test-domain.mjs` | yes | Healthcare and construction are read from the DESCRIPTION. Risk-compliance is title-only, because searching the description would treat legal boilerplate as the job. Fixtures include Vanta (HIPAA as a compliance framework), Elastic (the Employee Polygraph Protection Act notice), Webflow Governance (kept), and a clean title whose description mentions regulatory requirements (kept). Submitted compliance rows are not rewritten |
 | Advanced search puts them back | — | yes | **Gap.** Switches are covered by a browser check that is not yet in the repo |
 | Blocked employers and the second-lane reopen | `ingest/test-employer-block.mjs` | n/a | A blocked employer is skipped before anything is measured, a `submitted` row is left alone because it is history, and re-checking a reject with a subset of the rules that rejected it must not reverse it |
 | Apply queue ordering | `apply/test-order.mjs` | n/a | Carries a known-bad block that runs the retired comparator and asserts it fails |
