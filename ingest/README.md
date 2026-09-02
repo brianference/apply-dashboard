@@ -55,7 +55,9 @@ export const meta = { id, name, homepage, kind, license }
 export async function fetchJobs({ limit, query })
 ```
 
-`fetchJobs` returns `{ company, title, url, source, work_type, posted }[]`.
+`fetchJobs` returns `{ company, title, url, source, work_type, posted, refreshed_at }[]`.
+`posted` is first published. `refreshed_at` is the employer's last update, or
+null when the board does not publish one.
 Source modules do not touch a database.
 
 ATS boards (Greenhouse, Lever, Ashby) iterate tokens in `companies.json`.

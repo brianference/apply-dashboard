@@ -19,6 +19,17 @@ export const PAY_COLUMNS = [
 ];
 
 /**
+ * Employer last-update, stored next to `posted` (first published).
+ *
+ * Same ALTER guard as the pay columns: a re-run against a database that
+ * already has it is not an error. Without this column the stale lens has
+ * to treat every row as "refresh unknown" and quietly stops hiding anything.
+ */
+export const DATE_COLUMNS = [
+  ['refreshed_at', 'TEXT']
+];
+
+/**
  * Column rows from a PRAGMA table_info response, whichever shape the runner
  * returned.
  *
@@ -53,19 +64,18 @@ export function isDuplicateColumnError(error, column) {
 }
 
 /**
- * Add pay_tier and salary_checked_at if they are missing. Re-running against
- * a database that already has them is not an error.
+ * Add the named columns if they are missing. Re-running against a database
+ * that already has them is not an error.
  *
  * @param {(sql: string, params?: Array<string|number|null>) => Promise<any>} run
- *   a D1 query runner. Tolerates a runner that returns the raw REST envelope,
- *   the Workers `.all()` `{ results }` shape, or the results array.
+ * @param {Array<[string, string]>} columns
  * @returns {Promise<void>}
  */
-export async function ensurePayColumns(run) {
+export async function ensureColumns(run, columns) {
   const raw = await run('PRAGMA table_info(jobs)', []);
   const cols = pragmaColumns(raw);
   const have = new Set(cols.map((c) => c.name));
-  for (const [name, decl] of PAY_COLUMNS) {
+  for (const [name, decl] of columns) {
     if (have.has(name)) continue;
     try {
       await run(`ALTER TABLE jobs ADD COLUMN ${name} ${decl}`, []);
@@ -75,4 +85,33 @@ export async function ensurePayColumns(run) {
       if (!isDuplicateColumnError(error, name)) throw error;
     }
   }
+}
+
+/**
+ * Add pay_tier and salary_checked_at if they are missing. Re-running against
+ * a database that already has them is not an error.
+ *
+ * @param {(sql: string, params?: Array<string|number|null>) => Promise<any>} run
+ *   a D1 query runner. Tolerates a runner that returns the raw REST envelope,
+ *   the Workers `.all()` `{ results }` shape, or the results array.
+ * @returns {Promise<void>}
+ */
+export async function ensurePayColumns(run) {
+  /* refreshed_at rides the same guard so a caller that already ensures pay
+     columns cannot forget the date column and silently leave every row
+     "refresh unknown". */
+  await ensureColumns(run, PAY_COLUMNS);
+  await ensureDateColumns(run);
+}
+
+/**
+ * Add refreshed_at if it is missing. Same swallow-duplicate behaviour as
+ * ensurePayColumns -- a second ALTER on a live database is how a deploy
+ * against an already-migrated table used to 500.
+ *
+ * @param {(sql: string, params?: Array<string|number|null>) => Promise<any>} run
+ * @returns {Promise<void>}
+ */
+export async function ensureDateColumns(run) {
+  await ensureColumns(run, DATE_COLUMNS);
 }

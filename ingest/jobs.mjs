@@ -3,7 +3,7 @@
  */
 
 /**
- * @typedef {{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null }} SourceJob
+ * @typedef {{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null, refreshed_at: string|null }} SourceJob
  */
 
 /**
@@ -34,7 +34,11 @@ export function filterJobs(jobs, options = {}) {
       url: String(job.url).trim(),
       source: String(job.source || "").trim(),
       work_type: job.work_type == null || job.work_type === "" ? null : String(job.work_type).trim(),
-      posted: job.posted == null || job.posted === "" ? null : String(job.posted)
+      posted: job.posted == null || job.posted === "" ? null : String(job.posted),
+      /* Null, not a guessed crawl time. "No refresh date" has to stay
+         distinguishable from "refreshed long ago" or the stale lens treats
+         unknown as old and hides rows our ingest simply never dated. */
+      refreshed_at: job.refreshed_at == null || job.refreshed_at === "" ? null : String(job.refreshed_at)
     };
     if (!row.company || !row.title || !row.url) continue;
     if (query) {

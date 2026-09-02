@@ -22,7 +22,7 @@ cite where it came from.
 | Seniority | Senior, Staff, Principal (Senior is the centre of mass) |
 | Location | US remote. Also Scottsdale / Phoenix within 25 miles |
 | Compensation floor | **$180k+** |
-| Freshness | posted in the last 5 days |
+| Freshness | posted in the last 5 days for the hunt window; hide by default if first published over 30 days ago AND the employer has not refreshed in 30 days |
 
 ## Tiers
 
@@ -193,6 +193,32 @@ Decisive phrases have to mean a hardware product. A weak term needs 6 hits
 
 It is switchable the way healthcare is. A row switched back on carries a
 "Hardware" badge.
+
+### Stale postings, 30 days, unless the employer refreshed them
+
+Brian, 2026-09-02: filter out any job over 30 days old unless it has been
+reposted. Measured against the live queue that day: 337 queued rows, 141
+posted within 30 days, 72 older than 30 days, 116 with no `posted` value.
+
+A cut on first-published alone throws away live jobs. Of those 72 older
+rows, 12 had been refreshed within 30 days -- Pinterest "Product Manager II,
+Content Compliance" first published 103 days ago and refreshed one day ago,
+GitLab "Principal Product Manager, AI Custom Models" 97 days old refreshed
+yesterday, Cohere "Product Manager, Platform Experience" 174 days old
+refreshed yesterday. Those stay. 20 had a refresh older than 30 days and
+should hide. 40 could not be judged because we stored no refresh date.
+
+Unknown refresh keeps the row. Dropping a posting because our own ingest
+lacks a field is the mistake that lost 36 published salaries, and it is
+not a feature. A row with no `posted` date cannot be judged and stays.
+
+This is a lens over the list, not a gate that clears `rank_pct`. Hidden by
+default; the Over 30 days chip brings them back. Threshold is
+`STALE_AFTER_DAYS` (30); exactly 30 days is not over 30.
+
+`posted` is first published. `refreshed_at` is the employer's last update
+(greenhouse `updated_at`, ashby `updatedAt` falling back to `publishedAt`,
+lever `updatedAt` as epoch milliseconds). They are not the same question.
 
 ### A rule change has to re-run over rows already queued
 

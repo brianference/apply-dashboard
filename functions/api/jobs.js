@@ -22,7 +22,8 @@ const COLUMNS = [
 const SELECT = `
   SELECT ${COLUMNS.join(", ")}, link_status, link_checked_at, blocked_reason, blocked_detail, excluded_domain,
          salary_min, salary_max, salary_source, salary_checked_at,
-         rank_pct, fit_pct, resume_pct, success_pct, rank_why, jd_read, pay_tier
+         rank_pct, fit_pct, resume_pct, success_pct, rank_why, jd_read, pay_tier,
+         refreshed_at
   FROM jobs
   ORDER BY
     CASE lane WHEN 'submitted' THEN 0 WHEN 'ft' THEN 1 ELSE 2 END,
@@ -30,11 +31,16 @@ const SELECT = `
     company COLLATE NOCASE
 `;
 
+/** Same query without refreshed_at, for a database that has salary/rank but
+    has not yet grown the employer-refresh column. Falling all the way back
+    to SELECT_LEGACY would drop salary_min on a live list that already has it. */
+const SELECT_NO_REFRESH = SELECT.replace(/,\s*refreshed_at/, "");
+
 /** Same query without the later column groups, for a database not yet migrated.
     Built by stripping from the first added group onward, so a newly added group
     cannot be forgotten here and turn a fresh deploy against an old database
     into a 500. */
-const SELECT_LEGACY = SELECT.replace(/,\s*link_status[\s\S]*?FROM jobs/, "\n  FROM jobs");
+const SELECT_LEGACY = SELECT_NO_REFRESH.replace(/,\s*link_status[\s\S]*?FROM jobs/, "\n  FROM jobs");
 
 const HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -74,9 +80,13 @@ export async function onRequestGet(context) {
     let rows;
     try {
       rows = (await env.DB.prepare(SELECT).all()).results;
-    } catch (migrationError) {
-      // link_status has not been added yet — serve the original columns.
-      rows = (await env.DB.prepare(SELECT_LEGACY).all()).results;
+    } catch (refreshError) {
+      try {
+        rows = (await env.DB.prepare(SELECT_NO_REFRESH).all()).results;
+      } catch (migrationError) {
+        // link_status has not been added yet -- serve the original columns.
+        rows = (await env.DB.prepare(SELECT_LEGACY).all()).results;
+      }
     }
     /* Overlay the signed-in person's own applied state.
        jobs.status is the PIPELINE's field - the runner writes it - and it is
