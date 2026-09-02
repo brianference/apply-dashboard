@@ -2,6 +2,123 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v15.1.0 — Never lose a published salary (2026-09-02)
+
+A posting that publishes a band must never end up on the list with no band.
+Losing one is worse than showing nothing: the pay lane treats "no band" as
+unknown, not low, and floats the row above priced postings it should sit
+below.
+
+Greenhouse returns its pay-transparency block double-escaped. `strip()` took
+off the real tags and left the escaped ones, so `salaryFromText` saw $126,000
+and $248,000 ninety-odd characters apart and returned null. Decode once and
+the separator is still the literal entity `&mdash;`, which the extractor does
+not treat as a dash. MongoDB job 8143805 is the measured case
+(https://boards-api.greenhouse.io/v1/boards/mongodb/jobs/8143805?content=true).
+
+Of 31 queued Greenhouse rows carrying no salary, a working decoder finds a
+published band on 19. Only 4 genuinely publish nothing; 8 could not be
+fetched because the probe guessed the board token. Of the 19, 13 clear the
+$180k floor and 6 start under $160k, so those 6 must be ruled out by the
+existing gate once their band is known. Brian's own 76% MongoDB row is one
+of the 6.
+
+`salaryFromText` itself is correct. Fed the real sentence with `-`, `–`, `—`
+and ` to ` as separators it returned 126000/248000 every time. The extractor
+was not changed.
+
+### The decoder
+
+`strip()` in `ingest/fit-score.mjs` now decodes named and numeric entities
+and strips tags until the text stops changing, with a hard cap of 8 so a
+pathological input cannot spin. `&amp;` is last in each pass, or `&amp;lt;`
+becomes `<` a pass early and the loop thinks it is finished. mdash and ndash
+become a hyphen so the range separator survives as something the extractor
+already reads.
+
+Closing block tags (`p`, `div`, `li`, `ul`, `ol`, `h1`-`h6`, `tr`, `td`,
+`section`, `header`, `footer`, `article`) and `br` become a period before
+the remaining tags are removed, so two headings cannot fuse into a phrase
+a domain rule will match. Instacart "Senior Product Manager, Retailer
+Platform" (Greenhouse 8014060) was ruled out as construction because
+`<h2>About the Job</h2>` next to a "Site Theming" block became "Job Site".
+Inline tags still collapse to a space, or a band published as
+`<span>$126,000</span><span>-</span><span>$248,000</span>` would stop
+being a range.
+
+### Ashby structured pay
+
+Ashby does not put pay in the description. It publishes it as structured
+`compensation` and only when the board feed is requested with
+`?includeCompensation=true`, which we never passed. Teamworks "Senior
+Product Success Manager I (Nutrition, Pro)" is 5857 characters of
+description with zero dollar figures, while
+`compensation.summaryComponents[0]` carries Salary / 1 YEAR / USD /
+90000-120500. Of 37 queued Ashby rows with no stored salary, 17 publish
+structured pay that way.
+
+`fetchJd` now requests that flag and caches the compensation object next
+to the description. The reader takes the band from `summaryComponents`,
+falling back to `compensationTiers[].components[]`, using the component
+whose `compensationType` is Salary. Equity and bonus are ignored. Hourly,
+weekly and monthly intervals are refused, not multiplied into an annual
+figure: converting $85/hour with a 2080-hour year invents a number the
+employer did not publish. Non-USD is refused the same way. Structured
+numbers win over anything parsed out of the description.
+
+`salary_source` is `ashby:compensation` for this path, not `posting:daily`
+or `posting:recover`. A band read from a structured field and a band
+scraped out of prose have different failure modes and must not look the
+same afterwards.
+
+The salary audit fails the run when an Ashby posting whose feed published
+structured pay is about to go out with nothing stored. `salary-recover.mjs`
+recovers those rows the same way it recovers a Greenhouse description
+band, re-runs the gate, and leaves `submitted` rows alone.
+
+### An audit that fails the run
+
+`ingest/salary-audit.mjs` re-reads the cached descriptions after
+`ingest/daily.mjs`. If any row still on the list has no salary and the cache
+has a recoverable band, it prints those rows and exits non-zero. A rule that
+only lives in a comment is how 19 rows lost their band without anyone
+noticing. Wired into `.github/workflows/daily-jobs.yml`. It reads
+`ingest/out/jd-cache/`, not the internet -- a CI refetch would fail for
+network reasons and look like a decoder bug, or pass because a refetch
+succeeded while ranking had used a stale file.
+
+### Recover the rows already in the database
+
+`ingest/salary-recover.mjs` walks every queued row with no stored band,
+fetches through the existing `fetchJd` (so board-token resolution is the one
+the pipeline already trusts), writes `salary_source = posting:recover`, and
+stamps `salary_checked_at` alone on a description that genuinely publishes
+nothing, so "checked, publishes nothing" stops looking identical to "never
+checked". It then re-runs the full gate the way `ingest/regate.mjs` already
+does, so a start under $160k clears `rank_pct` and `pay_tier` rather than
+leaving a stale score. `--dry` is the default; `--write` applies.
+
+### Verification
+
+- `ingest/test-strip.mjs`: the real MongoDB pay block, a singly-escaped
+  block, clean HTML, `&amp;lt;` decode order, a posting with no band, a
+  deeply nested input that must terminate, adjacent headings that must not
+  produce "Job Site", and inline spans that must still read as 126000/248000.
+- `ingest/test-salary-audit.mjs`: fails when a band is recoverable and the
+  stored salary is null, passes when the salary is stored. An audit that
+  cannot fail is not an audit.
+- `ingest/test-salary-ashby.mjs`: the real Teamworks compensation object
+  with a silent description, equity-only, bonus-only, CAD, hourly, no
+  compensation object, structured-wins-over-description, and the audit
+  failing when that feed published a band and the row stores none.
+- Known-bad: a temporary copy with the old `strip()` is required to FAIL
+  those assertions. Restoring the decoder is required to pass. A temporary
+  copy whose Ashby reader always returns null is required to FAIL the
+  structured-pay assertions.
+- The rest of the rule suite still passes: location, fit, pay tier, employer
+  block, sync, domain, off-focus, resolve-by-board, apply order, the resume
+  self-check, and `tests/check-coverage.mjs`.
+
 ## v15.0.0 — Posted date on the list (2026-09-02)
 
 The list had no posting date. `updated_at` is the last crawl, and the pipeline

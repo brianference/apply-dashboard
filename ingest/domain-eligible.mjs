@@ -88,7 +88,11 @@ const DOMAINS = [
  * for one either requires it or does not, and it is not a matter of degree.
  */
 const CLEARANCE = new RegExp([
-  'security clearance', 'ts/sci', 'top secret', '\\bsecret clearance\\b',
+  /* `ts/sci` without a word boundary matched the "ts/Sci" inside
+     "Arts/Sciences" and ruled Inovalon "Senior Principal Product Manager
+     - Infusion" out as a clearance requirement. TS/SCI as its own token
+     still matches. */
+  'security clearance', '\\bts/sci\\b', 'top secret', '\\bsecret clearance\\b',
   'public trust', 'polygraph', 'dod clearance', 'active clearance',
   'ability to obtain (and maintain )?a? ?clearance'
 ].join('|'), 'i');

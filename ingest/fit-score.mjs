@@ -462,9 +462,145 @@ export function boardRef(url) {
   return null;
 }
 
-const strip = h => String(h || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+/* Named entities the salary extractor and the rest of ranking actually meet
+   in board HTML. mdash/ndash become a hyphen because salaryFromText reads
+   `-`, `–` and `—` as range separators but does not read the literal entity
+   `&mdash;` -- MongoDB job 8143805 published $126,000-$248,000 and came back
+   unpriced for exactly that reason. */
+const NAMED_ENTITIES = {
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  mdash: '-',
+  ndash: '-',
+  hellip: '...',
+  rsquo: "'",
+  lsquo: "'",
+  ldquo: '"',
+  rdquo: '"'
+};
 
-/** @param {string} url @returns {Promise<string|null>} */
+/* Greenhouse returns its pay-transparency block double-escaped, so one pass
+   turns `&amp;lt;` into `&lt;` and the next turns that into a tag. Eight is
+   more than any real posting needs; without a cap a pathological input that
+   kept reproducing entities would spin until the runner was killed. */
+export const STRIP_MAX_PASSES = 8;
+
+/* Closing these (and br in any form) mark a block boundary. Replacing the
+   tag with a space, then collapsing whitespace, glues the last word of one
+   block to the first word of the next: Instacart's <h2>About the Job</h2>
+   next to <h2>Site Theming</h2> became "Job Site" and the construction
+   rule's `job ?site` matched a pair that is not adjacent on the page.
+   A period survives that collapse; a newline does not. Inline tags stay
+   a space so <span>$126,000</span><span>-</span><span>$248,000</span>
+   remains one range. The regexes are written inside strip() so a /g
+   lastIndex cannot leak across calls. */
+const BLOCK_SEPARATOR = '.';
+
+/**
+ * One decode pass. `&amp;` is last so `&amp;lt;` becomes `&lt;` rather than
+ * `<` in the same pass -- otherwise the loop sees no entities, thinks it is
+ * finished, and leaves the newly created tags in the text.
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+export function decodeHtmlEntities(html) {
+  let s = String(html || '');
+  s = s.replace(/&([a-z]+);/gi, (full, name) => {
+    const key = String(name).toLowerCase();
+    if (key === 'amp') return full;
+    return Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, key)
+      ? NAMED_ENTITIES[key]
+      : full;
+  });
+  s = s.replace(/&#(\d+);/g, (full, digits) => fromCharCode(Number(digits), full));
+  s = s.replace(/&#x([0-9a-f]+);/gi, (full, hex) => fromCharCode(parseInt(hex, 16), full));
+  s = s.replace(/&amp;/gi, '&');
+  return s;
+}
+
+/**
+ * @param {number} code
+ * @param {string} fallback
+ * @returns {string}
+ */
+function fromCharCode(code, fallback) {
+  if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return fallback;
+  /* Numeric mdash (8212, 0x2014) and ndash (8211, 0x2013) become a hyphen
+     for the same reason the named forms do: the extractor has to see a
+     separator it already knows. */
+  if (code === 0x2014 || code === 0x2013) return '-';
+  try {
+    return String.fromCodePoint(code);
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Greenhouse HTML to the plain text ranking and salary extraction read.
+ *
+ * The previous version stripped real tags once and replaced every named
+ * entity with a space. Greenhouse double-escapes the pay block, so the real
+ * tags came off, the escaped ones survived, and `$126,000` sat 91 characters
+ * away from `$248,000` with `&lt;span&gt;` and `&mdash;` between them.
+ * salaryFromText needs the figures adjacent with a dash (or "to") in
+ * between, so it returned {min:null,max:null}. A posting that publishes a
+ * band must never end up on the list with no band: the pay lane treats
+ * "no band" as unknown, not low, and floats the row above priced postings
+ * it should sit below.
+ *
+ * Decode and strip until the text stops changing, so a second layer of
+ * escaping cannot hide a published range.
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+export function strip(html) {
+  let text = String(html || '');
+  for (let i = 0; i < STRIP_MAX_PASSES; i++) {
+    const prev = text;
+    text = decodeHtmlEntities(text)
+      .replace(/<\/(?:p|div|li|ul|ol|h[1-6]|tr|td|section|header|footer|article)\b[^>]*>/gi, BLOCK_SEPARATOR)
+      .replace(/<br\b[^>]*>/gi, BLOCK_SEPARATOR)
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (text === prev) break;
+  }
+  return text;
+}
+
+/**
+ * Cache file name fetchJd writes. Shared so the salary audit reads the same
+ * file the ranking pass used, not a parallel guess at the board token.
+ *
+ * @param {{ats: string, token: string, id: string}|null|undefined} ref
+ * @returns {string|null}
+ */
+export function jdCacheFileName(ref) {
+  if (!ref || !ref.ats || !ref.token || !ref.id) return null;
+  return `${ref.ats}-${ref.token}-${ref.id}`.replace(/[^a-z0-9-]/gi, '_') + '.txt';
+}
+
+/**
+ * Sidecar next to the description cache, holding Ashby's structured
+ * compensation object. The description never contains the band; without
+ * this file the salary audit would pass every Ashby row whose feed
+ * published pay.
+ *
+ * @param {{ats: string, token: string, id: string}|null|undefined} ref
+ * @returns {string|null}
+ */
+export function ashbyCompensationCacheFileName(ref) {
+  if (!ref || ref.ats !== 'ashby') return null;
+  const name = jdCacheFileName(ref);
+  return name ? name.replace(/\.txt$/, '.compensation.json') : null;
+}
+
 /** id -> board token, built once from every Greenhouse board we already know. */
 let GH_INDEX = null;
 async function greenhouseIndex() {
@@ -493,7 +629,16 @@ async function greenhouseIndex() {
   return idx;
 }
 
-export async function fetchJd(url) {
+/**
+ * Fetch a posting's description, through the board API the URL names.
+ *
+ * @param {string} url
+ * @param {{refetch?: boolean}} [options] refetch: true skips the on-disk
+ *   cache. Recover uses it because files written by the old decoder replaced
+ *   `&mdash;` with a space, and re-decoding cannot put the separator back.
+ * @returns {Promise<string|null>}
+ */
+export async function fetchJd(url, options = {}) {
   const ref = boardRef(url);
   if (!ref) return null;
   if (ref.ats === 'greenhouse' && !ref.token) {
@@ -502,17 +647,48 @@ export async function fetchJd(url) {
     if (!ref.token) return null;          // unknown board: unread, never guessed
   }
   fs.mkdirSync(CACHE, { recursive: true });
-  const cacheFile = path.join(CACHE, `${ref.ats}-${ref.token}-${ref.id}`.replace(/[^a-z0-9-]/gi, '_') + '.txt');
-  if (fs.existsSync(cacheFile)) return fs.readFileSync(cacheFile, 'utf8');
+  const cacheFile = path.join(CACHE, jdCacheFileName(ref));
+  const compensationName = ashbyCompensationCacheFileName(ref);
+  const compensationFile = compensationName ? path.join(CACHE, compensationName) : null;
+  /* Cache hits still run through strip(). Files written before the decoder
+     loop left `&lt;span&gt;` and `&mdash;` in the text, and salaryFromText
+     then reported no band on a posting that published one. Re-decoding is
+     what makes those files usable; refetch is for files the old decoder
+     already turned the separator into a space, which no amount of decoding
+     can put back.
+     An Ashby description cache without its compensation sidecar is not a
+     hit: the band lives in the feed, not the text, and reusing the old
+     file would keep losing it. */
+  const haveDescription = fs.existsSync(cacheFile);
+  const haveCompensation = ref.ats !== 'ashby' || (compensationFile && fs.existsSync(compensationFile));
+  if (!options.refetch && haveDescription && haveCompensation) {
+    const cached = fs.readFileSync(cacheFile, 'utf8');
+    const text = strip(cached);
+    if (text !== cached) {
+      try { fs.writeFileSync(cacheFile, text, 'utf8'); } catch { /* cache is a shortcut */ }
+    }
+    return text;
+  }
   let text = null;
   try {
     if (ref.ats === 'greenhouse') {
       const r = await fetch(`https://boards-api.greenhouse.io/v1/boards/${ref.token}/jobs/${ref.id}?content=true`);
       if (r.ok) text = strip((await r.json()).content);
     } else if (ref.ats === 'ashby') {
-      const r = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${ref.token}`);
+      const r = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${ref.token}?includeCompensation=true`);
       if (r.ok) {
-        const j = (await r.json()).jobs.find(x => x.id === ref.id);
+        const payload = await r.json();
+        const jobs = payload && Array.isArray(payload.jobs) ? payload.jobs : [];
+        const j = jobs.find((x) => x && String(x.id) === String(ref.id));
+        if (compensationFile) {
+          try {
+            fs.writeFileSync(
+              compensationFile,
+              JSON.stringify({ compensation: j && j.compensation ? j.compensation : null }),
+              'utf8'
+            );
+          } catch { /* cache is a shortcut */ }
+        }
         text = j ? (j.descriptionPlain || strip(j.descriptionHtml)) : null;
       }
     } else if (ref.ats === 'lever') {
@@ -523,8 +699,14 @@ export async function fetchJd(url) {
           ...(j.lists || []).map(l => `${l.text} ${strip(l.content)}`)].join(' ');
       }
     }
-  } catch { return null; }
+  } catch {
+    if (haveDescription) {
+      return strip(fs.readFileSync(cacheFile, 'utf8'));
+    }
+    return null;
+  }
   if (text && text.length > 100) { fs.writeFileSync(cacheFile, text, 'utf8'); return text; }
+  if (haveDescription) return strip(fs.readFileSync(cacheFile, 'utf8'));
   return null;
 }
 
