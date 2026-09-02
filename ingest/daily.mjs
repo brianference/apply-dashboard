@@ -26,11 +26,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from './cli.mjs';
 import { decide } from './sync-to-d1.mjs';
-import { fetchJd, scoreOne, boardRef, requirementsGate, rankWrite } from './fit-score.mjs';
-import { salaryFromText } from './salary-from-posting.mjs';
+import { fetchJd, scoreOne, boardRef, requirementsGate, rankWrite, strip } from './fit-score.mjs';
+import { salaryFromAshbyCompensation, salaryFromText } from './salary-from-posting.mjs';
 import { judgeBand, FLOOR } from './salary-sweep.mjs';
 import { ensurePayColumns } from './pay-columns.mjs';
 import { runUpsert } from './upsert.mjs';
+import { readCachedAshbyCompensation } from './salary-audit.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
   .replace(/^\/([A-Za-z]:)/, '$1'), '..');
@@ -170,9 +171,24 @@ say(`descriptions fetched before scoring: ${descriptions.size}`);
    listed with no salary, twenty-five thousand under the floor. 184 of 201 open
    rows had no band recorded while their postings published one. */
 const bands = new Map();
-for (const [key, jd] of descriptions) {
-  const band = salaryFromText(jd);
-  if (band.min != null) bands.set(key, band);
+for (const job of needsRank) {
+  const jd = descriptions.get(job.dedupe_key) || null;
+  /* Structured Ashby pay wins over anything in the description. The feed
+     carries the band as numbers; descriptionPlain for Teamworks is 5857
+     characters with none. salary_source is ashby:compensation for that
+     path and posting:daily for a regex over prose, because a field the
+     employer typed and a number a regex found fail in different ways. */
+  const structured = salaryFromAshbyCompensation(readCachedAshbyCompensation(job.url));
+  if (structured.min != null || structured.max != null) {
+    bands.set(job.dedupe_key, { ...structured, source: 'ashby:compensation' });
+    continue;
+  }
+  if (!jd) continue;
+  /* strip() again: cached files from the old decoder still contain
+     `&lt;span&gt;` and `&mdash;`, and salaryFromText then reports no band.
+     New fetches are already stripped; running it twice is a no-op on those. */
+  const band = salaryFromText(strip(jd));
+  if (band.min != null) bands.set(job.dedupe_key, { ...band, source: 'posting:daily' });
 }
 say(`pay bands read from those descriptions: ${bands.size}`);
 
@@ -206,6 +222,19 @@ for (const job of needsRank) {
     continue;
   }
   try {
+    /* Write the band FIRST, including when the gate fails. Ruling a row
+       out without storing the figure is how a published salary gets lost
+       a second time. */
+    if (band) {
+      const minPay = Number(band.min);
+      const maxPay = band.max === null || band.max === undefined ? null : Number(band.max);
+      if (Number.isFinite(minPay) && (maxPay === null || Number.isFinite(maxPay))) {
+        await d1(
+          'UPDATE jobs SET salary_min = ?, salary_max = ?, salary_source = ? WHERE dedupe_key = ?',
+          [minPay, maxPay, band.source || 'posting:daily', job.dedupe_key]
+        );
+      }
+    }
     if (!s.gate.ok) {
       /* excluded_domain is written as a bare value so the list can offer it as
          a switch. A signed-in account can turn healthcare, construction,
@@ -228,20 +257,6 @@ for (const job of needsRank) {
          it, so every posting the DAILY run ranked came out with no resume
          score at all -- eight in a row before anyone looked. The two write
          paths now agree. */
-      /* Bound, not interpolated. These figures are parsed out of third-party
-         job-board text, and a regex that stops returning a clean number is a
-         change away - the value must never be able to reach SQL as syntax.
-         Non-finite is dropped rather than written. */
-      if (band) {
-        const minPay = Number(band.min);
-        const maxPay = band.max === null || band.max === undefined ? null : Number(band.max);
-        if (Number.isFinite(minPay) && (maxPay === null || Number.isFinite(maxPay))) {
-          await d1(
-            'UPDATE jobs SET salary_min = ?, salary_max = ?, salary_source = ? WHERE dedupe_key = ?',
-            [minPay, maxPay, 'posting:daily', job.dedupe_key]
-          );
-        }
-      }
       const w = rankWrite({ ...s, job });
       await d1(w.sql, w.params);
       stats.ranked++;

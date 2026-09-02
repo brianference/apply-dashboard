@@ -97,6 +97,83 @@ export function salaryFromText(text) {
   return { min: null, max: null };
 }
 
+/* Ashby interval "1 YEAR" is an annual salary. Hourly / weekly / monthly
+   are refused rather than multiplied: converting $85/hour with a 2080-hour
+   year invents a figure the employer did not publish, and the floor is
+   written about salary. */
+const ASHBY_ANNUAL = /year/i;
+const ASHBY_NOT_ANNUAL = /hour|week|month|day/i;
+
+/**
+ * Components Ashby attached to a posting. Prefer summaryComponents; fall
+ * back to every compensationTiers[].components[] entry, in order.
+ *
+ * @param {unknown} compensation
+ * @returns {Array<Record<string, unknown>>}
+ */
+function ashbyComponents(compensation) {
+  if (!compensation || typeof compensation !== 'object') return [];
+  const summary = compensation.summaryComponents;
+  if (Array.isArray(summary) && summary.length) return summary;
+  const tiers = compensation.compensationTiers;
+  if (!Array.isArray(tiers)) return [];
+  const out = [];
+  for (const tier of tiers) {
+    const comps = tier && Array.isArray(tier.components) ? tier.components : [];
+    for (const component of comps) out.push(component);
+  }
+  return out;
+}
+
+/**
+ * One Ashby component as an annual USD salary band, or null if it is not
+ * one. Equity and bonus are ignored on purpose: a $50k salary plus equity
+ * is still a $50k salary against a floor written about salary. The summary
+ * string is never parsed.
+ *
+ * @param {unknown} component
+ * @returns {{min: number|null, max: number|null}|null}
+ */
+function ashbySalaryComponent(component) {
+  if (!component || typeof component !== 'object') return null;
+  if (String(component.compensationType || '').toLowerCase() !== 'salary') return null;
+  if (String(component.currencyCode || '').toUpperCase() !== 'USD') return null;
+  const interval = String(component.interval || '');
+  if (!ASHBY_ANNUAL.test(interval) || ASHBY_NOT_ANNUAL.test(interval)) return null;
+  const minRaw = Number(component.minValue);
+  const maxRaw = Number(component.maxValue);
+  const min = Number.isFinite(minRaw) && minRaw > 0 ? minRaw : null;
+  const max = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : null;
+  if (min == null && max == null) return null;
+  if (min != null && max != null && max < min) return null;
+  return { min, max };
+}
+
+/**
+ * Annual USD salary band from Ashby's structured compensation object.
+ *
+ * Returns nulls when there is no Salary component, the currency is not USD,
+ * or the interval is not annual. Never parses compensationTierSummary: a
+ * number the employer typed into a field is the source of truth, and a
+ * CAD band whose summary looks like "$180K" must not be read as USD.
+ *
+ * Callers store this as salary_source `ashby:compensation`, never
+ * `posting:daily` or `posting:recover`. A band read from a structured
+ * field and a band scraped out of prose have different failure modes
+ * (wrong currency or a refused interval vs a regex matching the wrong
+ * figure) and must not be indistinguishable afterwards.
+ *
+ * @param {unknown} compensation
+ * @returns {{min: number|null, max: number|null}}
+ */
+export function salaryFromAshbyCompensation(compensation) {
+  for (const component of ashbyComponents(compensation)) {
+    const band = ashbySalaryComponent(component);
+    if (band) return band;
+  }
+  return { min: null, max: null };
+}
+
 /**
  * @param {string} url
  * @returns {Promise<{min:number|null,max:number|null}>}
