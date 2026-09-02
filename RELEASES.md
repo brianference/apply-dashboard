@@ -2,7 +2,19 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
-## v15.4.0 — Hide stale postings unless the employer refreshed them (2026-09-02)
+## v16.0.0 — Every rule reaches the rows already in the table (2026-09-02)
+
+Five branches shipped together, so they are one release. The thread running
+through all of them is that a rule written in code is not a rule until it has
+been applied to the rows already in the database and proved against a case that
+makes it fail.
+
+Measured against the live queue as this shipped: 317 queued rows, 137 carrying a
+published band where 88 did before, and lane 1 grown from 67 to 88 confirmed
+$180k or above. Four rows Brian named by hand are off the list, each for a
+reason recorded on the row.
+
+### Hide a posting over 30 days old unless the employer refreshed it
 
 Brian: filter out any job over 30 days old unless it has been reposted.
 A literal 30-day cut on first-published throws away live jobs. Pinterest
@@ -85,7 +97,7 @@ this change. In-memory board cache only -- it does not write an index.
 - Known-bad: a temporary copy whose stale rule ignores refresh is required
   to FAIL the Pinterest keep. The real build is required to pass.
 
-## v15.3.0 — Hardware out, and new rules reach rows already queued (2026-09-02)
+### Hardware out, and new rules reach rows already queued
 
 Brian, on vCluster Labs "Staff Product Manager (vMetal)" at 59%: i don't
 want hardware. The title says nothing. A rule that only runs on tomorrow's
@@ -141,7 +153,7 @@ Dry-run reports. `--write` is not run from this change.
   Known-bad: a temporary copy that skips on a missing JD, or that writes
   submitted rows, is required to FAIL.
 
-## v15.2.0 — Risk/compliance and product-success rules actually run (2026-09-02)
+### Risk, compliance and product-success roles are ruled out
 
 Brian: risk and compliance roles are boring. The posting that prompted it was
 Jobgether's "Product Manager - Risk Compliance" sitting in the queue at 73%.
@@ -191,7 +203,7 @@ in -- a product manager who owns a success product is a product job.
 - `ingest/regate.mjs` dry-run reports the queued domain hits and writes
   nothing.
 
-## v15.1.0 — Sign-in panel stays on a 320px phone (2026-09-02)
+### The sign-in panel stays on a 320px phone
 
 On a 320px phone the header wraps: the brand takes the first row and the
 theme plus Sign in controls drop to a second row about 126px wide, sitting
@@ -238,7 +250,7 @@ mark, which uses the same class.
   local build. `tests/tour.mjs` (its own worktree server),
   `tests/promo-strip.mjs` (production, its default) and
   `tests/check-coverage.mjs` also pass.
-## v15.1.0 — Never lose a published salary (2026-09-02)
+### Never lose a published salary
 
 A posting that publishes a band must never end up on the list with no band.
 Losing one is worse than showing nothing: the pay lane treats "no band" as
