@@ -62,6 +62,25 @@ list, not what is on screen.
   themes, the 3-day window engaged, and the phone rows where the age sits at the
   START of `.who` so a long company name cannot ellipsis it away.
 
+### One red result, and it was not this release
+
+`tests/browser-signup.mjs` timed out clicking `.chip-btn` after fourteen
+assertions had already passed, reporting `<body> intercepts pointer events`. It
+is not in CI, so nothing had run it since the spotlight tour shipped, and the
+convenient reading was that the new column had broken the header.
+
+It had not. A probe against a real throwaway account on production found
+`#tour-root` open with its stage at `position: fixed; z-index: 80;
+pointer-events: none` -- the tour, doing exactly its job for a brand new
+account, which is precisely who it is for. The hit test falls through a
+`pointer-events: none` stage and lands on the body. `git diff da35d7f..HEAD`
+touches no file under `web/` or `functions/`, and `.chip-btn` exists only in
+`web/shared/site-nav.js`, `site-nav.css` and `tour.js`.
+
+The test now presses Escape before driving the account menu, which is the
+tour's own documented way out and is asserted in `tests/tour.mjs`. All 24
+assertions pass against production, including the rate limiter biting at 3 of 7.
+
 ## v14.0.0 — Pay decides the order (2026-08-31)
 
 Ranking never looked at pay. `scoreOne()` blended description fit with
