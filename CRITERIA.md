@@ -41,6 +41,8 @@ Cribl, New Relic, Instacart.
 - Healthcare
 - Construction
 - Architecture
+- Hardware -- physical hardware, not a software product that happens to run on
+  bare metal or mention silicon in a URL
 - Risk and compliance roles, decided on the title -- a posting that mentions
   compliance in its legal boilerplate is not a compliance job
 - Product success -- customer success under a product-shaped title, not product
@@ -91,7 +93,7 @@ runs them BEFORE the D1 write. 65 cases, both directions, in
 | Location | remote (US-eligible), or Arizona | anywhere on site outside Arizona |
 | Country | United States | Canada, India (Bangalore/Bengaluru), Netherlands, Germany (Berlin), and ~60 more |
 | Role | product management | engineering management, program/project management, product marketing, product success, design |
-| Domain | product, infra, developer tools | healthcare, construction, clearance, risk/compliance (title) |
+| Domain | product, infra, developer tools | healthcare, construction, hardware, clearance, risk/compliance (title) |
 | Salary | $180k floor, $160–180k second tier | under $160k |
 | Duplicates | one application per job | any second attempt, matched on normalised company + title |
 
@@ -171,3 +173,38 @@ Product Success Manager I (Nutrition, Pro)" because IS_PRODUCT's
 enough. "Senior Product Manager, Success Platform" does not contain that
 phrase and stays -- a product manager who owns a customer-success product
 is a product job.
+
+### Hardware is a description, not a title
+
+Brian, 2026-09-02, on vCluster Labs "Staff Product Manager (vMetal)" at 59%:
+i don't want hardware. The title says nothing. This is a DESCRIPTION-decided
+domain like healthcare, not a title-decided one like risk-compliance.
+
+Treating `silicon` or `bare metal` as decisive on a single mention was wrong
+four times out of five. TLDR's only "silicon" sat inside an inc.com URL.
+Camunda listed one "bare-metal" as a deployment target beside Kubernetes.
+Jobgether named silicon as a partner ecosystem. Vultr sells bare metal as
+one of four cloud product lines. Only vCluster was genuine.
+
+URLs are stripped before any domain pattern is matched, because a link slug
+can decide a rule and that is true of every pattern, not only hardware.
+Decisive phrases have to mean a hardware product. A weak term needs 6 hits
+-- that threshold dropped vCluster (11) and kept Vultr (4) and GitLab (3).
+
+It is switchable the way healthcare is. A row switched back on carries a
+"Hardware" badge.
+
+### A rule change has to re-run over rows already queued
+
+`ingest/regate.mjs` blocked employers, blocked title-first domains, and
+reopened retired salary skips. It did not re-run the whole gate over every
+queued row. Teamworks "Senior Product Success Manager I" sat in the queue
+after `roleEligible` started rejecting product-success titles, because
+nothing re-ran the role rule against rows that were already there.
+
+The queued pass reads the cached description through `fetchJd` and runs
+`requirementsGate`. A submitted row is history and is never rewritten. A
+row whose description cannot be read is unknown, not disqualifying -- 114
+queued rows currently have no cached JD, and ruling those out would empty
+a third of the list. Title-only rules still fire when the description is
+missing, which is how Teamworks is caught either way.

@@ -24,6 +24,7 @@ import {
   reopenWrite,
   stillRejectedWrite
 } from './reopen-second-lane.mjs';
+import { decideQueuedGate, queuedGateWrite } from './queued-gate.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
   .replace(/^\/([A-Za-z]:)/, '$1'), '..');
@@ -199,6 +200,111 @@ check('regate --write with no token process.exit(1)s',
   /!token[\s\S]{0,200}process\.exit\(1\)/.test(reopenSrc));
 check('regate re-runs requirementsGate, not a salary-only check',
   /requirementsGate\(/.test(reopenSrc) && !/salaryOnly|salary-only/.test(reopenSrc));
+
+/* ---- queued pass: the whole gate, over rows already in the list ----- */
+
+/* Teamworks sat in the queue after the role rule changed because nothing
+   re-ran it against rows that were already there. */
+const teamworksQueued = decideQueuedGate({
+  ...GOOD,
+  company: 'Teamworks',
+  title: 'Senior Product Success Manager I (Nutrition, Pro)',
+  status: 'queued',
+  dedupe_key: 'tw'
+}, 'A customer-success role sitting next to the product team.');
+check('queued Teamworks product-success title is skipped',
+  teamworksQueued.action === 'skip' &&
+    (teamworksQueued.reasons || []).some((r) => r.startsWith('role:')),
+  (teamworksQueued.reasons || []).join('; '));
+
+const teamworksUnread = decideQueuedGate({
+  ...GOOD,
+  company: 'Teamworks',
+  title: 'Senior Product Success Manager I (Nutrition, Pro)',
+  status: 'queued',
+  dedupe_key: 'tw-unread'
+}, null);
+check('Teamworks is still skipped when the description cannot be read',
+  teamworksUnread.action === 'skip',
+  (teamworksUnread.reasons || []).join('; '));
+
+const teamworksSubmitted = decideQueuedGate({
+  ...GOOD,
+  company: 'Teamworks',
+  title: 'Senior Product Success Manager I (Nutrition, Pro)',
+  status: 'submitted',
+  dedupe_key: 'tw-sub'
+}, 'A customer-success role sitting next to the product team.');
+check('submitted Teamworks is never in the write list',
+  teamworksSubmitted.action === 'leave');
+
+/* An unreadable description is unknown, not disqualifying. 114 queued rows
+   currently have no cached JD. Treating that as a fail would empty a third
+   of the list. */
+const unreadClean = decideQueuedGate({
+  ...GOOD,
+  company: 'Acme',
+  title: 'Senior Product Manager',
+  status: 'queued',
+  dedupe_key: 'unread'
+}, null);
+check('an unreadable description is not a skip',
+  unreadClean.action === 'leave',
+  (unreadClean.reasons || []).join('; '));
+
+const unreadEmpty = decideQueuedGate({
+  ...GOOD,
+  company: 'Acme',
+  title: 'Senior Product Manager',
+  status: 'queued',
+  dedupe_key: 'empty'
+}, '');
+check('an empty description is not a skip',
+  unreadEmpty.action === 'leave',
+  (unreadEmpty.reasons || []).join('; '));
+
+const vclusterQueued = decideQueuedGate({
+  ...GOOD,
+  company: 'vCluster Labs',
+  title: 'Staff Product Manager (vMetal)',
+  status: 'queued',
+  dedupe_key: 'vc'
+}, 'help own the systems that discover, provision, configure, and manage physical hardware, turning racks of bare metal into a programmable platform for AI Cloud operators and hyperscalers');
+check('queued vCluster hardware description is skipped',
+  vclusterQueued.action === 'skip' &&
+    (vclusterQueued.reasons || []).some((r) => r.includes('hardware')),
+  (vclusterQueued.reasons || []).join('; '));
+
+const skippedRow = decideQueuedGate({
+  ...GOOD,
+  company: 'Acme',
+  title: 'Senior Product Success Manager I',
+  status: 'skipped',
+  dedupe_key: 'already'
+}, 'whatever');
+check('an already-skipped row is left on its original reason',
+  skippedRow.action === 'leave');
+
+const qw = queuedGateWrite({ dedupe_key: 'tw' }, {
+  reasons: ['role: not a product role'],
+  excludedDomain: null
+});
+check('queued-gate write sets status skipped',
+  qw.params.includes('skipped') && /status\s*=\s*\?/.test(qw.sql));
+check('queued-gate write sets blocked_reason off-criteria',
+  qw.params.includes('off-criteria'));
+check('queued-gate write records the gate reason',
+  qw.params.includes('role: not a product role'));
+check('queued-gate write clears rank_pct and pay_tier',
+  /rank_pct\s*=\s*NULL/.test(qw.sql) && /pay_tier\s*=\s*NULL/.test(qw.sql));
+check('queued-gate write refuses a submitted row in the WHERE',
+  /status\s*!=\s*\?/.test(qw.sql) && qw.params.includes('submitted'));
+
+check('regate re-runs the whole gate over queued rows',
+  /decideQueuedGate\(/.test(reopenSrc) && /queuedGateWrite\(/.test(reopenSrc));
+check('regate reads the cached description through fetchJd for queued rows',
+  /queuedRows[\s\S]{0,400}fetchJd\(/.test(reopenSrc) ||
+    /for \(const row of queuedRows\)[\s\S]{0,200}fetchJd\(/.test(reopenSrc));
 
 console.log(bad ? `\n${bad} FAILED` : '\nemployer block and second-lane reopen hold on the cases built to break them');
 process.exitCode = bad ? 1 : 0;
