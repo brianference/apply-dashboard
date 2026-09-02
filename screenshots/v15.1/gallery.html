@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>v15.1 — sign-in panel on a phone</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 80px;
+    background: #0d1117; color: #e6edf3;
+    font: 16px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -.02em; }
+  .lede { color: #8b949e; margin: 0 0 32px; max-width: 70ch; }
+  .grid { display: grid; gap: 28px; grid-template-columns: 1fr; max-width: 1600px; margin: 0 auto; }
+  @media (min-width: 1100px) { .pair { grid-template-columns: 1fr 1fr; } }
+  .pair { display: grid; gap: 28px; }
+  figure { margin: 0; background: #161b22; border: 1px solid #30363d; border-radius: 12px; overflow: hidden; }
+  .cap { display: flex; gap: 10px; align-items: baseline; padding: 14px 16px; border-bottom: 1px solid #30363d; }
+  .n { font-variant-numeric: tabular-nums; color: #58a6ff; font-weight: 700; }
+  .name { font-weight: 600; }
+  .note { color: #8b949e; font-size: 14px; margin-left: auto; text-align: right; }
+  a.shot { display: block; }
+  img { display: block; width: 100%; height: auto; background: #000; }
+  .flag { padding: 10px 16px; background: #2d1a00; color: #ffca6b; font-size: 14px; border-top: 1px solid #30363d; }
+  .ok { padding: 10px 16px; background: #12241a; color: #7ee2a8; font-size: 14px; border-top: 1px solid #30363d; }
+</style>
+</head>
+<body>
+<h1>v15.1 — sign-in panel stays on screen</h1>
+<p class="lede">Local build vs production and a throwaway copy with the two positioning lines reverted. Click any image to open it full size.</p>
+
+<div class="grid">
+
+  <div class="pair">
+    <figure>
+      <div class="cap"><span class="n">1</span><span class="name">320 production (before)</span><span class="note">x=-158</span></div>
+      <a class="shot" href="phone-320-production.png"><img src="phone-320-production.png" alt="320px production, panel hanging off the left"></a>
+      <div class="flag">The bug: header wraps, panel anchored to .tools, only the right half is on screen.</div>
+    </figure>
+    <figure>
+      <div class="cap"><span class="n">2</span><span class="name">320 after, dark</span><span class="note">x=24 w=296</span></div>
+      <a class="shot" href="phone-320-after.png"><img src="phone-320-after.png" alt="320px after the fix, dark theme"></a>
+      <div class="ok">Panel, fields, Show toggle and submit all inside the viewport.</div>
+    </figure>
+  </div>
+
+  <div class="pair">
+    <figure>
+      <div class="cap"><span class="n">3</span><span class="name">360 known-bad</span><span class="note">x=-20.36</span></div>
+      <a class="shot" href="phone-360-broken.png"><img src="phone-360-broken.png" alt="360px with positioning reverted, panel hanging off the left"></a>
+      <div class="flag">Throwaway copy: only the two positioning lines reverted. This is the line the test fails on.</div>
+    </figure>
+    <figure>
+      <div class="cap"><span class="n">4</span><span class="name">360 after</span><span class="note">x=40 w=320</span></div>
+      <a class="shot" href="phone-360-after.png"><img src="phone-360-after.png" alt="360px after the fix"></a>
+      <div class="ok">Same width, panel fully on screen, why-line unclipped.</div>
+    </figure>
+  </div>
+
+  <div class="pair">
+    <figure>
+      <div class="cap"><span class="n">5</span><span class="name">Desktop before</span><span class="note">production 1280, panel y=82</span></div>
+      <a class="shot" href="desktop-before.png"><img src="desktop-before.png" alt="Desktop sign-in panel before, production"></a>
+    </figure>
+    <figure>
+      <div class="cap"><span class="n">6</span><span class="name">Desktop after</span><span class="note">local 1280, panel y=110</span></div>
+      <a class="shot" href="desktop-after.png"><img src="desktop-after.png" alt="Desktop sign-in panel after the fix"></a>
+      <div class="ok">Dropped below the whole header row. Still reads as attached to Sign in.</div>
+    </figure>
+  </div>
+
+  <div class="pair">
+    <figure>
+      <div class="cap"><span class="n">7</span><span class="name">320 after, light</span><span class="note">x=24 w=296</span></div>
+      <a class="shot" href="phone-320-after-light.png"><img src="phone-320-after-light.png" alt="320px after the fix, light theme"></a>
+    </figure>
+    <figure>
+      <div class="cap"><span class="n">8</span><span class="name">Desktop after, light</span><span class="note">local 1280</span></div>
+      <a class="shot" href="desktop-after-light.png"><img src="desktop-after-light.png" alt="Desktop sign-in panel after the fix, light theme"></a>
+    </figure>
+  </div>
+
+</div>
+</body>
+</html>
