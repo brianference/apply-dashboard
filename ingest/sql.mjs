@@ -27,6 +27,7 @@ export function escapeSqlLiteral(value) {
  *   lane: string,
  *   submitted_at: string|null,
  *   posted: string|null,
+ *   refreshed_at: string|null,
  *   work_type: string|null,
  *   updated_at: string
  * }} row
@@ -44,6 +45,7 @@ export function renderInsertIgnore(row) {
     "lane",
     "submitted_at",
     "posted",
+    "refreshed_at",
     "work_type",
     "updated_at"
   ];
@@ -58,6 +60,7 @@ export function renderInsertIgnore(row) {
     escapeSqlLiteral(row.lane),
     escapeSqlLiteral(row.submitted_at),
     escapeSqlLiteral(row.posted),
+    escapeSqlLiteral(row.refreshed_at),
     escapeSqlLiteral(row.work_type),
     escapeSqlLiteral(row.updated_at)
   ];

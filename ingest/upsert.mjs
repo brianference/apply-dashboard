@@ -30,7 +30,7 @@ const SOURCE_LOADERS = {
 };
 
 /**
- * @param {{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null }} job
+ * @param {{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null, refreshed_at?: string|null }} job
  * @param {string} updatedAt
  */
 export function toJobRow(job, updatedAt) {
@@ -45,6 +45,7 @@ export function toJobRow(job, updatedAt) {
     lane: assignLane(job),
     submitted_at: null,
     posted: job.posted,
+    refreshed_at: job.refreshed_at == null || job.refreshed_at === "" ? null : job.refreshed_at,
     work_type: job.work_type,
     updated_at: updatedAt
   };

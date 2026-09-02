@@ -1,7 +1,8 @@
 import { loadCompanies } from "../companies.mjs";
 import { isCli, runSourceCli } from "../cli.mjs";
 import { fetchJson, mapPool, settle } from "../http.mjs";
-import { filterJobs, isoFromUnknown, joinWorkType } from "../jobs.mjs";
+import { datesFromLever } from "../board-dates.mjs";
+import { filterJobs, joinWorkType } from "../jobs.mjs";
 
 export const meta = {
   id: "lever",
@@ -19,30 +20,34 @@ const POSTINGS_URL = (token) =>
  *
  * @param {unknown} payload
  * @param {{ companyName: string }} board
- * @returns {Array<{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null }>}
+ * @returns {Array<{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null, refreshed_at: string|null }>}
  */
 export function normalizeLeverJobs(payload, board) {
   const jobs = Array.isArray(payload) ? payload : [];
   const companyName = board && board.companyName ? board.companyName : "";
-  return jobs.map((job) => ({
-    company: companyName,
-    title: job && job.text ? String(job.text) : "",
-    url: job && job.hostedUrl ? String(job.hostedUrl) : "",
-    source: "lever",
-    work_type: joinWorkType(
-      job && job.workplaceType,
-      job && job.categories && job.categories.location,
-      job && job.categories && job.categories.commitment
-    ),
-    posted: isoFromUnknown(job && job.createdAt)
-  }));
+  return jobs.map((job) => {
+    const dates = datesFromLever(job);
+    return {
+      company: companyName,
+      title: job && job.text ? String(job.text) : "",
+      url: job && job.hostedUrl ? String(job.hostedUrl) : "",
+      source: "lever",
+      work_type: joinWorkType(
+        job && job.workplaceType,
+        job && job.categories && job.categories.location,
+        job && job.categories && job.categories.commitment
+      ),
+      posted: dates.posted,
+      refreshed_at: dates.refreshed_at
+    };
+  });
 }
 
 /**
  * Fetch published postings from every verified Lever site token.
  *
  * @param {{ limit?: number, query?: string }} [options]
- * @returns {Promise<Array<{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null }>>}
+ * @returns {Promise<Array<{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null, refreshed_at: string|null }>>}
  */
 export async function fetchJobs(options = {}) {
   const companies = (await loadCompanies()).lever;

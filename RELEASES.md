@@ -2,6 +2,89 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v15.4.0 — Hide stale postings unless the employer refreshed them (2026-09-02)
+
+Brian: filter out any job over 30 days old unless it has been reposted.
+A literal 30-day cut on first-published throws away live jobs. Pinterest
+"Product Manager II, Content Compliance" was first published 103 days ago
+and refreshed one day ago. GitLab "Principal Product Manager, AI Custom
+Models" is 97 days old, refreshed yesterday. Cohere "Product Manager,
+Platform Experience" is 174 days old, refreshed yesterday. Those stay.
+
+Measured against the live queue today: 337 queued, 141 posted within 30
+days, 72 older, 116 with no `posted` value. Of the 72 older rows, 12 were
+refreshed within 30 days (the survivors this rule exists for), 20 have a
+refresh older than 30 days, and 40 could not be judged because we stored
+no refresh date. Binance has a Lever posting whose `createdAt` is
+2021-04-09 (1972 days) plus three more over 500 days -- genuine evergreen
+requisitions, and they should go.
+
+### Store the employer's refresh date
+
+`refreshed_at` sits next to `posted`. `posted` is first published and is
+not overwritten with the refresh date: a posting 103 days old and
+refreshed yesterday is a live job that has been open a long time, and
+collapsing that into one number hides it.
+
+Greenhouse writes `updated_at` (and no longer falls `posted` back to
+`updated_at` when `first_published` is missing). Ashby writes `updatedAt`,
+falling back to `publishedAt`. Lever writes `updatedAt` from epoch
+milliseconds. A source that does not publish a refresh date writes
+nothing. Null is unknown, not "refreshed long ago".
+
+The same `ensurePayColumns` guard adds the column. `/api/jobs` selects it,
+with a middle fallback so a database that has salary/rank but not
+`refreshed_at` does not drop those extra columns.
+
+### The rule is a lens, not a gate
+
+A posting is stale when its age is over 30 days AND its refresh is over 30
+days. Unknown refresh keeps the row -- dropping a row because our own
+ingest lacks a field is the mistake that lost 36 published salaries today.
+No `posted` date cannot be judged and stays. Exactly 30 days is not over
+30. The threshold is one named constant, `STALE_AFTER_DAYS`.
+
+Hidden by default. The Over 30 days chip shows what was hidden, with a
+count taken from the same array the rows are drawn from.
+
+Lens chips (`under`, `stale`) have to be excluded from the lane-bucket
+check. `kind === "under"` used to fall through to `kind !== bucketOf(j)`,
+and "under" is never "ft", so the Under $180k chip showed an empty list.
+The same hole would have eaten Over 30 days. Both lenses skip that check.
+
+The Posted column title carries the refresh date. A row kept only because
+the employer refreshed it says so on hover, so "103d ago" is not read as
+dead.
+
+### An audit that fails the run
+
+`ingest/refresh-audit.mjs` fails the daily run if any queued or
+pending-review greenhouse, ashby or lever URL (resolved by `boardRef`,
+never the source label) has no `refreshed_at`. Wired into
+`.github/workflows/daily-jobs.yml` next to the salary audit.
+
+### Backfill missing posted dates first
+
+`ingest/date-backfill.mjs` fills `posted` and `refreshed_at` where the URL
+is a board we can read. `--dry` is the default. `--write` is not run from
+this change. In-memory board cache only -- it does not write an index.
+
+### Verification
+
+- `ingest/test-stale.mjs`: 31d/2d kept (Pinterest), 31d/40d hidden, unknown
+  refresh kept, 10d kept, no posted kept, exactly 30 days kept.
+- `ingest/test-board-dates.mjs`: posted and refreshed_at stay different
+  fields on greenhouse, ashby and lever payloads.
+- `ingest/test-refresh-audit.mjs`: fails on a greenhouse URL with no
+  refresh date, passes when the date is stored, ignores LinkedIn.
+- `ingest/test-date-backfill.mjs`: builtin-labelled greenhouse URL is a
+  candidate; will not overwrite posted.
+- `tests/stale-filter.mjs`: fixture jobs through `tests/serve-local.mjs`.
+  Default list keeps the Pinterest case and hides the un-refreshed ones.
+  Chip count equals the rows it reveals. Hover title names the refresh.
+- Known-bad: a temporary copy whose stale rule ignores refresh is required
+  to FAIL the Pinterest keep. The real build is required to pass.
+
 ## v15.3.0 — Hardware out, and new rules reach rows already queued (2026-09-02)
 
 Brian, on vCluster Labs "Staff Product Manager (vMetal)" at 59%: i don't

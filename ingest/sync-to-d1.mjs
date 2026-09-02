@@ -156,10 +156,10 @@ if (isCli(import.meta.url)) {
       const chunk = fresh.slice(i, i + 25);
       const values = chunk.map(r => `(${[
         sq(r.dedupe_key), sq(r.company), sq(r.title), sq(r.url), r.match_pct ?? "NULL",
-        sq(r.source), sq("queued"), sq(r.lane || "ft"), sq(r.posted), sq(r.work_type), sq(now)
+        sq(r.source), sq("queued"), sq(r.lane || "ft"), sq(r.posted), sq(r.refreshed_at), sq(r.work_type), sq(now)
       ].join(", ")})`).join(",\n");
       const sql = `INSERT OR IGNORE INTO jobs
-        (dedupe_key, company, title, url, match_pct, source, status, lane, posted, work_type, updated_at)
+        (dedupe_key, company, title, url, match_pct, source, status, lane, posted, refreshed_at, work_type, updated_at)
         VALUES\n${values}`;
       const out = await d1(token, sql);
       if (!out.success) {
