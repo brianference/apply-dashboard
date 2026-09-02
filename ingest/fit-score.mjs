@@ -604,12 +604,56 @@ export function ashbyCompensationCacheFileName(ref) {
 
 /** id -> board token, built once from every Greenhouse board we already know. */
 let GH_INDEX = null;
+/** Six hours is under the twelve between scheduled runs, so a scheduled run
+    always rebuilds and an ad-hoc local run reuses at most one cycle's index. */
+export const GH_INDEX_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Is a cached board index still usable?
+ *
+ * Pulled out as a pure function so the expiry can be tested without a network
+ * call. An unreadable or future mtime is treated as stale: rebuilding costs a
+ * minute, and trusting a bad timestamp cost every Greenhouse posting published
+ * over seven days.
+ *
+ * @param {number} mtimeMs
+ * @param {number} nowMs
+ * @param {number} [maxAgeMs]
+ * @returns {boolean}
+ */
+export function indexIsFresh(mtimeMs, nowMs, maxAgeMs = GH_INDEX_MAX_AGE_MS) {
+  if (!Number.isFinite(mtimeMs) || !Number.isFinite(nowMs)) return false;
+  const age = nowMs - mtimeMs;
+  if (age < 0) return false;
+  return age < maxAgeMs;
+}
+
 async function greenhouseIndex() {
   if (GH_INDEX) return GH_INDEX;
   const idxFile = path.join(CACHE, 'gh-index.json');
   fs.mkdirSync(CACHE, { recursive: true });
+  /* The index maps a Greenhouse job id to the board it lives on, and it was
+     written once and reused forever. On this machine the file was built on
+     2026-08-26 and still in use on 2026-09-02, so EVERY Greenhouse posting
+     published in between resolved to no board at all: fetchJd returned null,
+     the row got no description, and with no description there is no ranking
+     component, no published salary and no domain rule. MongoDB's Client
+     Libraries posting sat at 76 percent with its $126k-$248k band lost for
+     exactly this reason, and the salary audit could not see it either, because
+     an unreadable row has nothing to audit.
+
+     CI never hit it: ingest/out is gitignored, so a runner rebuilds the index
+     every run. Only a local run could go stale, which is the worst version of
+     this bug -- it is invisible where it is checked and wrong where it is used.
+
+     Six hours is under the twelve between scheduled runs, so a scheduled run
+     always rebuilds and an ad-hoc local run reuses at most one cycle's index. */
   if (fs.existsSync(idxFile)) {
-    try { GH_INDEX = JSON.parse(fs.readFileSync(idxFile, 'utf8')); return GH_INDEX; } catch { /* rebuild */ }
+    let fresh = false;
+    try { fresh = indexIsFresh(fs.statSync(idxFile).mtimeMs, Date.now()); } catch { fresh = false; }
+    if (fresh) {
+      try { GH_INDEX = JSON.parse(fs.readFileSync(idxFile, 'utf8')); return GH_INDEX; } catch { /* rebuild */ }
+    }
   }
   const companies = JSON.parse(fs.readFileSync(path.join(ROOT, 'ingest', 'companies.json'), 'utf8'));
   const idx = {};
