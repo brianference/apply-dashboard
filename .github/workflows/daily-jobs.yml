@@ -86,6 +86,7 @@ jobs:
           node ingest/resume-match.mjs --self-check
           node apply/test-order.mjs
           node ingest/test-resolve-by-board.mjs
+          node ingest/test-index-freshness.mjs
           node ingest/test-strip.mjs
           node ingest/test-salary-audit.mjs
           node ingest/test-salary-ashby.mjs
