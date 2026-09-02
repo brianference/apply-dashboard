@@ -84,6 +84,10 @@ jobs:
           node ingest/resume-match.mjs --self-check
           node apply/test-order.mjs
           node ingest/test-resolve-by-board.mjs
+          node ingest/test-strip.mjs
+          node ingest/test-salary-audit.mjs
+          node ingest/test-salary-ashby.mjs
+          node ingest/test-domain.mjs
 
       - name: Repair and attack the database guards
         # A guard that existed once is not a guard: protect_submitted_status
@@ -99,6 +103,18 @@ jobs:
         env:
           CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
         run: node ingest/daily.mjs --quiet --max-rank 200 ${{ (inputs.dry == true) && '--dry' || '--write' }}
+
+      - name: Fail if a published band was left unpriced
+        # A posting that publishes a band must never end up on the list with
+        # no band. Losing one is worse than showing nothing: the pay lane
+        # treats "no band" as unknown, not low, and floats the row above
+        # priced postings it should sit below. 19 Greenhouse rows did this
+        # and the twice-daily run stayed green, because the only copy of the
+        # rule was a comment. Skipped on --dry because a dry run leaves the
+        # database unchanged on purpose, and the audit would fail every dry
+        # run for the bands it correctly did not write.
+        if: ${{ inputs.dry != true }}
+        run: node ingest/salary-audit.mjs
 
       - name: Check every count equals the rows it claims
         # The FULL-TIME tile once read 510 over a list of 237 because the rows

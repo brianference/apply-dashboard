@@ -157,11 +157,15 @@ export function d1Changes(response) {
  */
 export function bandWrite(r, checkedAt) {
   const lane = payTier({ salary_min: r.band.min, salary_max: r.band.max });
+  /* `ashby:compensation` is passed as r.source so a structured field and a
+     regex over prose are never stored as the same salary_source. The default
+     stays posting:<via> for every path that still reads text. */
+  const source = r.source || ('posting:' + r.via);
   return {
     sql: `UPDATE jobs SET salary_min = ?, salary_max = ?, salary_source = ?, salary_checked_at = ?,
       pay_tier = CASE WHEN rank_pct IS NOT NULL THEN ? ELSE pay_tier END
       WHERE dedupe_key = ?`,
-    params: [r.band.min, r.band.max, 'posting:' + r.via, checkedAt, lane, r.dedupe_key]
+    params: [r.band.min, r.band.max, source, checkedAt, lane, r.dedupe_key]
   };
 }
 
