@@ -81,6 +81,8 @@ jobs:
           node ingest/test-pay-tier.mjs
           node ingest/test-employer-block.mjs
           node ingest/test-sync.mjs
+          node ingest/test-domain.mjs
+          node ingest/test-off-focus.mjs
           node ingest/resume-match.mjs --self-check
           node apply/test-order.mjs
           node ingest/test-resolve-by-board.mjs

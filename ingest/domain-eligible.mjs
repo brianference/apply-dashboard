@@ -1,9 +1,9 @@
 /**
- * Domains Brian does not want, read out of the DESCRIPTION rather than guessed
- * from the title.
+ * Domains Brian does not want.
  *
- * CRITERIA.md has listed healthcare, construction and architecture as skips
- * since the beginning. Nothing enforced them. `filter-to-criteria.mjs` holds an
+ * Healthcare and construction are read out of the DESCRIPTION rather than
+ * guessed from the title. CRITERIA.md has listed them as skips since the
+ * beginning. Nothing enforced them. `filter-to-criteria.mjs` holds an
  * industry regex and is a standalone script that no part of the pipeline
  * imports, and `requirementsGate` checked role, location, salary and security
  * products only. So SmarterDx's "Group Product Manager, SmarterDenials" sat in
@@ -15,6 +15,14 @@
  * A security clearance was in HARD_BLOCKERS but only cost 40 points off the
  * success score. A clearance Brian does not hold is not a weak posting, it is
  * an impossible one.
+ *
+ * Risk and compliance is the opposite decision. It is decided on the TITLE.
+ * Healthcare searches title, company AND description because "Parsley Health"
+ * states its domain in its name. Nearly every posting mentions compliance in
+ * its legal boilerplate, and HIPAA on its own already ruled out Vanta. A
+ * description search here would empty the list. Brian, 2026-09-02: these roles
+ * are boring. The posting that prompted it was Jobgether's "Product Manager -
+ * Risk Compliance" sitting at 73 percent.
  *
  * THE TRAP THIS EXISTS TO AVOID: almost every US posting says "medical, dental
  * and vision" and "health insurance" in its benefits paragraph. Counting the
@@ -93,6 +101,11 @@ const CLEARANCE = new RegExp([
   'ability to obtain (and maintain )?a? ?clearance'
 ].join('|'), 'i');
 
+/* Title only. Standalone "governance" is deliberately omitted: Webflow's
+   "Staff Product Manager, Governance" is data governance, a different job.
+   "governance, risk" is the GRC product phrase that cannot mean that. */
+const RISK_COMPLIANCE_TITLE = /\brisk\b|\bcompliance\b|\bregulatory\b|\bgrc\b|governance,\s*risk/i;
+
 /**
  * Remove benefits language so it cannot be mistaken for a domain signal.
  *
@@ -106,15 +119,29 @@ export function withoutBenefits(text) {
 /**
  * Which excluded domain a posting belongs to, if any.
  *
- * The company name and title are searched alongside the description, because
- * "Parsley Health" states its domain in its name and nowhere else. The
- * description is what settles the cases neither of those can.
+ * Healthcare and construction search the company name and title alongside the
+ * description, because "Parsley Health" states its domain in its name and
+ * nowhere else. Risk and compliance is title-only -- see RISK_COMPLIANCE_TITLE.
  *
  * @param {{title?: string, company?: string}} job
  * @param {string|null} jd the description, when it could be read
  * @returns {{ruled: boolean, domain: string, why: string}}
  */
 export function domainSignals(job, jd) {
+  const title = String((job && job.title) || '');
+  /* Title-first, unlike healthcare. A description search for "compliance" or
+     "regulatory" is the HIPAA/Vanta trap again: legal boilerplate would rule
+     out the list. The phrases below can only describe a GRC role or product
+     when they sit in the title. */
+  const riskHit = title.match(RISK_COMPLIANCE_TITLE);
+  if (riskHit) {
+    return {
+      ruled: true,
+      domain: 'risk-compliance',
+      why: `title names a risk/compliance role: "${riskHit[0].trim()}"`
+    };
+  }
+
   const parts = [job && job.title, job && job.company, jd].filter(Boolean).join('\n');
   const text = withoutBenefits(parts);
 
@@ -137,4 +164,53 @@ export function domainSignals(job, jd) {
 }
 
 /** The domains a signed-in account can switch back on. */
-export const TOGGLEABLE_DOMAINS = ['healthcare', 'construction', 'clearance'];
+export const TOGGLEABLE_DOMAINS = ['healthcare', 'construction', 'clearance', 'risk-compliance'];
+
+/**
+ * Queued rows whose title (or company, for the description-based domains)
+ * now fails a domain rule. Submitted rows are history and are dropped here
+ * so a later write cannot rewrite them -- Coinbase "Group Product Manager,
+ * Compliance Agent Experience" and Vanta "Senior Product Manager, GRC
+ * Platform" are the two that would otherwise be rewritten. Already-skipped
+ * rows keep the reason they were skipped, so toggling a domain back on
+ * cannot resurrect a San Francisco role that also happens to say Risk.
+ *
+ * @param {Array<Record<string, any>>} rows
+ * @returns {Array<{row: Record<string, any>, domain: {ruled: boolean, domain: string, why: string}}>}
+ */
+export function rowsToDomainBlock(rows) {
+  const out = [];
+  for (const row of rows || []) {
+    if (!row || row.status !== 'queued') continue;
+    const domain = domainSignals(row, null);
+    if (!domain.ruled) continue;
+    out.push({ row, domain });
+  }
+  return out;
+}
+
+/**
+ * The UPDATE that skips one domain-excluded row. Parameterised. The WHERE
+ * clause refuses a submitted row even if the caller forgot to filter.
+ *
+ * @param {{dedupe_key: string}} row
+ * @param {{domain: string, why: string}} domain
+ * @returns {{sql: string, params: Array<string|number|null>}}
+ */
+export function domainBlockWrite(row, domain) {
+  return {
+    sql: `UPDATE jobs SET status = ?, blocked_reason = ?, blocked_detail = ?,
+      excluded_domain = ?, blocked_at = ?,
+      rank_pct = NULL, pay_tier = NULL
+      WHERE dedupe_key = ? AND status != ?`,
+    params: [
+      'skipped',
+      'off-criteria',
+      `domain: ${domain.domain} - ${domain.why}`.slice(0, 400),
+      domain.domain,
+      new Date().toISOString(),
+      row.dedupe_key,
+      'submitted'
+    ]
+  };
+}

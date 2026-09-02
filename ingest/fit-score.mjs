@@ -298,12 +298,11 @@ export function requirementsGate(job, jd, options = {}) {
     const sec = securitySignals(jd);
     if (sec.ruled) reasons.push(`role: security product - ${sec.why}`);
   }
-  /* Healthcare and construction have been in CRITERIA.md as skips from the
-     start and nothing enforced them, and a clearance requirement only cost 40
-     points off the success score rather than ruling the posting out. All three
-     are decided here now, and all three read the DESCRIPTION: SmarterDx's
-     "Group Product Manager, SmarterDenials" sat at 70 percent because neither
-     its title nor its company name says health anywhere. */
+  /* Healthcare, construction, clearance and risk-compliance are decided here.
+     Healthcare reads the DESCRIPTION: SmarterDx's "Group Product Manager,
+     SmarterDenials" sat at 70 percent because neither its title nor its
+     company name says health anywhere. Risk-compliance is title-first --
+     searching the description for "compliance" is the HIPAA/Vanta trap. */
   const domain = domainSignals(job, jd);
   if (domain.ruled) reasons.push(`domain: ${domain.domain} - ${domain.why}`);
   const role = roleEligible(job.title);

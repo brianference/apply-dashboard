@@ -41,6 +41,10 @@ Cribl, New Relic, Instacart.
 - Healthcare
 - Construction
 - Architecture
+- Risk and compliance roles, decided on the title -- a posting that mentions
+  compliance in its legal boilerplate is not a compliance job
+- Product success -- customer success under a product-shaped title, not product
+  management
 - Program / PMO roles, and tutoring roles — a year stale, no longer relevant
 - On-site roles rank behind remote (Trucker Path is AI-native but on-site Phoenix, so it
   sits behind remote rather than being excluded outright)
@@ -86,7 +90,8 @@ runs them BEFORE the D1 write. 65 cases, both directions, in
 |---|---|---|
 | Location | remote (US-eligible), or Arizona | anywhere on site outside Arizona |
 | Country | United States | Canada, India (Bangalore/Bengaluru), Netherlands, Germany (Berlin), and ~60 more |
-| Role | product management | engineering management, program/project management, product marketing, design |
+| Role | product management | engineering management, program/project management, product marketing, product success, design |
+| Domain | product, infra, developer tools | healthcare, construction, clearance, risk/compliance (title) |
 | Salary | $180k floor, $160–180k second tier | under $160k |
 | Duplicates | one application per job | any second attempt, matched on normalised company + title |
 
@@ -126,3 +131,43 @@ pinned in `apply/test-dupe.local.mjs`.
 both rules, and loads each query before the next one runs — `ingest/upsert.mjs`
 overwrites `ingest/out/upsert.sql` on every call, so running several queries and
 loading once silently discarded all but the last.
+
+---
+
+## Standing filters added 2026-09-02
+
+Brian: risk and compliance roles are boring, and a rule that lives in this
+file and not in the gate is not a rule. Both of the additions below run in
+`requirementsGate` and in `ingest/test-domain.mjs` / `ingest/test-location.mjs`,
+which the daily pipeline runs before it writes anything.
+
+### Risk and compliance, title only
+
+`ingest/domain-eligible.mjs` already searched title, company AND description
+for healthcare. That is right for "Parsley Health". It is wrong for
+compliance: nearly every posting mentions it in legal boilerplate, and HIPAA
+on its own ruled out Vanta.
+
+The new `risk-compliance` domain reads the TITLE for `\brisk\b`,
+`\bcompliance\b`, `\bregulatory\b`, `\bgrc\b`, and "governance, risk".
+Standalone "governance" is not in the pattern. Webflow's "Staff Product
+Manager, Governance" is data governance and stays. A posting whose title is
+clean and whose description says "we comply with all applicable regulatory
+requirements" stays.
+
+It is switchable the way healthcare, construction and clearance are. A row
+switched back on carries a "Risk and compliance" badge.
+
+Submitted rows are history. Coinbase "Group Product Manager, Compliance
+Agent Experience" and Vanta "Senior Product Manager, GRC Platform" were
+already applied to and are not rewritten.
+
+### Product success is not product management
+
+`roleEligible` returned `{ok:true, why:"product"}` for Teamworks "Senior
+Product Success Manager I (Nutrition, Pro)" because IS_PRODUCT's
+`product ... manager` window matched it. NOT_PRODUCT already carried
+"customer success" and is tested first, so adding "product success" is
+enough. "Senior Product Manager, Success Platform" does not contain that
+phrase and stays -- a product manager who owns a customer-success product
+is a product job.
