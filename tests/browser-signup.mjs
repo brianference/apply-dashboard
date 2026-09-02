@@ -60,6 +60,28 @@ const errs = [];
 page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
 page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
 
+/**
+ * Close the first-run spotlight tour if it is open.
+ *
+ * A brand new account is exactly who the tour is for, so it opens on the first
+ * signed-in page load and its stage covers the header. Clicking .chip-btn then
+ * timed out for thirty seconds with "<body> intercepts pointer events" -- the
+ * stage is `position: fixed; z-index: 80; pointer-events: none`, so the hit
+ * test falls straight through it and lands on the body. That failure is the
+ * tour behaving correctly and this test not accounting for it, which is why it
+ * struck after fourteen assertions had already passed. Escape is the tour's own
+ * documented way out, asserted in tests/tour.mjs.
+ *
+ * @param {import('playwright').Page} p
+ * @returns {Promise<void>}
+ */
+async function dismissTour(p) {
+  const root = p.locator('#tour-root');
+  if (!(await root.count())) return;
+  await p.keyboard.press('Escape');
+  await root.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+}
+
 try {
   /* Registration is limited to 5 per hour per IP, and a rejected attempt still
      returns the generic success message so it cannot be used to enumerate
@@ -130,6 +152,7 @@ try {
   await page.waitForSelector('.chip-btn', { timeout: 15000 });
   await page.waitForTimeout(900);
   ok((await page.locator('.ftpromo').count()) === 0, 'the invitation is absent once signed in');
+  await dismissTour(page);
   await page.click('.chip-btn');
   await page.waitForSelector('[aria-expanded="true"]', { timeout: 10000 });
   ok(((await page.locator('header.site').textContent()) || '').includes(EMAIL),
@@ -156,6 +179,7 @@ try {
 
   /* 9. Sign out brings the invitation back. */
   await page.goto(SITE + '/', { waitUntil: 'networkidle' });
+  await dismissTour(page);
   await page.click('.chip-btn');
   await page.waitForSelector('[aria-expanded="true"]', { timeout: 10000 });
   await page.getByText('Sign out', { exact: true }).click();
