@@ -5,6 +5,7 @@
  * changed:
  *
  *   block   every non-submitted row whose employer is on the blocked list
+ *   domain  every queued row whose title now fails a domain rule
  *   reopen  every row skipped for the retired "top under $180k" reason that
  *           now passes the WHOLE gate
  *
@@ -24,6 +25,7 @@ import { isCli, parseArgs } from './cli.mjs';
 import { logInfo, logWarn } from './logger.mjs';
 import { requirementsGate, blockedEmployer, fetchJd } from './fit-score.mjs';
 import { rowsToBlock, employerBlockWrite } from './apply-employer-block.mjs';
+import { rowsToDomainBlock, domainBlockWrite, domainSignals } from './domain-eligible.mjs';
 import {
   matchesRetiredSalarySkip, decideReopen, reopenWrite, stillRejectedWrite
 } from './reopen-second-lane.mjs';
@@ -72,6 +74,29 @@ if (isCli(import.meta.url)) {
     if (meta.changes) blocked += 1;
   }
 
+  /* ---- pass 1b: domains ruled out by title ---- */
+  /* rowsToDomainBlock and domainBlockWrite are the pure, tested pair in
+     domain-eligible.mjs -- submitted-row protection lives there. A new
+     domain rule flows through this pass because it re-runs domainSignals
+     on every queued row; risk-compliance is title-first so it does not
+     need a description. The reopen pass below still re-runs the WHOLE
+     gate, so a salary-skip that is also a compliance title stays out. */
+  const toDomain = rowsToDomainBlock(rows);
+  const domainSubmitted = rows.filter((r) => r.status === 'submitted' && domainSignals(r, null).ruled);
+  let domainBlocked = 0;
+  for (const { row, domain } of toDomain) {
+    logInfo('domain-block', {
+      company: row.company,
+      title: String(row.title).slice(0, 44),
+      domain: domain.domain,
+      status: row.status
+    });
+    if (!doWrite) continue;
+    const w = domainBlockWrite(row, domain);
+    const meta = await run(w.sql, w.params);
+    if (meta.changes) domainBlocked += 1;
+  }
+
   /* ---- pass 2: rows the retired salary rule rejected ---- */
   const candidates = rows.filter((r) => r.status === 'skipped' && matchesRetiredSalarySkip(r.blocked_detail));
   let reopened = 0;
@@ -106,6 +131,9 @@ if (isCli(import.meta.url)) {
     blockedCandidates: toBlock.length,
     blockedWritten: blocked,
     submittedLeftAlone: blockedSubmitted.length,
+    domainCandidates: toDomain.length,
+    domainWritten: domainBlocked,
+    domainSubmittedLeftAlone: domainSubmitted.length,
     reopenCandidates: candidates.length,
     reopened,
     stillRejected: stillOut

@@ -2,6 +2,56 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v15.2.0 — Risk/compliance and product-success rules actually run (2026-09-02)
+
+Brian: risk and compliance roles are boring. The posting that prompted it was
+Jobgether's "Product Manager - Risk Compliance" sitting in the queue at 73%.
+A rule that lives in CRITERIA.md and not in the gate is not a rule, so this
+one lands in `domainSignals` with the healthcare / construction / clearance
+machinery, with tests in both directions, and it is applied to rows already
+queued.
+
+### Title, not description
+
+`ingest/domain-eligible.mjs` already searched title, company AND description.
+That is right for healthcare ("Parsley Health"). It is wrong for compliance:
+nearly every posting mentions it in legal boilerplate, and HIPAA on its own
+already ruled out Vanta. The new domain reads the title for `\brisk\b`,
+`\bcompliance\b`, `\bregulatory\b`, `\bgrc\b`, and "governance, risk".
+Standalone "governance" is not in the pattern, so Webflow's "Staff Product
+Manager, Governance" stays.
+
+It is switchable. `TOGGLEABLE_DOMAINS` and the `DOMAIN_LABELS` badge in
+`index.html` name it "Risk and compliance", the same way the others work.
+
+`ingest/regate.mjs` did not apply new domain rules to queued rows. It blocked
+employers and reopened retired salary skips. A third pass now re-runs
+`domainSignals` on every queued row. Submitted rows are history: Coinbase
+"Group Product Manager, Compliance Agent Experience" and Vanta "Senior
+Product Manager, GRC Platform" are left alone, and the write refuses
+`status = submitted` even if the caller forgets to filter.
+
+### Product success is not product management
+
+Teamworks "Senior Product Success Manager I (Nutrition, Pro)" was passing
+`roleEligible` because IS_PRODUCT's `product ... manager` window matched it.
+`product success` is now in NOT_PRODUCT, which is tested first. "Customer
+Success Manager" stays out. "Senior Product Manager, Success Platform" stays
+in -- a product manager who owns a success product is a product job.
+
+### Verification
+
+- `ingest/test-domain.mjs` rules out the three live titles as
+  `risk-compliance`, keeps Webflow Governance, keeps a clean title whose
+  description talks about regulatory requirements, keeps a clean product
+  posting, and asserts submitted rows are not in the write list. Known-bad:
+  a temporary copy with the title rule reverted is required to FAIL on those
+  assertions.
+- `ingest/test-location.mjs` rejects the Teamworks title and Customer Success
+  Manager, and keeps "Senior Product Manager, Success Platform".
+- `ingest/regate.mjs` dry-run reports the queued domain hits and writes
+  nothing.
+
 ## v15.1.0 — Sign-in panel stays on a 320px phone (2026-09-02)
 
 On a 320px phone the header wraps: the brand takes the first row and the
