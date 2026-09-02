@@ -128,6 +128,23 @@
     border-color: var(--primary); color: var(--primary);
     background: var(--primary-soft); font-weight: 600;
   }
+  /* Bigger than a chip on purpose: it is the way back to the whole list, and
+     Brian asked for it after filtering himself into a view he could not
+     easily undo. Muted and unclickable when nothing is filtered, so it never
+     promises an action it cannot perform. */
+  .clearall {
+    appearance: none; border: 1px solid var(--border); background: var(--bg);
+    border-radius: 8px; padding: 0 14px; height: 34px;
+    font: 600 13px/1 inherit; color: var(--muted);
+    cursor: pointer; white-space: nowrap; margin-left: auto;
+  }
+  .clearall:hover:not([disabled]) { border-color: var(--primary); color: var(--primary); }
+  .clearall:not([disabled]) {
+    border-color: var(--primary); color: var(--primary-contrast);
+    background: var(--primary);
+  }
+  .clearall[disabled] { opacity: .5; cursor: default; }
+  @media (max-width: 860px) { .clearall { margin-left: 0; width: 100%; height: 40px; } }
   .sortsel {
     height: 30px; border: 1px solid var(--border); border-radius: 7px;
     background: var(--bg); color: var(--text); font: 500 12.5px inherit; padding: 0 6px; cursor: pointer;
@@ -605,11 +622,19 @@
         <button type="button" class="chip" data-kind="ptc2c" aria-pressed="false" title="Contract, corp-to-corp, part-time, freelance, fractional and fixed-term postings">Part-time &amp; contract</button>
         <button type="button" class="chip" data-kind="submitted" aria-pressed="false">Applied</button>
         <button type="button" class="chip" data-kind="manual" aria-pressed="false" title="Auto-apply could not finish these - they need you">Needs you <span id="nmanual"></span></button>
+        <button type="button" class="chip" data-kind="over" aria-pressed="false" title="Only the postings whose published band STARTS at $180k or above -- the same rows the Confirmed $180k+ lane holds">Over $180k <span id="nover"></span></button>
         <button type="button" class="chip" data-kind="under" aria-pressed="false" title="Only the postings that publish a band topping out below $180k">Under $180k</button>
         <button type="button" class="chip" data-kind="stale" aria-pressed="false" title="Postings first published more than 30 days ago whose employer has not refreshed them. Hidden by default -- they are still real jobs.">Over 30 days <span id="nstale"></span></button>
         <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="Applies on the company's own site - no aggregator in the way, no account to make first">Apply direct <span id="ndirect"></span></button>
         <button type="button" class="chip adv-toggle" id="adv-toggle" aria-expanded="false" aria-controls="advanced"
                 title="Show postings the rules removed">Advanced</button>
+        <!-- Deliberately not a chip. Every chip is a filter; this one undoes
+             them, and giving it the same shape as the things it cancels is how
+             a person clicks it expecting another lens. It is always present so
+             it can never be hunted for, and disabled when there is nothing to
+             clear, rather than vanishing and moving the row it sits in. -->
+        <button type="button" class="clearall" id="clearall" disabled
+                title="Reset the search box, the section chip, the posted-within window and every column filter. The Advanced switches are a saved preference, not a filter, and are left alone.">Clear all filters</button>
       </div>
     </div>
     <p class="freshnote" id="freshnote" hidden></p>
@@ -936,6 +961,16 @@
   } catch (e) { includedDomains = []; }
 
   var all = [], kind = "all", sortBy = "match";
+  /* Chips that are a LENS over the list rather than a section of it.
+     bucketOf() answers ft / ptc2c / submitted, so a lens kind matches no
+     bucket and would be filtered to nothing by the section test below. That
+     test used to name the lenses one by one, and adding Over $180k without
+     adding it to the list produced a chip that counted 72 rows and showed 0.
+     A set means the next lens cannot be forgotten in one place while working
+     in the other. */
+  var LENS_KINDS = { under: true, over: true, stale: true, manual: true, direct: true };
+
+
   /* Sorting by clicking a column header, which is where Brian looked for it.
      The dropdown had "Pay: high to low" in it, but a table you cannot click to
      order is not a sortable table -- he reported it missing twice while it was
@@ -1433,6 +1468,26 @@
   }
 
   /**
+   * Does this posting publish a band that STARTS at $180k or above?
+   *
+   * Decided on the start, like payTier and the lanes, never on the top: a
+   * $300k ceiling with no floor stated is unknown, not confirmed. These are
+   * exactly the rows under the Confirmed $180k+ divider, so the chip and the
+   * lane can never disagree about what "over $180k" means.
+   *
+   * An unpublished band is not over the floor. Unknown is not low, which is why
+   * such a row still shows on the default list, but it is not a confirmed
+   * $180k either and must not be counted as one here.
+   *
+   * @param {Record<string, any>} j
+   * @returns {boolean}
+   */
+  function publishesOverFloor(j) {
+    var lo = Number(j.salary_min) || 0;
+    return lo >= 180000;
+  }
+
+  /**
    * Does this posting publish a band that does not reach his $180k floor?
    * This is what the `Under $180k` chip filters to -- a lens over the list
    * rather than the thing that decides what the list contains.
@@ -1696,6 +1751,55 @@
     }
   }
 
+  /**
+   * Which filters are currently narrowing the list, named.
+   *
+   * Counted rather than guessed at, so the button can say how many it will
+   * clear and can be disabled when the answer is zero. A SORT is not in here:
+   * ordering the list does not hide anything, and offering to "clear" it would
+   * silently move rows the person deliberately arranged.
+   *
+   * The Advanced switches are not in here either. They are written to
+   * localStorage and survive a reload on purpose -- they are a standing
+   * preference about which excluded domains this account wants to see, not a
+   * transient lens over the list. Clearing them here would quietly re-hide
+   * postings somebody asked to see.
+   *
+   * @returns {string[]} one label per active filter
+   */
+  function activeFilters() {
+    var on = [];
+    var q = document.getElementById("q");
+    if (q && q.value.trim()) on.push("search");
+    if (kind !== "all") on.push("chip");
+    if (freshnessWindow()) on.push("posted within");
+    COLS.forEach(function (c) { if (colSel[c.id]) on.push(c.label + " filter"); });
+    return on;
+  }
+
+  /**
+   * Put every lens back to the default view.
+   *
+   * Resets the same set activeFilters() counts, so the button cannot claim to
+   * clear something it leaves behind. Anything added to one has to be added to
+   * the other, and the test asserts they agree.
+   *
+   * @returns {void}
+   */
+  function clearAllFilters() {
+    var q = document.getElementById("q");
+    if (q) q.value = "";
+    kind = "all";
+    document.querySelectorAll(".chip:not(.adv-toggle)").forEach(function (o) {
+      o.setAttribute("aria-pressed", o.getAttribute("data-kind") === "all" ? "true" : "false");
+    });
+    var fresh = document.getElementById("freshsel");
+    if (fresh) fresh.value = "";
+    COLS.forEach(function (c) { colSel[c.id] = null; });
+    render();
+    if (q) q.focus();
+  }
+
   function render() {
     var s = (document.getElementById("q").value || "").trim().toLowerCase();
     var vis = all.filter(function (j) {
@@ -1718,6 +1822,7 @@
          the published-low ones back. */
       if (kind !== "under" && !meetsFloor(j) && !isApplied(j)) return false;
       if (kind === "under") { if (!publishesUnderFloor(j) || isApplied(j)) return false; }
+      if (kind === "over") { if (!publishesOverFloor(j) || isApplied(j)) return false; }
       /* Stale is a lens, not a gate: hide by default, show on the Over 30 days
          chip. Skip the hide on the Under $180k chip so a stale under-floor
          row is still reachable there. */
@@ -1725,7 +1830,7 @@
       if (kind === "stale") { if (!isStale(j) || isApplied(j)) return false; }
       if (kind === "manual") { if (!j.blocked_reason || isApplied(j)) return false; }
       else if (kind === "direct") { if (atsOf(j).cls !== "direct") return false; }
-      else if (kind !== "all" && kind !== "under" && kind !== "stale" && kind !== bucketOf(j)) return false;
+      else if (kind !== "all" && !LENS_KINDS[kind] && kind !== bucketOf(j)) return false;
       if (!passesColumns(j)) return false;
       if (!s) return true;
       /* Match at a WORD START, not anywhere in the string. "cisco" is a
@@ -1792,6 +1897,13 @@
     document.getElementById("s-sub").textContent = nSub;
     document.getElementById("s-dir").textContent = nDirect;
     document.getElementById("ndirect").textContent = nDirect ? String(nDirect) : "";
+    /* Counted over the same live set every other chip counts, and excluding
+       stale rows exactly as nDirect and nManual do, so the number on the
+       chip and the rows it reveals answer one question. Counting them
+       separately is what once put 510 over a list of 237. */
+    var nOver = live.filter(function (j) { return publishesOverFloor(j) && !isApplied(j) && !isStale(j); }).length;
+    var oEl = document.getElementById("nover");
+    if (oEl) oEl.textContent = nOver ? String(nOver) : "";
     var nManual = live.filter(function (j) { return j.blocked_reason && !isApplied(j) && !isStale(j); }).length;
     var mEl = document.getElementById("nmanual");
     if (mEl) mEl.textContent = nManual ? String(nManual) : "";
@@ -1819,6 +1931,17 @@
         + (jobs.length ? rowsWithTiers(sec.id, jobs) : '<div class="empty">Nothing here.</div>')
         + "</div></section>";
     }).join("");
+    /* Recomputed on every render, from the same predicate the rows use.
+       A count written separately from what it counts is how this page once
+       showed a tile reading 510 over a list of 237. */
+    var clearBtn = document.getElementById("clearall");
+    if (clearBtn) {
+      var activeNow = activeFilters();
+      clearBtn.disabled = activeNow.length === 0;
+      clearBtn.textContent = activeNow.length
+        ? "Clear " + activeNow.length + " filter" + (activeNow.length === 1 ? "" : "s")
+        : "Clear all filters";
+    }
     document.getElementById("legend").hidden = false;
     showFreshness(all);
     renderAdvanced(all);
@@ -2265,6 +2388,7 @@
     render();
   });
   document.getElementById("freshsel").addEventListener("change", render);
+  document.getElementById("clearall").addEventListener("click", clearAllFilters);
   /* The Advanced chip opens a panel rather than filtering, so it is wired on its
      own and kept out of the loop below - which sets aria-pressed on every chip
      and would fight the disclosure state. */

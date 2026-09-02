@@ -56,6 +56,25 @@ for (const [label, tile, kind] of cases) {
   check(`${label} tile equals the rows it filters to`, claimed === shown, `tile ${claimed}, rows ${shown}`);
 }
 
+/* Chips that carry their own number must equal the rows they reveal. The
+   number and the rows are written in two different places in render(), which
+   is exactly the shape that once put 510 over a list of 237. */
+for (const [label, chip, badge] of [
+  ['Over $180k', 'over', '#nover'],
+  ['Apply direct', 'direct', '#ndirect'],
+  ['Needs you', 'manual', '#nmanual'],
+  ['Over 30 days', 'stale', '#nstale']
+]) {
+  await page.locator('.chip[data-kind="all"]').click();
+  await page.waitForTimeout(400);
+  const claimed = Number(((await page.locator(badge).textContent()) || '').replace(/[^\d]/g, '')) || 0;
+  await page.locator(`.chip[data-kind="${chip}"]`).click();
+  await page.waitForTimeout(500);
+  const shown = await rows();
+  check(`${label} chip equals the rows it reveals`, claimed === shown,
+    `chip ${claimed}, rows ${shown}`);
+}
+
 /* All must equal full-time plus PT/C2C, or one of the three is lying. */
 await page.locator('.chip[data-kind="all"]').click();
 await page.waitForTimeout(500);
