@@ -46,6 +46,7 @@ projects.
 | Password reset by email | `tests/third-party-signup.mjs` | partial | The link is exercised; inbox delivery is confirmed in Brevo's log, not here |
 | Registration rate limit | `tests/browser-signup.mjs` | n/a | 5 per hour per IP; a burst of 7 is checked to create fewer than 7 |
 | The header identity is the caller's own | `tests/browser-signup.mjs` | yes | Added after `/api/auth/me` was found reading `WHERE id = 1` and handing every stranger the owner's name and photo |
+| Sign-in panel stays inside the viewport | `tests/header-panel.mjs` | yes | At 320px the header wraps and a panel anchored to `.tools` hung off the left edge. Known-bad: reverting the two positioning lines fails with a negative x at 360/390/412 |
 | Origin-checked writes | — | n/a | **Gap.** Verified by hand with curl; no test file |
 
 ## The list
@@ -116,6 +117,7 @@ node tests/tour-overflow.mjs --site http://127.0.0.1:8798
 node tests/serve-local.mjs
 node tests/posted-filter.mjs http://127.0.0.1:<port>
 node apply/test-counts.mjs http://127.0.0.1:<port>
+node tests/header-panel.mjs http://127.0.0.1:<port>
 ```
 
 The browser tests need Playwright, which this repo does not depend on. It is

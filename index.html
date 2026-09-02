@@ -290,14 +290,19 @@
   /* Why a row could not be applied to automatically. Muted by default so it
      reads as context, and highlighted only for the one state that is a task
      for Brian rather than a defect for me. */
-  .why {
+  /* Scoped to the row on purpose. The shared header's sign-in panel uses the
+     same class name for its explanatory line, and a bare .why here reached
+     into it: on a 320px phone "Sign in to record applications and outcomes."
+     was clipped to "...and outc..." by a nowrap-and-ellipsis rule written for
+     a single-line row cell. Caught in a screenshot, invisible in the markup. */
+  .row .why {
     display: block;
     font: 500 10.5px/1.35 "IBM Plex Sans", system-ui, sans-serif;
     color: var(--muted); opacity: .85;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 100%;
   }
-  .why.act-now { color: var(--warn, #b45309); opacity: 1; font-weight: 600; }
+  .row .why.act-now { color: var(--warn, #b45309); opacity: 1; font-weight: 600; }
   .ats.wall   { color: var(--warn);    background: var(--warn-bg); }
   .ats.board  { color: var(--muted);   background: var(--bg); border-color: var(--border); }
   .act { display: flex; justify-content: flex-end; gap: 4px; }

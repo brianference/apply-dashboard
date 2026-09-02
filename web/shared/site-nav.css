@@ -28,6 +28,11 @@ header.site .top {
     max-width: 1120px;
     margin: 0 auto;
     padding: max(12px, env(safe-area-inset-top)) 12px 10px;
+    /* Containing block for .panel and .menu. They used to hang off
+       .tools, which wraps to a ~126px row at 320px, so a 296px panel
+       started at a negative x -- Brian's screenshot showed only the
+       right half. */
+    position: relative;
   }
 header.site .brand {
     display: flex;
@@ -61,7 +66,10 @@ header.site .brand em {
     font-style: normal;
   }
 header.site .spacer { flex: 1 1 auto; }
-header.site .tools { display: flex; align-items: center; gap: 8px; position: relative; flex: 0 0 auto; }
+/* Static on purpose: a relative .tools becomes the containing block for
+   the sign-in panel, and on a wrapped header that block is only as wide
+   as the button group. */
+header.site .tools { display: flex; align-items: center; gap: 8px; position: static; flex: 0 0 auto; }
 header.site .theme {
     width: 44px;
     height: 44px;
@@ -199,7 +207,7 @@ header.site .forgot {
 header.site .forgot:hover { text-decoration: underline; }
 header.site main.list { max-width: 1120px; margin: 0 auto; padding: 12px 12px 20px; }
 @media (max-width: 720px) {
-    .brand img { width: 48px; height: 48px; border-radius: 12px; }
+    header.site .brand img { width: 48px; height: 48px; border-radius: 12px; }
 header.site .brand strong { font-size: 18px; white-space: nowrap; }
 header.site .brand em { display: none; }
 header.site .who { max-width: 16ch; padding: 0 10px; }

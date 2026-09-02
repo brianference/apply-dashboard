@@ -2,6 +2,54 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v15.1.0 — Sign-in panel stays on a 320px phone (2026-09-02)
+
+On a 320px phone the header wraps: the brand takes the first row and the
+theme plus Sign in controls drop to a second row about 126px wide, sitting
+on the left. The sign-in panel was `position: absolute; right: 0` against
+`.tools`, so a 296px panel started around x=-158. Brian's screenshot showed
+only the right half -- the Show toggle, the submit button, and a cut-off
+"Forgot password" -- with the `.why` line clipped to "...ions and outcom...".
+
+At 360px and above the tools stay on the brand's row and the panel already
+fitted. The break is the wrap, which needs 344px.
+
+### The panel is anchored to the header row
+
+`header.site .top` is now `position: relative` and `header.site .tools` is
+`position: static`. Nothing else was using `.tools` as a containing block:
+the only other `position: absolute` in the file is `.pw-toggle`, which
+hangs off `.pw`. `top: calc(100% + 8px)` now measures the whole header row,
+so on a wrapped header the panel drops below the search field rather than
+overlapping it. On desktop that shifts the panel down slightly; screenshots
+in `screenshots/v15.1/` confirm it still reads as attached to Sign in.
+
+While in the file, the unscoped `.brand img` inside `@media (max-width:
+720px)` is now `header.site .brand img`. A bare class here is how `.panel`
+once blanked the profile page. This rule lost to the more specific 80px
+header logo rule, so the 48px size never applied where it was meant to,
+and it was one cascade reorder away from shrinking the job-list masthead
+mark, which uses the same class.
+
+### Verification
+
+- `tests/header-panel.mjs` drives the local build through
+  `tests/serve-local.mjs`. At 320, 360, 390, 412 and 1280, signed out, it
+  opens the panel and requires the panel, the email field, the password
+  field, the Show toggle and the submit button to sit fully inside the
+  viewport, with `scrollWidth <= innerWidth` so a sideways scroll cannot
+  hide the same bug.
+- Known-bad: a throwaway copy with the two positioning lines reverted is
+  required to FAIL with a negative x. It failed at 360 (`x=-20.36`),
+  390 (`x=-21.16`) and 412 (`x=-20.36`); 320 on that copy stayed
+  non-negative because the newly-scoped 48px header logo stopped the
+  wrap. Production at 320 with the 80px logo still measured `x=-158`.
+  The real build is required to pass at all five widths.
+- `tests/posted-filter.mjs` and `apply/test-counts.mjs` pass against the
+  local build. `tests/tour.mjs` (its own worktree server),
+  `tests/promo-strip.mjs` (production, its default) and
+  `tests/check-coverage.mjs` also pass.
+
 ## v15.0.0 — Posted date on the list (2026-09-02)
 
 The list had no posting date. `updated_at` is the last crawl, and the pipeline
