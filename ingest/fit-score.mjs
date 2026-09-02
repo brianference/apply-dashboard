@@ -298,11 +298,13 @@ export function requirementsGate(job, jd, options = {}) {
     const sec = securitySignals(jd);
     if (sec.ruled) reasons.push(`role: security product - ${sec.why}`);
   }
-  /* Healthcare, construction, clearance and risk-compliance are decided here.
-     Healthcare reads the DESCRIPTION: SmarterDx's "Group Product Manager,
-     SmarterDenials" sat at 70 percent because neither its title nor its
-     company name says health anywhere. Risk-compliance is title-first --
-     searching the description for "compliance" is the HIPAA/Vanta trap. */
+  /* Healthcare, construction, hardware, clearance and risk-compliance are
+     decided here. Healthcare and hardware read the DESCRIPTION: SmarterDx's
+     "Group Product Manager, SmarterDenials" sat at 70 percent because
+     neither its title nor its company name says health anywhere, and
+     vCluster Labs' "Staff Product Manager (vMetal)" sat at 59 percent the
+     same way. Risk-compliance is title-first -- searching the description
+     for "compliance" is the HIPAA/Vanta trap. */
   const domain = domainSignals(job, jd);
   if (domain.ruled) reasons.push(`domain: ${domain.domain} - ${domain.why}`);
   const role = roleEligible(job.title);
