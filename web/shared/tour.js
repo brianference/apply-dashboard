@@ -60,7 +60,7 @@ const STEPS = [
     /* The chip row. class="chips" with aria-label="Filters" in index.html. */
     selectors: [".chips"],
     title: "Filters",
-    body: "These chips narrow the list: full-time, part-time and contract, jobs you have marked applied, postings labelled Under $180k, and roles that apply on the company’s own site."
+    body: "These chips narrow the list: full-time, part-time and contract, jobs you have marked applied, postings labelled Under $180k, postings first published more than 30 days ago whose employer has not refreshed them, and roles that apply on the company’s own site."
   },
   {
     /* The tick on the first row. class="did" is the mark-applied control. */

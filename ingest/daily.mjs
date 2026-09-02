@@ -98,17 +98,23 @@ say(`eligible and new: ${fresh.length}  (rejected: ${Object.entries(rejected).ma
 for (const r of fresh.slice(0, 25)) detail(`  + ${String(r.match_pct).padStart(3)} ${r.company} - ${r.title}`);
 
 /* ---- 3. insert ------------------------------------------------------ */
+if (WRITE) {
+  /* Schema first, or INSERT names refreshed_at against a table that does
+     not have it and every new row of the run is lost. */
+  try { await ensurePayColumns(d1); }
+  catch (e) { stats.errors++; say(`schema ensure failed: ${e.message}`); }
+}
 if (WRITE && fresh.length) {
   const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
   for (let i = 0; i < fresh.length; i += 25) {
     const chunk = fresh.slice(i, i + 25);
     const values = chunk.map(r => `(${[
       q(r.dedupe_key), q(r.company), q(r.title), q(r.url), r.match_pct ?? 'NULL',
-      q(r.source), q('queued'), q(r.lane || 'ft'), q(r.posted), q(r.work_type), q(now), q('apply-daily')
+      q(r.source), q('queued'), q(r.lane || 'ft'), q(r.posted), q(r.refreshed_at), q(r.work_type), q(now), q('apply-daily')
     ].join(', ')})`).join(',\n');
     try {
       await d1(`INSERT OR IGNORE INTO jobs
-        (dedupe_key, company, title, url, match_pct, source, status, lane, posted, work_type, updated_at, source_pipeline)
+        (dedupe_key, company, title, url, match_pct, source, status, lane, posted, refreshed_at, work_type, updated_at, source_pipeline)
         VALUES\n${values}`);
       stats.newRows += chunk.length;
     } catch (e) { stats.errors++; say(`insert failed at ${i}: ${e.message}`); }
@@ -191,11 +197,6 @@ for (const job of needsRank) {
   if (band.min != null) bands.set(job.dedupe_key, { ...band, source: 'posting:daily' });
 }
 say(`pay bands read from those descriptions: ${bands.size}`);
-
-if (WRITE) {
-  try { await ensurePayColumns(d1); }
-  catch (e) { stats.errors++; say(`schema ensure failed: ${e.message}`); }
-}
 
 for (const job of needsRank) {
   const jd = descriptions.get(job.dedupe_key) || null;

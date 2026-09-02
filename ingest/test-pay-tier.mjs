@@ -385,7 +385,11 @@ check('no such table: jobs is not a duplicate-column error',
 let workersAlters = 0;
 await ensurePayColumns(async (sql) => {
   if (String(sql).startsWith('PRAGMA')) {
-    return { results: [{ name: 'pay_tier' }, { name: 'salary_checked_at' }], success: true, meta: {} };
+    return {
+      results: [{ name: 'pay_tier' }, { name: 'salary_checked_at' }, { name: 'refreshed_at' }],
+      success: true,
+      meta: {}
+    };
   }
   workersAlters += 1;
   throw new Error('duplicate column name: pay_tier');
@@ -399,7 +403,7 @@ await ensurePayColumns(async (sql) => {
   const col = /ADD COLUMN (\w+)/.exec(String(sql));
   throw new Error('duplicate column name: ' + (col ? col[1] : 'unknown'));
 });
-check('unreadable pragma still tolerates duplicate-column ALTER', dupAlters === 2);
+check('unreadable pragma still tolerates duplicate-column ALTER', dupAlters === 3);
 
 let otherErr = null;
 try {

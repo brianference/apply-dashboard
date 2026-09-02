@@ -33,6 +33,9 @@ projects.
 | Advanced search puts them back | — | yes | **Gap.** Switches are covered by a browser check that is not yet in the repo |
 | Blocked employers, second-lane reopen, and the queued full-gate pass | `ingest/test-employer-block.mjs` | n/a | A blocked employer is skipped before anything is measured, a `submitted` row is left alone because it is history, and re-checking a reject with a subset of the rules that rejected it must not reverse it. The queued pass re-runs the whole gate over every queued row so a rule added today reaches rows that are already there (Teamworks product-success). An unreadable description is unknown, not a skip |
 | A cached board index expires | `ingest/test-index-freshness.mjs` | n/a | `gh-index.json` was written once and reused for seven days, so every Greenhouse posting published in between resolved to no board and arrived with no description, no salary and no domain rules. A future or unreadable mtime is refused rather than trusted |
+| Employer refresh date stored next to first-published | `ingest/test-board-dates.mjs` | n/a | `posted` is first published. `refreshed_at` is last updated. Greenhouse does not fall posted back to `updated_at`. Ashby `updatedAt` falls back to `publishedAt`. Lever converts epoch ms. Empty is null, not a guess |
+| Missing posted/refresh dates backfilled from the board URL | `ingest/test-date-backfill.mjs` | n/a | Resolves by URL (`boardRef`), never the source label. Will not overwrite an existing `posted` with a refresh date. `--dry` default |
+| A greenhouse/ashby/lever row cannot ship without `refreshed_at` | `ingest/test-refresh-audit.mjs` | n/a | Fails the twice-daily run when a dated-board URL on the list has no refresh date. A LinkedIn URL with no date is not a fail. Empty string is missing |
 | Apply queue ordering | `apply/test-order.mjs` | n/a | Carries a known-bad block that runs the retired comparator and asserts it fails |
 | Stat tiles match their rows | `apply/test-counts.mjs` | yes | Runs against production in CI |
 | Resolve an aggregator link to the employer's form | `ingest/test-resolve-by-board.mjs` | n/a | |
@@ -64,6 +67,8 @@ projects.
 | Filter chips | — | yes | **Gap.** No test |
 | Posted column (age in days) | `tests/posted-filter.mjs` | — | "today", "Nd ago", or an em-dash. No-date rows sink in both sort directions. Newest sorts on `posted`, not crawl time |
 | Posted-within toolbar filter | `tests/posted-filter.mjs` | — | Not persisted. Unknown dates do not survive a window. The hidden-count note must add up. Local drive via `tests/serve-local.mjs` |
+| Stale lens (over 30 days, unless refreshed) | `ingest/test-stale.mjs` | n/a | 31d posted + 2d refresh is kept (Pinterest). 31d + 40d refresh is hidden. Unknown refresh is kept -- ingest missing a field must not hide the row. No posted date is kept. Exactly 30 days is kept (`>` not `>=`) |
+| Over 30 days chip | `tests/stale-filter.mjs` | — | Hidden by default. Chip count equals the rows it reveals, counted from the same array. Posted title includes the refresh date when the row is kept because the employer touched it. Local drive via `tests/serve-local.mjs` |
 
 ## Onboarding
 
@@ -120,12 +125,17 @@ node tests/tour.mjs
 node tests/tour-overflow.mjs --site http://127.0.0.1:8798
 node tests/serve-local.mjs
 node tests/posted-filter.mjs http://127.0.0.1:<port>
+node tests/stale-filter.mjs
 node apply/test-counts.mjs http://127.0.0.1:<port>
 node tests/header-panel.mjs http://127.0.0.1:<port>
 node ingest/test-strip.mjs
 node ingest/test-salary-audit.mjs
 node ingest/test-salary-ashby.mjs
 node ingest/test-domain.mjs
+node ingest/test-stale.mjs
+node ingest/test-board-dates.mjs
+node ingest/test-refresh-audit.mjs
+node ingest/test-date-backfill.mjs
 ```
 
 The browser tests need Playwright, which this repo does not depend on. It is

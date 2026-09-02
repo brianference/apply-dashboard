@@ -91,6 +91,10 @@ jobs:
           node ingest/test-salary-audit.mjs
           node ingest/test-salary-ashby.mjs
           node ingest/test-domain.mjs
+          node ingest/test-stale.mjs
+          node ingest/test-board-dates.mjs
+          node ingest/test-refresh-audit.mjs
+          node ingest/test-date-backfill.mjs
 
       - name: Repair and attack the database guards
         # A guard that existed once is not a guard: protect_submitted_status
@@ -118,6 +122,15 @@ jobs:
         # run for the bands it correctly did not write.
         if: ${{ inputs.dry != true }}
         run: node ingest/salary-audit.mjs
+
+      - name: Fail if a dated board row has no employer refresh date
+        # Without refreshed_at the stale lens treats every row as "refresh
+        # unknown" and keeps it, so the 30-day rule quietly stops hiding
+        # anything. 40 of 72 older queued rows could not be judged today
+        # for exactly this reason. Skipped on --dry because a dry run
+        # leaves the database unchanged on purpose.
+        if: ${{ inputs.dry != true }}
+        run: node ingest/refresh-audit.mjs
 
       - name: Check every count equals the rows it claims
         # The FULL-TIME tile once read 510 over a list of 237 because the rows

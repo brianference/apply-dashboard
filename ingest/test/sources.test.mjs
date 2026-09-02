@@ -31,7 +31,8 @@ test("greenhouse maps board JSON to the shared job shape", () => {
     url: "https://job-boards.greenhouse.io/gitlab/jobs/8684348002",
     source: "greenhouse",
     work_type: "Remote, United States",
-    posted: "2026-04-17T09:58:03.000Z"
+    posted: "2026-04-17T09:58:03.000Z",
+    refreshed_at: null
   });
 });
 
