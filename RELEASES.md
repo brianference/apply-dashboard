@@ -2,6 +2,62 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v15.3.0 — Hardware out, and new rules reach rows already queued (2026-09-02)
+
+Brian, on vCluster Labs "Staff Product Manager (vMetal)" at 59%: i don't
+want hardware. The title says nothing. A rule that only runs on tomorrow's
+ingest also would have left it sitting there, the same way Teamworks
+"Senior Product Success Manager I" stayed in the queue after the product-
+success role rule landed.
+
+### Hardware is a description, with a measured threshold
+
+`ingest/domain-eligible.mjs` already searched title, company AND
+description for healthcare. Hardware is the same kind of decision. Treating
+`silicon` or `bare metal` as decisive on a single mention was wrong four
+times out of five: TLDR (silicon inside an inc.com URL), Camunda (one
+bare-metal deployment target beside Kubernetes), Jobgether (silicon as a
+partner ecosystem), Vultr (bare metal as one of four cloud product lines).
+Only vCluster was genuine.
+
+URLs are stripped before any pattern in that file is matched, because a
+link slug can decide a rule and that is true of every domain, not only
+hardware. Decisive phrases have to mean a hardware product. A weak term
+needs 6 hits -- vCluster had 11, Vultr 4, GitLab 3.
+
+It is switchable. `TOGGLEABLE_DOMAINS` and the `DOMAIN_LABELS` badge in
+`index.html` name it "Hardware".
+
+### The missing pass: re-run the whole gate over every queued row
+
+`ingest/regate.mjs` blocked employers, blocked title-first domains, and
+reopened retired salary skips. It did not re-run the WHOLE gate over every
+queued row. That is why Teamworks was still in the list. A fourth pass now
+reads the cached description through `fetchJd`, runs `requirementsGate`,
+and writes the rule-out with the same statement shape as the other passes:
+status skipped, rank_pct and pay_tier cleared, submitted rows refused in
+the WHERE.
+
+A row whose description cannot be read is unknown, not disqualifying. 114
+queued rows currently have no cached JD. Ruling those out would empty a
+third of the list. Title-only rules still fire when the file is missing.
+
+Dry-run reports. `--write` is not run from this change.
+
+### Verification
+
+- `ingest/test-domain.mjs` rules vCluster out as hardware, keeps Camunda's
+  single bare-metal, keeps Vultr's four weak mentions, keeps a posting
+  whose only "silicon" is inside a real inc.com URL, and keeps the
+  existing healthcare, construction and clearance cases. Known-bad: a
+  temporary copy with the hardware domain or the URL strip removed is
+  required to FAIL on those assertions.
+- `ingest/test-employer-block.mjs` skips queued Teamworks, leaves a
+  submitted Teamworks row alone, leaves a clean posting with an unreadable
+  description alone, and asserts the write refuses `status = submitted`.
+  Known-bad: a temporary copy that skips on a missing JD, or that writes
+  submitted rows, is required to FAIL.
+
 ## v15.2.0 — Risk/compliance and product-success rules actually run (2026-09-02)
 
 Brian: risk and compliance roles are boring. The posting that prompted it was
