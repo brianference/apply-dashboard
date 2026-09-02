@@ -1,12 +1,15 @@
 /**
- * Healthcare, construction, clearance and risk-compliance exclusion.
+ * Healthcare, construction, clearance, risk-compliance and hardware exclusion.
  *
- * Healthcare and construction are read from the description. Risk and
- * compliance is read from the TITLE: the words it looks for appear in
+ * Healthcare, construction and hardware are read from the description. Risk
+ * and compliance is read from the TITLE: the words it looks for appear in
  * boilerplate that EVERY US posting carries, and HIPAA on its own already
  * ruled out Vanta. Two real false positives from the description-based rules
  * are fixtures here too, because a rule that empties the list is worse than
  * one that never ran.
+ *
+ * Hardware's false positives are the measured ones: a silicon-valley URL
+ * slug, one bare-metal deployment target, and four weak cloud-SKU mentions.
  *
  *   node ingest/test-domain.mjs
  */
@@ -15,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  domainSignals, withoutBenefits, TOGGLEABLE_DOMAINS,
+  domainSignals, withoutBenefits, withoutUrls, TOGGLEABLE_DOMAINS,
   rowsToDomainBlock, domainBlockWrite
 } from './domain-eligible.mjs';
 import { strip } from './fit-score.mjs';
@@ -98,6 +101,34 @@ check(!/polygraph/i.test(withoutBenefits('Employee Polygraph Protection Act post
 check(/patient/i.test(withoutBenefits('Our product improves patient outcomes.')),
   'real domain language survives the stripper');
 
+/* A link slug can decide a rule. The real TLDR URL is the silicon case;
+   healthtech is the check that actually fails if stripping is removed,
+   because silicon is a weak term and one hit would not trip the threshold. */
+const TLDR_URL = 'https://www.inc.com/tldr-the-definitive-silicon-valley-tech-newsletter';
+const HEALTHTECH_URL = 'https://www.inc.com/healthtech-b2b-environments';
+check(!/silicon/i.test(withoutUrls(TLDR_URL)),
+  'URL stripping removes a silicon-valley slug');
+check(/silicon/i.test(withoutUrls('Our product runs on custom silicon.')),
+  'real silicon language survives URL stripping');
+check(!/healthtech/i.test(withoutUrls(HEALTHTECH_URL)),
+  'URL stripping removes a healthtech slug');
+
+const tldr = domainSignals(
+  { company: 'TLDR', title: 'Product Manager, Applied AI' },
+  'As covered in ' + TLDR_URL
+);
+check(!tldr.ruled,
+  'silicon only inside an inc.com URL is not hardware',
+  tldr.ruled ? `WRONGLY RULED OUT as ${tldr.domain} (${tldr.why})` : '');
+
+const urlHealth = domainSignals(
+  { company: 'Acme', title: 'Senior Product Manager' },
+  'More at ' + HEALTHTECH_URL
+);
+check(!urlHealth.ruled,
+  'healthtech only inside a URL is not healthcare',
+  urlHealth.ruled ? `WRONGLY RULED OUT as ${urlHealth.domain} (${urlHealth.why})` : '');
+
 /* ---- the threshold has to bite in both directions -------------------- */
 
 check(!domainSignals({}, 'One passing mention of a hospital in a case study.').ruled,
@@ -155,10 +186,14 @@ check(!clean.ruled,
 
 check(TOGGLEABLE_DOMAINS.includes('risk-compliance'),
   'risk-compliance is switchable the way healthcare is');
+check(TOGGLEABLE_DOMAINS.includes('hardware'),
+  'hardware is switchable the way healthcare is');
 
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 check(/["']?risk-compliance["']?:\s*"Risk and compliance"/.test(html),
   'index.html names the badge for a row switched back on');
+check(/hardware:\s*"Hardware"/.test(html),
+  'index.html names the hardware badge for a row switched back on');
 
 /* ---- applying the rule to rows already in the queue ------------------- */
 
@@ -224,6 +259,45 @@ const instacart = domainSignals(
 check(!instacart.ruled || instacart.domain !== 'construction',
   'Instacart Retailer Platform is not construction',
   instacart.ruled ? `${instacart.domain} (${instacart.why})` : '');
+
+/* ---- hardware is decided on the DESCRIPTION -------------------------- */
+
+/* Brian, 2026-09-02, on vCluster Labs "Staff Product Manager (vMetal)" at
+   59%: i don't want hardware. The title says nothing. Treating silicon or
+   bare metal as decisive on a single mention was wrong four times out of
+   five; the keep cases below are those four, minus Jobgether which is the
+   same shape as TLDR (one weak silicon). */
+const vcluster = domainSignals(
+  { company: 'vCluster Labs', title: 'Staff Product Manager (vMetal)' },
+  'help own the systems that discover, provision, configure, and manage physical hardware, turning racks of bare metal into a programmable platform for AI Cloud operators and hyperscalers'
+);
+check(vcluster.ruled && vcluster.domain === 'hardware',
+  'ruled out as hardware: vCluster Labs',
+  vcluster.ruled ? vcluster.why : 'NOT RULED OUT');
+
+const camunda = domainSignals(
+  { company: 'Camunda', title: 'Product Manager, Self Managed Service' },
+  'Deploy on Kubernetes, containers, bare-metal, and air-gapped environments.'
+);
+check(!camunda.ruled,
+  'Camunda bare-metal beside Kubernetes and air-gapped is not hardware',
+  camunda.ruled ? `WRONGLY RULED OUT as ${camunda.domain} (${camunda.why})` : '');
+
+const vultr = domainSignals(
+  { company: 'Vultr', title: 'Principal Technical PM, Strategic Accounts' },
+  'Vultr cloud product lines include compute, kubernetes, storage, and bare metal. We work with silicon partners. Our racks and chassis SKUs sit beside those four cloud lines.'
+);
+check(!vultr.ruled,
+  'Vultr four weak mentions with no decisive phrase is not hardware',
+  vultr.ruled ? `WRONGLY RULED OUT as ${vultr.domain} (${vultr.why})` : '');
+
+const jobgetherHw = domainSignals(
+  { company: 'Jobgether', title: 'Technical Product Manager, AI Storage' },
+  'storage, silicon, and technology ecosystem partners'
+);
+check(!jobgetherHw.ruled,
+  'Jobgether silicon as a partner ecosystem is not hardware',
+  jobgetherHw.ruled ? `WRONGLY RULED OUT as ${jobgetherHw.domain} (${jobgetherHw.why})` : '');
 
 console.log(failures.length
   ? `\n${failures.length} FAILED`

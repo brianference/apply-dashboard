@@ -24,6 +24,20 @@
  * are boring. The posting that prompted it was Jobgether's "Product Manager -
  * Risk Compliance" sitting at 73 percent.
  *
+ * Hardware is a DESCRIPTION-decided domain, like healthcare. The title
+ * "Staff Product Manager (vMetal)" says nothing. Brian, 2026-09-02, on
+ * vCluster Labs sitting at 59 percent: i don't want hardware.
+ *
+ * Treating `silicon` or `bare metal` as decisive on a single mention was
+ * wrong four times out of five. TLDR's only "silicon" sat inside an inc.com
+ * URL; Camunda listed one "bare-metal" as a deployment target beside
+ * Kubernetes; Jobgether named silicon as a partner ecosystem; Vultr sells
+ * bare metal as one of four cloud product lines. Only vCluster was genuine.
+ * URLs are stripped before any pattern in this file is matched, decisive
+ * phrases have to mean a hardware product, and a weak term needs 6 hits --
+ * that threshold is what dropped vCluster (11) and kept Vultr (4) and
+ * GitLab (3).
+ *
  * THE TRAP THIS EXISTS TO AVOID: almost every US posting says "medical, dental
  * and vision" and "health insurance" in its benefits paragraph. Counting the
  * word "health" would rule out most of the list. Benefits language is removed
@@ -51,6 +65,15 @@ const BENEFITS_NOISE = new RegExp([
   'americans with disabilities act', 'know your rights', 'e-?verify',
   'equal employment opportunity', 'pay transparency', 'uniformed services employment'
 ].join('|'), 'gi');
+
+/**
+ * A link slug can decide a rule. TLDR "Product Manager, Applied AI" would
+ * have been ruled out as hardware because the only "silicon" in the posting
+ * sat inside https://www.inc.com/.../tldr-the-definitive-silicon-valley-tech-newsletter.
+ * That is true of every pattern in this file, not only hardware, so URLs
+ * come out before anything is matched.
+ */
+const URL_NOISE = /https?:\/\/[^\s<>"'\)\]]+/gi;
 
 /**
  * Phrases that settle the domain on their own, and terms that only count in
@@ -88,6 +111,20 @@ const DOMAINS = [
     ].join('|'), 'i'),
     weak: /\b(construction|contractor|contractors|jobsite|blueprint|blueprints|architect|architects|foreman)\b/gi,
     weakThreshold: 4
+  },
+  {
+    name: 'hardware',
+    decisive: new RegExp([
+      'physical hardware', 'racks of bare metal', 'hardware lifecycle',
+      'hardware engineering', 'hardware manufacturing', 'hardware design',
+      'hardware roadmap', 'server hardware', 'firmware', '\\bpcb\\b',
+      '\\basic\\b', '\\bfpga\\b', 'chip design', 'semiconductor',
+      'device manufacturing', 'board bring-up'
+    ].join('|'), 'i'),
+    weak: /\b(bare[- ]metal|silicon|hardware|racks?|chassis|smartnics?|nics?|bmc|ipmi|redfish)\b/gi,
+    /* 6 is the measured gap: vCluster had 11 weak terms, Vultr 4, GitLab 3.
+       A lower threshold re-introduces the four false positives above. */
+    weakThreshold: 6
   }
 ];
 
@@ -121,11 +158,23 @@ export function withoutBenefits(text) {
 }
 
 /**
+ * Remove URLs so a link slug cannot be mistaken for a domain signal.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function withoutUrls(text) {
+  return String(text || '').replace(URL_NOISE, ' ');
+}
+
+/**
  * Which excluded domain a posting belongs to, if any.
  *
- * Healthcare and construction search the company name and title alongside the
- * description, because "Parsley Health" states its domain in its name and
- * nowhere else. Risk and compliance is title-only -- see RISK_COMPLIANCE_TITLE.
+ * Healthcare, construction and hardware search the company name and title
+ * alongside the description, because "Parsley Health" states its domain in
+ * its name and nowhere else, and "Staff Product Manager (vMetal)" states
+ * hardware nowhere in the title. Risk and compliance is title-only -- see
+ * RISK_COMPLIANCE_TITLE.
  *
  * @param {{title?: string, company?: string}} job
  * @param {string|null} jd the description, when it could be read
@@ -147,7 +196,9 @@ export function domainSignals(job, jd) {
   }
 
   const parts = [job && job.title, job && job.company, jd].filter(Boolean).join('\n');
-  const text = withoutBenefits(parts);
+  /* URLs first, then benefits. A slug can carry any word this file matches,
+     not only silicon, which is why stripping is not hardware-specific. */
+  const text = withoutBenefits(withoutUrls(parts));
 
   if (CLEARANCE.test(text)) {
     const hit = text.match(CLEARANCE);
@@ -168,7 +219,7 @@ export function domainSignals(job, jd) {
 }
 
 /** The domains a signed-in account can switch back on. */
-export const TOGGLEABLE_DOMAINS = ['healthcare', 'construction', 'clearance', 'risk-compliance'];
+export const TOGGLEABLE_DOMAINS = ['healthcare', 'construction', 'clearance', 'risk-compliance', 'hardware'];
 
 /**
  * Queued rows whose title (or company, for the description-based domains)

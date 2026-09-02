@@ -1,13 +1,15 @@
 /**
  * Apply a rule change to the rows that are already in the queue.
  *
- * Two passes, both driven by the REAL gate rather than by the one rule that
+ * Four passes, driven by the REAL gate rather than by the one rule that
  * changed:
  *
- *   block   every non-submitted row whose employer is on the blocked list
- *   domain  every queued row whose title now fails a domain rule
- *   reopen  every row skipped for the retired "top under $180k" reason that
- *           now passes the WHOLE gate
+ *   block    every non-submitted row whose employer is on the blocked list
+ *   domain   every queued row whose title now fails a domain rule
+ *   reopen   every row skipped for the retired "top under $180k" reason that
+ *            now passes the WHOLE gate
+ *   queued   every queued row, re-run through the WHOLE gate with its
+ *            cached description
  *
  * The reopen pass re-runs `requirementsGate` with the cached job description,
  * never the salary rule on its own. A row rejected for pay may ALSO be a
@@ -15,7 +17,16 @@
  * re-checking a rejection with a subset of the rules that made it silently
  * reverses everything the subset cannot see.
  *
- * A `submitted` row is history and is never rewritten.
+ * The queued pass is the one that was missing. `roleEligible` started
+ * rejecting "product success" titles, and Teamworks "Senior Product Success
+ * Manager I" stayed in the queue because nothing re-ran the role rule
+ * against rows that were already there. A new rule that only runs on
+ * tomorrow's ingest does not reach yesterday's list.
+ *
+ * A `submitted` row is history and is never rewritten. A row whose
+ * description cannot be read is unknown, not disqualifying -- 114 queued
+ * rows currently have no cached JD, and treating that as a fail would
+ * empty a third of the list.
  *
  *   node ingest/regate.mjs                # report only
  *   CF_D1_TOKEN=... node ingest/regate.mjs --write
@@ -29,6 +40,7 @@ import { rowsToDomainBlock, domainBlockWrite, domainSignals } from './domain-eli
 import {
   matchesRetiredSalarySkip, decideReopen, reopenWrite, stillRejectedWrite
 } from './reopen-second-lane.mjs';
+import { decideQueuedGate, queuedGateWrite } from './queued-gate.mjs';
 
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
 const ACCOUNT = 'dd01b432f0329f87bb1cc1a3fad590ee';
@@ -127,6 +139,38 @@ if (isCli(import.meta.url)) {
     if (meta.changes) reopened += 1;
   }
 
+  /* ---- pass 3: the whole gate, over every queued row ---- */
+  /* Teamworks "Senior Product Success Manager I" sat in the queue after
+     roleEligible started rejecting product-success titles, because the
+     employer and domain passes do not re-run the role rule. This pass
+     does. A submitted row is history. An unreadable description is
+     unknown, not disqualifying -- 114 queued rows currently have no
+     cached JD, and treating that as a fail would empty a third of the
+     list. The gate still runs when fetchJd returns null, so title-only
+     rules (role, location, employer, risk-compliance) still fire. */
+  const queuedRows = rows.filter((r) => r.status === 'queued');
+  const queuedSubmitted = rows.filter((r) => r.status === 'submitted');
+  let queuedBlocked = 0;
+  let queuedUnread = 0;
+  const queuedOut = {};
+  for (const row of queuedRows) {
+    const jd = await fetchJd(row.url).catch(() => null);
+    if (jd == null) queuedUnread += 1;
+    const decision = decideQueuedGate(row, jd);
+    if (decision.action !== 'skip') continue;
+    const why = decision.reasons[0] || 'unknown';
+    queuedOut[why] = (queuedOut[why] || 0) + 1;
+    logInfo('queued-gate', {
+      company: row.company,
+      title: String(row.title).slice(0, 44),
+      why
+    });
+    if (!doWrite) continue;
+    const w = queuedGateWrite(row, decision);
+    const meta = await run(w.sql, w.params);
+    if (meta.changes) queuedBlocked += 1;
+  }
+
   logInfo('regate complete', {
     blockedCandidates: toBlock.length,
     blockedWritten: blocked,
@@ -136,7 +180,13 @@ if (isCli(import.meta.url)) {
     domainSubmittedLeftAlone: domainSubmitted.length,
     reopenCandidates: candidates.length,
     reopened,
-    stillRejected: stillOut
+    stillRejected: stillOut,
+    queuedExamined: queuedRows.length,
+    queuedUnread,
+    queuedSubmittedLeftAlone: queuedSubmitted.length,
+    queuedBlockedWritten: queuedBlocked,
+    queuedWouldSkip: Object.values(queuedOut).reduce((n, c) => n + c, 0),
+    queuedReasons: queuedOut
   });
   if (!doWrite) logWarn('nothing written', { hint: 'pass --write to apply' });
 }
