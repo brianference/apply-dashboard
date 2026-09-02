@@ -28,6 +28,7 @@ projects.
 | Off-focus domain penalty | `ingest/test-off-focus.mjs` | n/a | Marketing costs 25 points; product marketing is excluded outright as a different family |
 | Healthcare, construction and clearance excluded | `ingest/test-domain.mjs` | yes | Read from the DESCRIPTION. Fixtures include the two false positives it produced first: Vanta (HIPAA as a compliance framework) and Elastic (the Employee Polygraph Protection Act notice) |
 | Advanced search puts them back | — | yes | **Gap.** Switches are covered by a browser check that is not yet in the repo |
+| Blocked employers and the second-lane reopen | `ingest/test-employer-block.mjs` | n/a | A blocked employer is skipped before anything is measured, a `submitted` row is left alone because it is history, and re-checking a reject with a subset of the rules that rejected it must not reverse it |
 | Apply queue ordering | `apply/test-order.mjs` | n/a | Carries a known-bad block that runs the retired comparator and asserts it fails |
 | Stat tiles match their rows | `apply/test-counts.mjs` | yes | Runs against production in CI |
 | Resolve an aggregator link to the employer's form | `ingest/test-resolve-by-board.mjs` | n/a | |
@@ -56,6 +57,8 @@ projects.
 | Marking a job is private to the account | both signup tests | n/a | The shared row is re-read afterwards and must still say `queued` |
 | Header search and the `/` shortcut | — | yes | **Gap.** Verified by screenshot only |
 | Filter chips | — | yes | **Gap.** No test |
+| Posted column (age in days) | `tests/posted-filter.mjs` | — | "today", "Nd ago", or an em-dash. No-date rows sink in both sort directions. Newest sorts on `posted`, not crawl time |
+| Posted-within toolbar filter | `tests/posted-filter.mjs` | — | Not persisted. Unknown dates do not survive a window. The hidden-count note must add up. Local drive via `tests/serve-local.mjs` |
 
 ## Onboarding
 
@@ -110,6 +113,9 @@ node tests/portfolio-addresses.mjs
 node tests/check-coverage.mjs
 node tests/tour.mjs
 node tests/tour-overflow.mjs --site http://127.0.0.1:8798
+node tests/serve-local.mjs
+node tests/posted-filter.mjs http://127.0.0.1:<port>
+node apply/test-counts.mjs http://127.0.0.1:<port>
 ```
 
 The browser tests need Playwright, which this repo does not depend on. It is

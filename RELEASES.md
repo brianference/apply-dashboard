@@ -2,6 +2,66 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v15.0.0 — Posted date on the list (2026-09-02)
+
+The list had no posting date. `updated_at` is the last crawl, and the pipeline
+rewrites every row twice a day, so the "Newest" sort ordered by which row the
+crawler happened to touch last. It has never once ordered by how new the job is.
+
+Of the live non-skipped rows, 323 carry a `posted` value (a calendar day or a
+full ISO timestamp) and 160 do not. The nulls sit on the older capitalised-source
+rows. Every current lowercase ingest source writes one.
+
+### A Posted column
+
+Desktop gets a column between Pay and the action, showing "today", "Nd ago", or
+an em-dash when the board publishes no date. Age is whole days against local
+midnight so a posting from earlier today is "today", never "-0d", and a future
+start date clamps to "today" rather than a negative number. On a phone the
+column is hidden and the same string sits inside `.who` as `.mago` -- a sibling
+inside `.meta` becomes a seventh grid item on desktop because `.meta` is
+`display: contents`, which already shoved the action column off the row once.
+
+The column is filterable and sortable. No-date rows sink in both sort
+directions. Newest now sorts on `posted`, with no-date last, then `rank_pct`.
+
+### Posted within
+
+A toolbar select next to sort: any time (default), past day, 3 days, 5 days, or
+a week. It ANDs with the chips, the search box and the column filters. It is
+not written to localStorage -- a window that survives a reload hides most of
+the list with no visible cause. A row with no date does not survive a window:
+unknown is not recent. When a window is on, a note under the toolbar says how
+many rows it removed and how that splits between older postings and boards that
+publish no date. Those counts come from the same filtered set the rows are
+drawn from.
+
+The four stat tiles still count the whole live list. They answer what is on the
+list, not what is on screen.
+
+### Verification
+
+- `tests/posted-filter.mjs` drives the local build through `tests/serve-local.mjs`
+  (static files from `.deploy`, `/api/*` proxied to production). Cell shape,
+  each window, monotonic counts including the strict `rows(7) < rows(any)` that
+  fails if the select is wired to nothing, the hidden-count note adding up, and
+  the 375/1280 mago swap.
+- Known-bad: a temporary copy with the window filter skipped is required to
+  FAIL; restoring it is required to pass.
+- `apply/test-counts.mjs` still passes against the local build with the extra
+  column present.
+- Every rule suite ran green: location, fit, pay tier, employer block, sync,
+  domain, off-focus, resolve-by-board, apply order, and the resume self-check.
+  `tests/tour.mjs`, `tests/tour-overflow.mjs`, `tests/promo-strip.mjs` and
+  `tests/portfolio-addresses.mjs` also pass against the local build.
+- `tests/check-coverage.mjs` was failing before this release on a gap that had
+  nothing to do with it: `ingest/test-employer-block.mjs` existed on disk and
+  FEATURES.md never named it, so the employer-block rule had no recorded owner.
+  FEATURES.md names it now and the coverage check is green.
+- Looked at, not inferred: `screenshots/v15/` carries the desktop table in both
+  themes, the 3-day window engaged, and the phone rows where the age sits at the
+  START of `.who` so a long company name cannot ellipsis it away.
+
 ## v14.0.0 — Pay decides the order (2026-08-31)
 
 Ranking never looked at pay. `scoreOne()` blended description fit with

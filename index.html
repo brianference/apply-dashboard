@@ -132,6 +132,12 @@
     height: 30px; border: 1px solid var(--border); border-radius: 7px;
     background: var(--bg); color: var(--text); font: 500 12.5px inherit; padding: 0 6px; cursor: pointer;
   }
+  /* Under the toolbar when a posted-within window is on. Hidden at the default
+     so it cannot explain a filter that is not running. */
+  .freshnote {
+    margin: 0 0 8px; color: var(--muted); font-size: 12.5px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
   .err { color: #8b2e1a; margin: 0 0 8px; font-size: 12.5px; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .err { color: #e8a070; } }
   :root[data-theme="dark"] .err { color: #e8a070; }
@@ -166,7 +172,7 @@
      together. A fixed location column clipped two-city strings and anything
      carrying a salary, and no amount of shortening the TEXT fixes a column
      that is simply too narrow for what Brian wants to read. */
-  :root { --w-pct: 42px; --w-ats: 96px; --w-loc: 320px; --w-pay: 92px; }
+  :root { --w-pct: 42px; --w-ats: 96px; --w-loc: 320px; --w-pay: 92px; --w-posted: 84px; }
 
   .colgrip {
     position: absolute; top: 2px; bottom: 2px; right: -5px; width: 10px;
@@ -189,7 +195,7 @@
   /* ---- per-column filter header ---- */
   .colhead {
     display: grid; align-items: center; gap: 10px;
-    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-ats) var(--w-loc) var(--w-pay) minmax(82px,auto);
+    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-ats) var(--w-loc) var(--w-pay) var(--w-posted) minmax(82px,auto);
     padding: 6px 10px; background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
@@ -250,7 +256,7 @@
     display: grid; align-items: center; gap: 10px;
     /* the action cell must be allowed to grow: the "Sent? Yes No" confirm is
        wider than an Apply button, and a fixed 82px made it overlap the location */
-    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-ats) var(--w-loc) var(--w-pay) minmax(82px,auto);
+    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-ats) var(--w-loc) var(--w-pay) var(--w-posted) minmax(82px,auto);
     padding: 0 10px; height: 40px;
     border-top: 1px solid var(--border);
     font-size: 13px;
@@ -258,6 +264,7 @@
   /* desktop: .meta dissolves so its two children become real grid columns */
   .meta { display: contents; }
   .conly { display: none; }
+  .mago { display: none; }
   .row:first-child { border-top: 0; }
   .row:hover { background: var(--row-hover); }
   .pct {
@@ -318,6 +325,14 @@
     text-align: right; white-space: nowrap;
   }
   .pay.over { color: var(--success); }
+  /* Posted age. Same voice as .pay so the two right-aligned numbers read as a
+     pair. A missing date is an em-dash, not a blank -- a blank looks like the
+     column failed to render. */
+  .posted {
+    font: 600 11.5px/1 "IBM Plex Mono", monospace; color: var(--muted);
+    text-align: right; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
   /* A keyword-only score is provisional -- it has not read the job description.
      Showing it at the same weight as a real fit score is how a 100% that means
      nothing ends up at the top of the list. */
@@ -372,6 +387,12 @@
       min-width: 0; font-size: 11.5px; color: var(--muted);
     }
     .conly { display: inline; }
+    /* The desktop posted column has nowhere to go in the three-column mobile
+       grid. Putting a sibling inside .meta would become a seventh grid item
+       on desktop because .meta is display:contents -- that already shoved the
+       action column off the row once. Surface the same string inside .who. */
+    .posted { display: none; }
+    .mago { display: inline; }
     .act { grid-area: act; align-self: center; }
     .ats { padding: 2px 5px; font-size: 10px; flex: 0 0 auto; }
   }
@@ -566,6 +587,13 @@
         <option value="pay-asc">Pay: low to high</option>
         <option value="recent">Newest</option>
       </select>
+      <select class="sortsel" id="freshsel" aria-label="Posted within">
+        <option value="">Posted: any time</option>
+        <option value="1">Posted: past day</option>
+        <option value="3">Posted: past 3 days</option>
+        <option value="5">Posted: past 5 days</option>
+        <option value="7">Posted: past week</option>
+      </select>
       <div class="chips" role="group" aria-label="Filters">
         <button type="button" class="chip" data-kind="all" aria-pressed="true">All</button>
         <button type="button" class="chip" data-kind="ft" aria-pressed="false">Full-time</button>
@@ -578,6 +606,7 @@
                 title="Show postings the rules removed">Advanced</button>
       </div>
     </div>
+    <p class="freshnote" id="freshnote" hidden></p>
 
     <!-- Postings the rules removed, offered back rather than hidden.
 
@@ -760,6 +789,65 @@
     var d = new Date(iso);
     if (isNaN(d.getTime())) return String(iso).slice(0, 10);
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  /**
+   * Whole days between a posting's `posted` value and local midnight.
+   *
+   * Compared to midnight so a posting from earlier today is 0 ("today"), never
+   * a fractional day that would render as "-0d". A future value -- some boards
+   * publish a start date rather than a post date -- clamps to 0 so the cell
+   * cannot show a negative number. updated_at is the last crawl and is
+   * rewritten twice a day, so it is not used here.
+   *
+   * @param {object} j
+   * @returns {number|null} whole days, or null when posted is missing or unparseable
+   */
+  function ageDays(j) {
+    if (!j || j.posted == null || j.posted === "") return null;
+    var s = String(j.posted).trim();
+    var postedMidnight;
+    var dayOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (dayOnly) {
+      /* Date-only strings are calendar dates. Date.parse treats them as UTC
+         midnight, which is the previous local day west of UTC and would make
+         a posting from today read as 1d ago. */
+      postedMidnight = new Date(+dayOnly[1], +dayOnly[2] - 1, +dayOnly[3]).getTime();
+    } else {
+      var t = Date.parse(s);
+      if (!isFinite(t)) return null;
+      var d = new Date(t);
+      postedMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    }
+    if (!isFinite(postedMidnight)) return null;
+    var now = new Date();
+    var midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    var days = Math.round((midnight - postedMidnight) / 86400000);
+    if (days < 0) return 0;
+    return days;
+  }
+
+  /**
+   * Cell text for the posted column: "today", "Nd ago", or an em-dash.
+   * @param {object} j
+   * @returns {string}
+   */
+  function agoText(j) {
+    var d = ageDays(j);
+    if (d === null) return "\u2014";
+    if (d === 0) return "today";
+    return d + "d ago";
+  }
+
+  /**
+   * Title for the posted cell. A missing date must say so -- a bare dash
+   * with no title looks like the column is broken.
+   * @param {object} j
+   * @returns {string}
+   */
+  function postedTitle(j) {
+    if (ageDays(j) === null) return "this board publishes no posting date";
+    return String(j.posted);
   }
 
   /* ---------- state ---------- */
@@ -998,7 +1086,14 @@
            it pushed the action column off the row and clipped every Manual
            button against the left edge. Caught by the screenshot, invisible in
            the markup. */
-        + '<span class="who" title="' + esc(clean(j.work_type) || "") + '"><span class="conly">' + esc(j.company || "") + (loc ? " · " : "")
+        + '<span class="who" title="' + esc(clean(j.work_type) || "") + '">'
+          /* mago is first so a long company+location cannot ellipsis it off
+             the end of .who -- the 375 screenshot showed Jobgether's name
+             eating the age while Playwright still called the clipped span
+             visible. Desktop hides .mago, so this order does not change the
+             table. */
+          + '<span class="mago">' + esc(agoText(j)) + (loc || j.company ? " · " : "") + "</span>"
+          + '<span class="conly">' + esc(j.company || "") + (loc ? " · " : "")
           + "</span>" + esc(loc)
           + (!applied && j.blocked_reason
               ? '<span class="why' + (j.blocked_reason === "wd-email-verification" ? " act-now" : "")
@@ -1007,14 +1102,15 @@
           + "</span>"
       + "</span>"
       + '<span class="pay' + (meetsFloor(j) && payText(j) ? " over" : "") + '">' + esc(payText(j)) + "</span>"
+      + '<span class="posted" title="' + esc(postedTitle(j)) + '">' + esc(agoText(j)) + "</span>"
       + '<span class="act">' + markBtn + btn + "</span>"
       + "</div>";
   }
 
   /* Which columns can be dragged, and the variable each one drives. Company is
      the flexible 1fr column and takes whatever is left, so it has no grip. */
-  var RESIZABLE = { match: "--w-pct", ats: "--w-ats", loc: "--w-loc", pay: "--w-pay" };
-  var COLW_DEFAULTS = { match: 42, ats: 96, loc: 320, pay: 92 };
+  var RESIZABLE = { match: "--w-pct", ats: "--w-ats", loc: "--w-loc", pay: "--w-pay", posted: "--w-posted" };
+  var COLW_DEFAULTS = { match: 42, ats: 96, loc: 320, pay: 92, posted: 84 };
   var COLW_MIN = 40, COLW_MAX = 640;
 
   function loadWidths() {
@@ -1100,6 +1196,7 @@
   function colValue(j, id) {
     if (id === "match") return Number(j.rank_pct != null ? j.rank_pct : j.match_pct);
     if (id === "pay") return payValue(j);
+    if (id === "posted") return Date.parse(j.posted);
     if (id === "company") return clean(j.company).toLowerCase();
     if (id === "ats") return atsOf(j).label.toLowerCase();
     if (id === "loc") return shortLoc(j.work_type).toLowerCase();
@@ -1144,7 +1241,19 @@
         return (a - b) * dir;
       });
     } else if (sortBy === "recent") {
-      c.sort(function (x, y) { return String(y.updated_at || "").localeCompare(String(x.updated_at || "")); });
+      /* updated_at is the last crawl. The pipeline rewrites every row twice a
+         day, so sorting on it ordered by which row the crawler happened to
+         touch last and has never once ordered by how new the job is. posted
+         is the actual posting date; rows with none sink, then rank_pct. */
+      c.sort(function (x, y) {
+        var a = Date.parse(x.posted), b = Date.parse(y.posted);
+        var aMissing = !isFinite(a), bMissing = !isFinite(b);
+        if (aMissing && bMissing) return (Number(y.rank_pct) || 0) - (Number(x.rank_pct) || 0);
+        if (aMissing) return 1;
+        if (bMissing) return -1;
+        if (b !== a) return b - a;
+        return (Number(y.rank_pct) || 0) - (Number(x.rank_pct) || 0);
+      });
     } else {
       c.sort(function (x, y) {
         var d = atsOf(x).rank - atsOf(y).rank;
@@ -1201,9 +1310,10 @@
     { id: "company", label: "Role / Company", value: function (j) { return clean(j.company) || "(none)"; } },
     { id: "ats",     label: "Apply via",      value: function (j) { return atsOf(j).label; } },
     { id: "loc",     label: "Location",       value: function (j) { return shortLoc(j.work_type) || "(none)"; } },
-    { id: "pay",     label: "Pay",            value: function (j) { return payBucket(j); }, align: "right" }
+    { id: "pay",     label: "Pay",            value: function (j) { return payBucket(j); }, align: "right" },
+    { id: "posted",  label: "Posted",         value: postedBucket, align: "right" }
   ];
-  var colSel = { match: null, company: null, ats: null, loc: null, pay: null };
+  var colSel = { match: null, company: null, ats: null, loc: null, pay: null, posted: null };
 
   /**
    * A posting's pay, as a short string.
@@ -1279,6 +1389,24 @@
     return "under 50%";
   }
   var BUCKET_ORDER = ["90%+", "80-89%", "70-79%", "60-69%", "50-59%", "under 50%", "(none)"];
+  var POSTED_ORDER = ["Today", "1-3 days", "4-7 days", "1-2 weeks", "2-4 weeks", "Over a month", "(no date)"];
+
+  /**
+   * Age bucket for the posted column filter. Newest-first labels, not
+   * calendar strings -- 60 distinct dates is not a usable checkbox list.
+   * @param {object} j
+   * @returns {string}
+   */
+  function postedBucket(j) {
+    var d = ageDays(j);
+    if (d === null) return "(no date)";
+    if (d === 0) return "Today";
+    if (d <= 3) return "1-3 days";
+    if (d <= 7) return "4-7 days";
+    if (d <= 14) return "1-2 weeks";
+    if (d <= 28) return "2-4 weeks";
+    return "Over a month";
+  }
 
   /**
    * Distinct values in one column, with counts, over the rows in one lane.
@@ -1296,6 +1424,8 @@
     var out = Object.keys(counts).map(function (v) { return { value: v, count: counts[v] }; });
     if (colId === "match") {
       out.sort(function (a, b) { return BUCKET_ORDER.indexOf(a.value) - BUCKET_ORDER.indexOf(b.value); });
+    } else if (colId === "posted") {
+      out.sort(function (a, b) { return POSTED_ORDER.indexOf(a.value) - POSTED_ORDER.indexOf(b.value); });
     } else {
       out.sort(function (a, b) { return a.value.localeCompare(b.value); });
     }
@@ -1537,6 +1667,39 @@
       return false;
     });
 
+    /* A freshness window that is not "any time" hides older rows, and rows
+       with no posted date -- unknown is not recent. The tiles below still
+       count the whole live list: they answer what is ON the list, not what
+       is on screen. The note is computed from this same vis array, never from
+       a second predicate -- a tile that read 510 over a list of 237 shipped
+       because those two numbers were counted separately. */
+    var windowDays = freshnessWindow();
+    var hiddenOlder = 0, hiddenNoDate = 0;
+    if (windowDays) {
+      vis = vis.filter(function (j) {
+        var d = ageDays(j);
+        if (d === null) { hiddenNoDate += 1; return false; }
+        if (d > windowDays) { hiddenOlder += 1; return false; }
+        return true;
+      });
+    }
+    var freshNote = document.getElementById("freshnote");
+    if (freshNote) {
+      if (!windowDays) {
+        freshNote.hidden = true;
+        freshNote.textContent = "";
+      } else {
+        var shownN = vis.length;
+        var hiddenN = hiddenOlder + hiddenNoDate;
+        var freshLabels = { 1: "Past day", 3: "Past 3 days", 5: "Past 5 days", 7: "Past week" };
+        freshNote.textContent = (freshLabels[windowDays] || ("Past " + windowDays + " days"))
+          + ": " + shownN + " shown. " + hiddenN + " hidden -- "
+          + hiddenOlder + " posted longer ago, " + hiddenNoDate
+          + " from boards that publish no posting date.";
+        freshNote.hidden = false;
+      }
+    }
+
     /* Counted over the SAME set the rows come from. */
     var live = all.filter(onTheList);
     var nSub = live.filter(isApplied).length;
@@ -1678,7 +1841,7 @@
           sortCol = id;
           /* Sensible first click per type: best score and best pay first,
              but names A to Z. */
-          sortDir = (id === "match" || id === "pay") ? "desc" : "asc";
+          sortDir = (id === "match" || id === "pay" || id === "posted") ? "desc" : "asc";
         }
         var sel = document.getElementById("sort");
         if (sel) sel.value = "__col";
@@ -1991,6 +2154,18 @@
     return null;
   }
 
+  /**
+   * Days the Posted-within select is asking for, or 0 for any time.
+   * Read from the DOM every time -- never from localStorage. A window that
+   * survived a reload once hid most of the list with no visible cause.
+   * @returns {number}
+   */
+  function freshnessWindow() {
+    var el = document.getElementById("freshsel");
+    var n = el ? Number(el.value) : 0;
+    return n === 1 || n === 3 || n === 5 || n === 7 ? n : 0;
+  }
+
   document.getElementById("q").addEventListener("input", render);
   document.getElementById("sort").addEventListener("change", function () {
     sortBy = this.value;
@@ -1999,6 +2174,7 @@
     if (this.value !== "__col") sortCol = null;
     render();
   });
+  document.getElementById("freshsel").addEventListener("change", render);
   /* The Advanced chip opens a panel rather than filtering, so it is wired on its
      own and kept out of the loop below - which sets aria-pressed on every chip
      and would fight the disclosure state. */
