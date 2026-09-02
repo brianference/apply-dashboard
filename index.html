@@ -606,6 +606,7 @@
         <button type="button" class="chip" data-kind="submitted" aria-pressed="false">Applied</button>
         <button type="button" class="chip" data-kind="manual" aria-pressed="false" title="Auto-apply could not finish these - they need you">Needs you <span id="nmanual"></span></button>
         <button type="button" class="chip" data-kind="under" aria-pressed="false" title="Only the postings that publish a band topping out below $180k">Under $180k</button>
+        <button type="button" class="chip" data-kind="stale" aria-pressed="false" title="Postings first published more than 30 days ago whose employer has not refreshed them. Hidden by default -- they are still real jobs.">Over 30 days <span id="nstale"></span></button>
         <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="Applies on the company's own site - no aggregator in the way, no account to make first">Apply direct <span id="ndirect"></span></button>
         <button type="button" class="chip adv-toggle" id="adv-toggle" aria-expanded="false" aria-controls="advanced"
                 title="Show postings the rules removed">Advanced</button>
@@ -797,7 +798,15 @@
   }
 
   /**
-   * Whole days between a posting's `posted` value and local midnight.
+   * Whole days after which a posting is stale, if its refresh is also older.
+   * Same number as ingest/stale.mjs -- one named constant so the chip, the
+   * lens and the hover title cannot disagree about "30".
+   * @type {number}
+   */
+  var STALE_AFTER_DAYS = 30;
+
+  /**
+   * Whole calendar days between an ISO / date-only value and local midnight.
    *
    * Compared to midnight so a posting from earlier today is 0 ("today"), never
    * a fractional day that would render as "-0d". A future value -- some boards
@@ -805,31 +814,81 @@
    * cannot show a negative number. updated_at is the last crawl and is
    * rewritten twice a day, so it is not used here.
    *
-   * @param {object} j
-   * @returns {number|null} whole days, or null when posted is missing or unparseable
+   * @param {unknown} value
+   * @returns {number|null} whole days, or null when missing or unparseable
    */
-  function ageDays(j) {
-    if (!j || j.posted == null || j.posted === "") return null;
-    var s = String(j.posted).trim();
-    var postedMidnight;
+  function daysSince(value) {
+    if (value == null || value === "") return null;
+    var s = String(value).trim();
+    if (!s) return null;
+    var valueMidnight;
     var dayOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
     if (dayOnly) {
       /* Date-only strings are calendar dates. Date.parse treats them as UTC
          midnight, which is the previous local day west of UTC and would make
          a posting from today read as 1d ago. */
-      postedMidnight = new Date(+dayOnly[1], +dayOnly[2] - 1, +dayOnly[3]).getTime();
+      valueMidnight = new Date(+dayOnly[1], +dayOnly[2] - 1, +dayOnly[3]).getTime();
     } else {
       var t = Date.parse(s);
       if (!isFinite(t)) return null;
       var d = new Date(t);
-      postedMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      valueMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     }
-    if (!isFinite(postedMidnight)) return null;
+    if (!isFinite(valueMidnight)) return null;
     var now = new Date();
     var midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    var days = Math.round((midnight - postedMidnight) / 86400000);
+    var days = Math.round((midnight - valueMidnight) / 86400000);
     if (days < 0) return 0;
     return days;
+  }
+
+  /**
+   * Whole days since a posting's `posted` value.
+   * @param {object} j
+   * @returns {number|null}
+   */
+  function ageDays(j) {
+    return daysSince(j && j.posted);
+  }
+
+  /**
+   * Is this posting stale under Brian's rule?
+   *
+   * Stale means posted age is OVER STALE_AFTER_DAYS and refresh age is also
+   * over that threshold. Exactly 30 days is not over 30, so it stays.
+   *
+   * An unknown refresh keeps the row. Dropping a row because our own ingest
+   * lacks a field is the mistake that lost 36 published salaries today, and
+   * it must not be repeated as a feature.
+   *
+   * A row with no `posted` date at all cannot be judged and stays.
+   *
+   * @param {object} j
+   * @returns {boolean}
+   */
+  function isStale(j) {
+    var postedAge = ageDays(j);
+    if (postedAge == null) return false;
+    if (postedAge <= STALE_AFTER_DAYS) return false;
+    var refreshAge = daysSince(j && j.refreshed_at);
+    /* Unknown refresh keeps the row. Our ingest missing a field is not a
+       reason to hide a posting -- that is how 36 published salaries vanished
+       today, and this rule must not repeat it. */
+    if (refreshAge == null) return false;
+    return refreshAge > STALE_AFTER_DAYS;
+  }
+
+  /**
+   * True when the row is on the default list only because the employer
+   * refreshed it -- posted age is over the threshold, refresh is not.
+   * @param {object} j
+   * @returns {boolean}
+   */
+  function keptBecauseRefreshed(j) {
+    var postedAge = ageDays(j);
+    if (postedAge == null || postedAge <= STALE_AFTER_DAYS) return false;
+    var refreshAge = daysSince(j && j.refreshed_at);
+    return refreshAge != null && refreshAge <= STALE_AFTER_DAYS;
   }
 
   /**
@@ -846,13 +905,20 @@
 
   /**
    * Title for the posted cell. A missing date must say so -- a bare dash
-   * with no title looks like the column is broken.
+   * with no title looks like the column is broken. When the employer has
+   * refreshed the requisition, that date goes in the title too, or "103d ago"
+   * reads as a dead posting even when they touched it yesterday.
    * @param {object} j
    * @returns {string}
    */
   function postedTitle(j) {
     if (ageDays(j) === null) return "this board publishes no posting date";
-    return String(j.posted);
+    var posted = String(j.posted);
+    var refresh = j && j.refreshed_at;
+    if (refresh == null || String(refresh).trim() === "") return posted;
+    var extra = " · refreshed " + String(refresh);
+    if (keptBecauseRefreshed(j)) extra += " -- kept because the employer refreshed it";
+    return posted + extra;
   }
 
   /* ---------- state ---------- */
@@ -1097,7 +1163,7 @@
              eating the age while Playwright still called the clipped span
              visible. Desktop hides .mago, so this order does not change the
              table. */
-          + '<span class="mago">' + esc(agoText(j)) + (loc || j.company ? " · " : "") + "</span>"
+          + '<span class="mago" title="' + esc(postedTitle(j)) + '">' + esc(agoText(j)) + (loc || j.company ? " · " : "") + "</span>"
           + '<span class="conly">' + esc(j.company || "") + (loc ? " · " : "")
           + "</span>" + esc(loc)
           + (!applied && j.blocked_reason
@@ -1652,9 +1718,14 @@
          the published-low ones back. */
       if (kind !== "under" && !meetsFloor(j) && !isApplied(j)) return false;
       if (kind === "under") { if (!publishesUnderFloor(j) || isApplied(j)) return false; }
+      /* Stale is a lens, not a gate: hide by default, show on the Over 30 days
+         chip. Skip the hide on the Under $180k chip so a stale under-floor
+         row is still reachable there. */
+      if (kind !== "stale" && kind !== "under" && isStale(j) && !isApplied(j)) return false;
+      if (kind === "stale") { if (!isStale(j) || isApplied(j)) return false; }
       if (kind === "manual") { if (!j.blocked_reason || isApplied(j)) return false; }
       else if (kind === "direct") { if (atsOf(j).cls !== "direct") return false; }
-      else if (kind !== "all" && kind !== bucketOf(j)) return false;
+      else if (kind !== "all" && kind !== "under" && kind !== "stale" && kind !== bucketOf(j)) return false;
       if (!passesColumns(j)) return false;
       if (!s) return true;
       /* Match at a WORD START, not anywhere in the string. "cisco" is a
@@ -1707,20 +1778,32 @@
       }
     }
 
-    /* Counted over the SAME set the rows come from. */
+    /* Counted over the SAME set the rows come from. Stale jobs are off the
+       default list, so they must not inflate Full-time / PT / Direct either --
+       that is how a tile once read 510 over a list of 237. Applied still
+       counts every recorded application, stale or not. */
     var live = all.filter(onTheList);
     var nSub = live.filter(isApplied).length;
-    var nFt = live.filter(function (j) { return bucketOf(j) === "ft"; }).length;
-    var nPt = live.filter(function (j) { return bucketOf(j) === "ptc2c"; }).length;
-    var nDirect = live.filter(function (j) { return !isApplied(j) && atsOf(j).cls === "direct"; }).length;
+    var nFt = live.filter(function (j) { return bucketOf(j) === "ft" && (isApplied(j) || !isStale(j)); }).length;
+    var nPt = live.filter(function (j) { return bucketOf(j) === "ptc2c" && (isApplied(j) || !isStale(j)); }).length;
+    var nDirect = live.filter(function (j) { return !isApplied(j) && !isStale(j) && atsOf(j).cls === "direct"; }).length;
     document.getElementById("s-ft").textContent = nFt;
     document.getElementById("s-pt").textContent = nPt;
     document.getElementById("s-sub").textContent = nSub;
     document.getElementById("s-dir").textContent = nDirect;
     document.getElementById("ndirect").textContent = nDirect ? String(nDirect) : "";
-    var nManual = live.filter(function (j) { return j.blocked_reason && !isApplied(j); }).length;
+    var nManual = live.filter(function (j) { return j.blocked_reason && !isApplied(j) && !isStale(j); }).length;
     var mEl = document.getElementById("nmanual");
     if (mEl) mEl.textContent = nManual ? String(nManual) : "";
+    /* Same array the Over 30 days chip draws from: on the list, not applied,
+       clears the floor (the default list already hid under-floor rows), and
+       isStale. A tile that read 510 over a list of 237 shipped because those
+       two numbers were counted separately. */
+    var nStale = live.filter(function (j) {
+      return isStale(j) && !isApplied(j) && meetsFloor(j);
+    }).length;
+    var sEl = document.getElementById("nstale");
+    if (sEl) sEl.textContent = nStale ? String(nStale) : "";
 
     document.getElementById("main").innerHTML = SECTIONS.map(function (sec) {
       var jobs = sortJobs(vis.filter(function (j) { return bucketOf(j) === sec.id; }));
