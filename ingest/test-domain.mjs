@@ -18,6 +18,7 @@ import {
   domainSignals, withoutBenefits, TOGGLEABLE_DOMAINS,
   rowsToDomainBlock, domainBlockWrite
 } from './domain-eligible.mjs';
+import { strip } from './fit-score.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -76,7 +77,12 @@ const KEPT = [
   ['PeopleGrove', 'Senior Product Manager',
     'A mentorship platform for universities. ' + BENEFITS],
   ['Coinbase', 'Senior Enterprise Product Manager, FP&A',
-    'Financial planning tooling for the enterprise. ' + BENEFITS + ' ' + LEGAL]
+    'Financial planning tooling for the enterprise. ' + BENEFITS + ' ' + LEGAL],
+  /* Inovalon "Senior Principal Product Manager - Infusion" was ruled out
+     as clearance because `ts/sci` matched the "ts/Sci" inside
+     "Arts/Sciences". That is a degree, not a clearance requirement. */
+  ['Acme', 'Senior Product Manager',
+    'Bachelor’s Degree in Arts/Sciences (B.A./B.S.) required. Own the payments platform.']
 ];
 for (const [company, title, jd] of KEPT) {
   const r = domainSignals({ company, title }, jd);
@@ -202,6 +208,22 @@ check(/status\s*!=\s*\?/.test(dw.sql) && dw.params.includes('submitted'),
 const regateSrc = fs.readFileSync(path.join(ROOT, 'ingest', 'regate.mjs'), 'utf8');
 check(/rowsToDomainBlock\(/.test(regateSrc) && /domainBlockWrite\(/.test(regateSrc),
   'regate applies domain rules to queued rows, not only employers and salary skips');
+/* Instacart Greenhouse 8014060, measured 2026-09-02: two headings in a
+   row, "About the Job" then "Site Theming". After strip() they must not
+   become the construction phrase `job site`. */
+const instacartHtml = [
+  '<p>editing platforms and design systems that balance retailer control and conversion.</p>',
+  '<h2>About the Job</h2>',
+  '<h2>Site Theming &amp; Brand Platform</h2>',
+  '<p>Own the long term vision, strategy, and roadmap for site theming and content management.</p>'
+].join('');
+const instacart = domainSignals(
+  { company: 'Instacart', title: 'Senior Product Manager, Retailer Platform' },
+  strip(instacartHtml)
+);
+check(!instacart.ruled || instacart.domain !== 'construction',
+  'Instacart Retailer Platform is not construction',
+  instacart.ruled ? `${instacart.domain} (${instacart.why})` : '');
 
 console.log(failures.length
   ? `\n${failures.length} FAILED`

@@ -24,6 +24,9 @@ projects.
 | Rank a posting against the resume | `ingest/test-fit.mjs` | n/a | Inverse document frequency over the cached descriptions |
 | Location and role eligibility | `ingest/test-location.mjs` | n/a | Remote or Arizona, product roles only. Product success is customer success, not product management; a PM who owns a success product still passes |
 | Pay floor rules a posting out | — | — | **Gap.** `ingest/salary-sweep.mjs` has no test of the write loop. The extractor and floor cases live in `ingest/test-fit.mjs` |
+| Double-escaped Greenhouse HTML still yields the published band | `ingest/test-strip.mjs` | n/a | Real MongoDB 8143805 pay block through `strip()` then `salaryFromText`. Singly-escaped and clean HTML too, so the fix cannot be a special case. Block headings cannot fuse into "Job Site"; inline spans still collapse into one range. Known-bad: the old decoder against a temp copy is required to fail |
+| A published band cannot be left unpriced | `ingest/test-salary-audit.mjs` | n/a | Fails the twice-daily run when the cached JD has a recoverable band and the row does not. Passes when the salary is stored. An unread cache is not a fail |
+| Ashby structured compensation is a published band | `ingest/test-salary-ashby.mjs` | n/a | Teamworks payload: description silent, `summaryComponents` carries 90000-120500. Equity/bonus-only, non-USD, and hourly are refused. Structured wins over a different number in the description. The audit fails when that feed published a band and the row stores none |
 | Pay-first ranking | `ingest/test-pay-tier.mjs` | n/a | Confirmed $180k+ first, then unpublished, then $160-180k. A $180k start at rank 59 beats an unpriced 83. A failed gate clears `rank_pct` and `pay_tier`. Known-bad block runs the retired rank-only sort and requires it to fail |
 | Off-focus domain penalty | `ingest/test-off-focus.mjs` | n/a | Marketing costs 25 points; product marketing is excluded outright as a different family |
 | Healthcare, construction, clearance and risk-compliance excluded | `ingest/test-domain.mjs` | yes | Healthcare and construction are read from the DESCRIPTION. Risk-compliance is title-only, because searching the description would treat legal boilerplate as the job. Fixtures include Vanta (HIPAA as a compliance framework), Elastic (the Employee Polygraph Protection Act notice), Webflow Governance (kept), and a clean title whose description mentions regulatory requirements (kept). Submitted compliance rows are not rewritten |
@@ -118,6 +121,10 @@ node tests/serve-local.mjs
 node tests/posted-filter.mjs http://127.0.0.1:<port>
 node apply/test-counts.mjs http://127.0.0.1:<port>
 node tests/header-panel.mjs http://127.0.0.1:<port>
+node ingest/test-strip.mjs
+node ingest/test-salary-audit.mjs
+node ingest/test-salary-ashby.mjs
+node ingest/test-domain.mjs
 ```
 
 The browser tests need Playwright, which this repo does not depend on. It is
