@@ -8,6 +8,7 @@
 
 import { mountSiteNav, initialsFor } from "/shared/site-nav.js";
 import { toAvatarDataUrl } from "./avatar.js";
+import { mountSections } from "./sections.js";
 
 const FIELDS = ["headline", "location", "linkedin_url", "github_url", "resume_filename"];
 
@@ -146,8 +147,37 @@ async function start() {
     }
   });
   at("#resume-status").textContent = data.resume_chars
-    ? `${data.resume_chars.toLocaleString()} characters of resume text stored. The portfolio is built from this, with contact details stripped.`
-    : "No resume text stored yet, so the portfolio has nothing to build its summary from.";
+    ? `${data.resume_chars.toLocaleString()} characters of resume text stored. Import from resume below offers what the parser found, one item at a time. Contact details are never published on the portfolio.`
+    : "No resume text stored yet, so there is nothing to import from.";
+
+  /**
+   * @param {object} [extra]
+   * @returns {Promise<object>}
+   */
+  async function putProfile(extra) {
+    const res = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(extra || {})
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+    return json;
+  }
+
+  const sectionEditor = mountSections(at("#sections"), {
+    saved: profile.profile_sections || null,
+    suggested: data.suggested || null,
+    headerCheckbox: at("#vis-header"),
+    onPersist: async (sections) => {
+      try {
+        await putProfile({ profile_sections: sections });
+      } catch (error) {
+        flash(String(error.message || error), true);
+      }
+    }
+  });
 
   at("#form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -159,14 +189,11 @@ async function start() {
       const payload = {};
       for (const field of FIELDS) payload[field] = at(`#${field}`).value.trim();
       payload[HANDLE_FIELD] = at(`#${HANDLE_FIELD}`).value.trim().toLowerCase();
-      const res = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify(payload)
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+      /* Include sections only when the person touched them. Sending the empty
+         default on a headline-only save would publish empty experience and
+         hide the resume-built fallback on the portfolio. */
+      if (sectionEditor.isDirty()) payload.profile_sections = sectionEditor.getSections();
+      await putProfile(payload);
       flash("Saved. The portfolio picks this up within five minutes.");
     } catch (error) {
       flash(String(error.message || error), true);
