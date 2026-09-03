@@ -209,9 +209,21 @@ export const CONCEPTS = [
     re: /\b(ml ?ops|model training|feature store|gpu cluster|model serving|fine-?tun\w+)\b/i }
 ];
 
-/** Requirements a posting can state that Brian does not meet. */
+/** Requirements a posting can state that Brian does not meet.
+ *
+ * Clearance used to be here, at a flat -40 points. It is not any more:
+ * domain-eligible.mjs's CLEARANCE check replaced it as a full requirementsGate
+ * rule (2026-09-02), because a clearance he does not hold is not a weak
+ * posting, it is an impossible one -- and a duplicate check left in this file
+ * outlived that migration. It read the RAW description, unlike the gate's
+ * check, which strips benefits and legal boilerplate first. "Polygraph" on
+ * its own matches the "Employee Polygraph Protection Act" notice every US
+ * employer's footer carries, and that is exactly how Elastic's own posting
+ * -- kept by the gate, which strips the footer -- still had successScore
+ * silently docking it 40 points and rank_why claiming a "blocker: security
+ * clearance" it does not have. See ingest/test-domain.mjs's Elastic KEPT
+ * case for the fixture this bug reproduced. */
 export const HARD_BLOCKERS = [
-  { id: 'clearance', why: 'security clearance', re: /\b(security clearance|ts\/sci|top secret|public trust|polygraph)\b/i },
   { id: 'onsite', why: 'onsite or hybrid attendance required', re: /\b(\d+ days? (a|per) week (in|on)[- ]?(the )?(office|site)|onsite \d+ days|hybrid schedule requires)\b/i },
   { id: 'phd', why: 'PhD required', re: /\bph\.?d\.? (is )?(required|preferred and required)\b/i },
   { id: 'relocate', why: 'relocation required', re: /\bmust relocate\b/i }
