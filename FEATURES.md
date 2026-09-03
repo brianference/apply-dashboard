@@ -22,6 +22,7 @@ projects.
 |---|---|---|---|
 | Read employers' boards twice a day | `ingest/test-sync.mjs` | n/a | 269 companies in `ingest/companies.json`, plus eight source modules in `ingest/sources/` |
 | Rank a posting against the resume | `ingest/test-fit.mjs` | n/a | Inverse document frequency over the cached descriptions |
+| Read a description from Workday, Himalayas, JSON-LD or the page, not only three board APIs | `ingest/test-jd-read.mjs` | n/a | 145 of 315 queued rows had never been read because `fetchJd` stopped at greenhouse/ashby/lever. LinkedIn is blocked-by-policy (never fetched). Lever 404 is posting-closed, not a retry. JSON-LD is a real Jobspresso payload, including array, @graph, and a malformed block beside a good one. Workday matcher covers all 11 live URLs with and without a locale segment. USD YEAR salary is taken; EUR and HOUR are refused. A future datePosted clamps. Board API still wins over JSON-LD. Known-bad: a temp copy of each tier is required to fail |
 | Location and role eligibility | `ingest/test-location.mjs` | n/a | Remote or Arizona, product roles only. Product success is customer success, not product management; a PM who owns a success product still passes |
 | Pay floor rules a posting out | — | — | **Gap.** `ingest/salary-sweep.mjs` has no test of the write loop. The extractor and floor cases live in `ingest/test-fit.mjs` |
 | Double-escaped Greenhouse HTML still yields the published band | `ingest/test-strip.mjs` | n/a | Real MongoDB 8143805 pay block through `strip()` then `salaryFromText`. Singly-escaped and clean HTML too, so the fix cannot be a special case. Block headings cannot fuse into "Job Site"; inline spans still collapse into one range. Known-bad: the old decoder against a temp copy is required to fail |
@@ -145,6 +146,7 @@ node ingest/test-stale.mjs
 node ingest/test-board-dates.mjs
 node ingest/test-refresh-audit.mjs
 node ingest/test-date-backfill.mjs
+node ingest/test-jd-read.mjs
 ```
 
 The browser tests need Playwright, which this repo does not depend on. It is
