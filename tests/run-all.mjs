@@ -64,6 +64,7 @@ const KIND = {
   'tests/header-panel.mjs': 'site',
   'tests/leadership-filter.mjs': 'site',
   'tests/posted-filter.mjs': 'site',
+  'tests/quick-filter.mjs': 'site',
   'tests/stale-filter.mjs': 'site',
   /* Drives /portfolio/<handle>/, a pretty path served by a Pages Function.
      tests/serve-local.mjs serves static files and proxies /api/*, so that

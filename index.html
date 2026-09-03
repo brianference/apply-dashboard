@@ -132,6 +132,20 @@
      Brian asked for it after filtering himself into a view he could not
      easily undo. Muted and unclickable when nothing is filtered, so it never
      promises an action it cannot perform. */
+  /* The quick filter. Bigger and warmer than a chip because it is a preset
+     rather than another lens to combine, and it sits ahead of the search box
+     so it is the first thing on the toolbar. */
+  .quickbtn {
+    appearance: none; cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--primary); background: var(--primary-soft);
+    color: var(--primary); border-radius: 8px; padding: 0 13px; height: 34px;
+    font: 600 13px/1 inherit; flex: 0 0 auto;
+  }
+  .quickbtn:hover { background: var(--primary); color: var(--primary-contrast); }
+  .quickbtn[aria-pressed="true"] {
+    background: var(--primary); color: var(--primary-contrast); font-weight: 700;
+  }
+  @media (max-width: 860px) { .quickbtn { flex: 1 1 100%; height: 40px; } }
   .clearall {
     appearance: none; border: 1px solid var(--border); background: var(--bg);
     border-radius: 8px; padding: 0 14px; height: 34px;
@@ -607,6 +621,12 @@
 <div class="sticky">
   <div class="wrap">
     <div class="toolbar">
+      <!-- The quick filter sits FIRST, ahead of the search box and the
+           other chips, because it is the view Brian opens the page to get
+           to. It is one click for three settings that otherwise take four:
+           the pay lens, the seven-day window and a pure rank sort. -->
+      <button type="button" class="quickbtn" id="quick" aria-pressed="false"
+              title="Published pay starting at $165k or above, posted in the last seven days, highest rank first. Sorts by rank ALONE -- Best match puts the pay lane before the score, which is a different order.">&#9733; $165k+ this week <span id="nquick"></span></button>
       <input class="search" id="q" type="search" placeholder="Search title, company, source" autocomplete="off" aria-label="Search jobs"/>
       <select class="sortsel" id="sort" aria-label="Sort order">
         <option value="__col" hidden>Sorted by column</option>
@@ -1012,7 +1032,13 @@
      adding it to the list produced a chip that counted 72 rows and showed 0.
      A set means the next lens cannot be forgotten in one place while working
      in the other. */
-  var LENS_KINDS = { under: true, over: true, stale: true, leadership: true, manual: true, direct: true };
+  /* The quick filter's two numbers, named once so the button, the count and
+     the row test cannot drift apart. 165k is deliberately below the 180k chip:
+     it is the floor Brian asked for on 2026-09-03, not the confirmed lane. */
+  var QUICK_MIN_START = 165000;
+  var QUICK_WINDOW_DAYS = 7;
+
+  var LENS_KINDS = { under: true, over: true, stale: true, leadership: true, quick: true, manual: true, direct: true };
 
 
   /* Sorting by clicking a column header, which is where Brian looked for it.
@@ -1512,6 +1538,26 @@
   }
 
   /**
+   * Is this row in the quick filter: pay start at or above QUICK_MIN_START and
+   * posted within QUICK_WINDOW_DAYS?
+   *
+   * Both halves are required. An unpublished band is not "at least 165k", and
+   * a row with no posted date cannot be shown to be recent, so neither is
+   * guessed in the person's favour here. That is the opposite of the default
+   * list, where unknown pay and unknown dates both keep a row -- and it is the
+   * right way round, because this button is a person asking for a narrow, known
+   * set rather than the list deciding what to hide.
+   *
+   * @param {Record<string, any>} j
+   * @returns {boolean}
+   */
+  function inQuickFilter(j) {
+    if (!(Number(j.salary_min) >= QUICK_MIN_START)) return false;
+    var posted = ageDays(j);
+    return posted != null && posted <= QUICK_WINDOW_DAYS;
+  }
+
+  /**
    * Does this posting publish a band that STARTS at $180k or above?
    *
    * Decided on the start, like payTier and the lanes, never on the top: a
@@ -1840,6 +1886,15 @@
     var fresh = document.getElementById("freshsel");
     if (fresh) fresh.value = "";
     COLS.forEach(function (c) { colSel[c.id] = null; });
+    /* The quick filter sets a column sort as part of the preset, so clearing
+       has to release it. Leaving it would hand back a list ordered by
+       something the person never chose, which is the one case where a sort
+       IS part of what the button applied. */
+    if (sortCol === "match" && sortDir === "desc") {
+      sortCol = null;
+      var sortSel = document.getElementById("sort");
+      if (sortSel) sortSel.value = sortBy;
+    }
     render();
     if (q) q.focus();
   }
@@ -1867,6 +1922,7 @@
       if (kind !== "under" && !meetsFloor(j) && !isApplied(j)) return false;
       if (kind === "under") { if (!publishesUnderFloor(j) || isApplied(j)) return false; }
       if (kind === "over") { if (!publishesOverFloor(j) || isApplied(j)) return false; }
+      if (kind === "quick") { if (!inQuickFilter(j) || isApplied(j)) return false; }
       /* Stale is a lens, not a gate: hide by default, show on the Over 30 days
          chip. Skip the hide on the Under $180k chip so a stale under-floor
          row is still reachable there. */
@@ -1960,6 +2016,17 @@
     var nLead = live.filter(function (j) { return isLeadership(j) && !isApplied(j) && !isStale(j); }).length;
     var lEl = document.getElementById("nlead");
     if (lEl) lEl.textContent = nLead ? String(nLead) : "";
+    /* Same exclusions the rows go through: applied, stale and leadership are
+       all filtered out before the quick test runs, so the count applies them
+       too. A count that skips one of them is a number larger than the rows it
+       reveals, which is the 510-over-237 failure again. */
+    var nQuick = live.filter(function (j) {
+      return inQuickFilter(j) && !isApplied(j) && !isStale(j) && !isLeadership(j);
+    }).length;
+    var qEl = document.getElementById("nquick");
+    if (qEl) qEl.textContent = nQuick ? String(nQuick) : "";
+    var quickBtn = document.getElementById("quick");
+    if (quickBtn) quickBtn.setAttribute("aria-pressed", kind === "quick" ? "true" : "false");
 
     var oEl = document.getElementById("nover");
     if (oEl) oEl.textContent = nOver ? String(nOver) : "";
@@ -2489,6 +2556,25 @@
   });
   document.getElementById("freshsel").addEventListener("change", render);
   document.getElementById("clearall").addEventListener("click", clearAllFilters);
+
+  /* One click, three settings. The sort is the part worth spelling out: this
+     uses the COLUMN sort on the score, not the "Best match" option, because
+     Best match orders by pay lane first and only then by score. Brian asked for
+     rank descending, which is a different order and would otherwise put a
+     confirmed-band 32% above an unpriced 74%. */
+  document.getElementById("quick").addEventListener("click", function () {
+    kind = "quick";
+    document.querySelectorAll(".chip:not(.adv-toggle)").forEach(function (o) {
+      o.setAttribute("aria-pressed", "false");
+    });
+    var fresh = document.getElementById("freshsel");
+    if (fresh) fresh.value = String(QUICK_WINDOW_DAYS);
+    sortCol = "match";
+    sortDir = "desc";
+    var sel = document.getElementById("sort");
+    if (sel) sel.value = "__col";
+    render();
+  });
   /* The Advanced chip opens a panel rather than filtering, so it is wired on its
      own and kept out of the loop below - which sets aria-pressed on every chip
      and would fight the disclosure state. */
