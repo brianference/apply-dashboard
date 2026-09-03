@@ -255,7 +255,13 @@ const browser = await chromium.launch({ headless: true });
   const secondTitle = saved.experience[1].title;
   const down = page.getByRole('button', { name: `Move ${firstTitle} down` });
   await Promise.all([
-    page.waitForRequest((r) => r.url().includes('/api/profile') && r.method() === 'PUT'),
+    /* The RESPONSE, not the request. waitForRequest resolves on the request
+       event, which fires before the route handler that pushes the body into
+       puts has run, so the assertion below read an empty array. It passed on
+       a quiet local machine and failed on CI, which is what a race looks
+       like from the outside. route.fulfill completes after the push, so the
+       response is the point at which the recording is real. */
+    page.waitForResponse((r) => r.url().includes('/api/profile') && r.request().method() === 'PUT'),
     down.click()
   ]);
 
