@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { payTier, compareMatchSort, scoreOne, rankWrite, blockedEmployer } from './fit-score.mjs';
 import {
-  boardTextHasBand, fetchSucceeded, bandWrite, belowFloorWrite,
+  boardTextHasBand, fetchSucceeded, bandWrite, belowFloorWrite, withStructuredBand,
   checkedWrite, d1Changes
 } from './salary-sweep.mjs';
 import { ensurePayColumns, pragmaColumns, isDuplicateColumnError } from './pay-columns.mjs';
@@ -318,8 +318,24 @@ check('lane dividers use sechead-divider and the class is defined',
   && /\.sechead-divider\s*\{[^}]*cursor:\s*default/.test(page));
 
 const sweep = fs.readFileSync(path.join(ROOT, 'ingest', 'salary-sweep.mjs'), 'utf8');
-check('postingText consults the band before returning board text',
-  /boardTextHasBand\(boardText\)/.test(sweep));
+/* This used to assert salary-sweep.mjs CONTAINED the literal call
+   `boardTextHasBand(boardText)`. The reader consolidation renamed the variable
+   and the assertion failed while the behaviour was intact and better. A text
+   match cannot tell a rename from a removal, so the behaviour is asserted
+   instead, on the pure function the decision now lives in. */
+check('a structured band is written where the text extractor can see it',
+  withStructuredBand('Some description with no numbers in it.', { min: 180000, max: 220000 })
+    === '$180000 - $220000. Some description with no numbers in it.');
+check('text that already states a range is not given a second one',
+  withStructuredBand(pad('Base salary: $180,000-$220,000 annually.'), { min: 999000, max: 999000 })
+    === pad('Base salary: $180,000-$220,000 annually.'));
+check('no structured salary leaves the text alone',
+  withStructuredBand('Some description.', null) === 'Some description.');
+check('a max-less band repeats the start rather than inventing a top',
+  withStructuredBand('No numbers here.', { min: 170000, max: null })
+    === '$170000 - $170000. No numbers here.');
+check('null text stays null',
+  withStructuredBand(null, { min: 180000, max: 200000 }) === null);
 /* Behavioural: checkedWrite is what stamps the column; fetchSucceeded is
    the guard. A comment mentioning salary_checked_at is not enough. */
 const stamped = checkedWrite({ dedupe_key: 'k' }, 'ts');
@@ -386,7 +402,7 @@ let workersAlters = 0;
 await ensurePayColumns(async (sql) => {
   if (String(sql).startsWith('PRAGMA')) {
     return {
-      results: [{ name: 'pay_tier' }, { name: 'salary_checked_at' }, { name: 'refreshed_at' }],
+      results: [{ name: 'pay_tier' }, { name: 'salary_checked_at' }, { name: 'refreshed_at' }, { name: 'jd_read_status' }],
       success: true,
       meta: {}
     };
@@ -403,7 +419,7 @@ await ensurePayColumns(async (sql) => {
   const col = /ADD COLUMN (\w+)/.exec(String(sql));
   throw new Error('duplicate column name: ' + (col ? col[1] : 'unknown'));
 });
-check('unreadable pragma still tolerates duplicate-column ALTER', dupAlters === 3);
+check('unreadable pragma still tolerates duplicate-column ALTER', dupAlters === 4);
 
 let otherErr = null;
 try {

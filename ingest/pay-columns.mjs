@@ -29,6 +29,13 @@ export const DATE_COLUMNS = [
   ['refreshed_at', 'TEXT']
 ];
 
+/* Outcome of the last description read. salary_checked_at is a timestamp;
+   this is the reason a row is unread, so 46 percent of the list stops
+   looking like a defect when a third of it is a policy limit. */
+export const JD_READ_COLUMNS = [
+  ['jd_read_status', 'TEXT']
+];
+
 /**
  * Column rows from a PRAGMA table_info response, whichever shape the runner
  * returned.
@@ -102,6 +109,19 @@ export async function ensurePayColumns(run) {
      "refresh unknown". */
   await ensureColumns(run, PAY_COLUMNS);
   await ensureDateColumns(run);
+  await ensureJdReadColumns(run);
+}
+
+/**
+ * Add jd_read_status if it is missing. Same swallow-duplicate behaviour
+ * as the pay columns -- a second ALTER on a live database is how a deploy
+ * against an already-migrated table used to 500.
+ *
+ * @param {(sql: string, params?: Array<string|number|null>) => Promise<any>} run
+ * @returns {Promise<void>}
+ */
+export async function ensureJdReadColumns(run) {
+  await ensureColumns(run, JD_READ_COLUMNS);
 }
 
 /**
