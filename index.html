@@ -248,7 +248,15 @@
   .fmenu .flist {
     max-height: 268px; overflow-y: auto; display: flex; flex-direction: column;
     border: 1px solid var(--border); border-radius: 6px; padding: 4px;
+    /* -webkit-overflow-scrolling keeps the list scrollable under a finger on
+       iOS Safari, where an overflow container inside a fixed-ish popup
+       otherwise swallows the gesture. */
+    -webkit-overflow-scrolling: touch;
   }
+  /* The row that commits or clears must never be the part that scrolls away:
+     the popup discards on Escape, so a person who cannot reach Apply loses the
+     selection they just made. */
+  .fmenu .frow { flex: 0 0 auto; }
   .fmenu label {
     display: flex; align-items: center; gap: 7px; padding: 4px 5px;
     font: 13px/1.25 inherit; cursor: pointer; border-radius: 5px; min-width: 0;
@@ -2080,13 +2088,54 @@
       closeMenu(); render();
     });
 
+    /* Placement, clamped on BOTH axes.
+       Brian, 2026-09-03, on a phone in desktop mode: the Posted popup opened,
+       the keyboard came up over it, and the values and the Apply button could
+       not be reached. Three separate things were wrong here.
+
+       1. left was clamped against the RIGHT edge only, so a button near the
+          left could still put the popup at a negative x. The sign-in panel had
+          exactly this bug on a 320px phone a day earlier.
+       2. Nothing kept the popup inside the viewport vertically, so on a short
+          screen the Apply row sat below the fold with no way to scroll to it.
+          It flips above the button when there is more room up than down.
+       3. The search field was focused unconditionally, which is what raises
+          the on-screen keyboard. */
     var r = btn.getBoundingClientRect();
-    menu.style.top = (r.bottom + window.scrollY + 4) + "px";
-    var left = r.left + window.scrollX;
-    menu.style.left = Math.min(left, window.scrollX + document.documentElement.clientWidth - menu.offsetWidth - 12) + "px";
+    var docW = document.documentElement.clientWidth;
+    var viewH = window.innerHeight || document.documentElement.clientHeight;
+    var GAP = 4, EDGE = 12;
+
+    var below = viewH - r.bottom;
+    var above = r.top;
+    var room = Math.max(below, above) - (EDGE + GAP);
+    /* The list scrolls; the search box and the Apply row must not. Cap the
+       whole popup so those two always fit inside whatever room there is. */
+    menu.style.maxHeight = Math.max(180, room) + "px";
+    menu.style.overflow = "hidden";
+    var list = menu.querySelector(".flist");
+    if (list) list.style.maxHeight = Math.max(84, room - 96) + "px";
+
+    var h = menu.offsetHeight;
+    var top = (below >= h + GAP || below >= above)
+      ? r.bottom + GAP
+      : Math.max(EDGE, r.top - h - GAP);
+    top = Math.min(top, Math.max(EDGE, viewH - h - EDGE));
+    menu.style.top = (top + window.scrollY) + "px";
+
+    var left = Math.min(r.left, docW - menu.offsetWidth - EDGE);
+    menu.style.left = (Math.max(EDGE, left) + window.scrollX) + "px";
+
     btn.setAttribute("aria-expanded", "true");
     openMenu = menu;
-    menu.querySelector(".fsearch").focus();
+
+    /* Focus the search box only where a keyboard is already there. On a coarse
+       pointer this call is what covers the popup with the on-screen keyboard,
+       hiding the very checkboxes it was opened to reach. The field is still
+       tappable; it just no longer grabs focus uninvited. */
+    var coarse = false;
+    try { coarse = window.matchMedia("(pointer: coarse)").matches; } catch (e) {}
+    if (!coarse) menu.querySelector(".fsearch").focus();
   }
 
   /** Re-attach the header handlers after each innerHTML rebuild. */
