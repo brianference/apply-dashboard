@@ -2,6 +2,72 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v20.0.0 — The resume imports itself (2026-09-03)
+
+Brian: the import-from-resume work is good, but do not force them to hit import
+on each section. Auto-import it and let them edit.
+
+### It fills itself in on a first visit
+
+A profile with nothing stored now opens with the resume already parsed, laid out
+and editable. `mergeSections(null, parsed)` returns the parse, so this is a
+wiring change rather than new logic, and the result is persisted immediately --
+an auto-fill that lives only in the DOM disappears on the next load and reads as
+data loss.
+
+### And never over work that already exists
+
+The friction goes; the safety property does not. The auto-fill runs ONLY when
+nothing is stored. The moment sections exist, the parse stops being applied and
+becomes something to add from, because a parser that runs over saved work is the
+one failure this feature had to avoid.
+
+Three cases hold that line, and each fails on its own input:
+  - a first visit starts from the parse rather than an empty form
+  - a later visit keeps a hand-edited title instead of re-importing over it,
+    and the parse by itself still carries the resume title, so the merge is
+    demonstrably what kept the edit
+  - a section somebody deliberately emptied stays empty rather than being
+    refilled, because an empty stored section is still stored
+
+Pointing the merge at `null` in a temporary copy -- which is what an auto-import
+that ignores saved state would do -- fails the edit-protection case and exits 1.
+
+## v19.0.0 — A LinkedIn-shaped profile, parsed from the resume that exists (2026-09-03)
+
+/profile/ was a flat form and `profile.resume_text` was stored and read by
+nothing. It parses into sections now -- summary, experience, projects, skills,
+education, certifications -- each editable, reorderable by drag AND by keyboard
+buttons, with a per-section visibility toggle so the public portfolio can differ
+from the private profile.
+
+/portfolio/ renders the visible sections, carries JSON-LD Person, and prints as
+one clean column, which is the virtual resume. A hidden section is ABSENT from
+the HTML rather than display:none, because hidden on a public page has to mean
+not published. Email and phone are stripped from every new field.
+
+### The spec was wrong and the tests passed anyway
+
+The spec said the role line was "Title | Location" with a company line above it,
+and that dates always carry a month. The fixture encoded that and every
+assertion passed. Against the real resume, five of six roles came out with an
+achievement paragraph as their company, the company sat in the location field,
+and the sixth role did not exist at all because "2016 to Present" has no month.
+
+Three corrections, each measured against the document rather than reasoned
+about. The pipe carries the COMPANY, and this resume states no location
+anywhere, so location is null rather than invented. Dates may omit the month;
+"undefined 2016" is worse than a missing month because it looks like data. The
+company-line lookback is gone -- with no company line to find it claimed the
+preceding paragraph and used that index as the end of the previous role,
+dropping eight long lines of achievement text while nothing failed, because text
+that is never assigned leaves nothing to assert against.
+
+Against the real resume now: six roles, correct companies, correct dates, 18
+paragraphs, and zero source lines unaccounted for. A new case accounts for every
+WORK EXPERIENCE line instead of spot-checking the fields that happen to be
+named.
+
 ## v18.0.0 — Read the boards nobody could read, and stop trusting text about code (2026-09-03)
 
 Measured on production as this shipped: 261 queued rows, 178 of them with a

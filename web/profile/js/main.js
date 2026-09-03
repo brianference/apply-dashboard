@@ -9,6 +9,7 @@
 import { mountSiteNav, initialsFor } from "/shared/site-nav.js";
 import { toAvatarDataUrl } from "./avatar.js";
 import { mountSections } from "./sections.js";
+import { mergeSections } from "./parse.js";
 
 const FIELDS = ["headline", "location", "linkedin_url", "github_url", "resume_filename"];
 
@@ -166,8 +167,24 @@ async function start() {
     return json;
   }
 
+  /* Auto-import on a first visit.
+     mergeSections(null, parsed) returns the parse, so a person with nothing
+     stored opens the page with their resume already laid out and editable
+     rather than facing an empty form and a row of Import buttons.
+
+     ONLY when nothing is stored. The moment sections exist, the parse stops
+     being applied and becomes something to add from, because a parser that
+     runs over saved work is the one failure this whole feature had to avoid.
+     Persisting it immediately is what makes it real: an auto-fill that lives
+     only in the DOM disappears on the next load and looks like data loss. */
+  const storedSections = profile.profile_sections || null;
+  const firstImport = !storedSections && data.suggested;
+  const startingSections = firstImport
+    ? mergeSections(null, data.suggested)
+    : storedSections;
+
   const sectionEditor = mountSections(at("#sections"), {
-    saved: profile.profile_sections || null,
+    saved: startingSections,
     suggested: data.suggested || null,
     headerCheckbox: at("#vis-header"),
     onPersist: async (sections) => {
@@ -178,6 +195,17 @@ async function start() {
       }
     }
   });
+
+  if (firstImport) {
+    try {
+      await putProfile({ profile_sections: startingSections });
+      flash("Your resume is imported below. Edit anything, then Save.");
+    } catch {
+      /* A failed first write is not a reason to hide the parse: the sections
+         are on screen and editable, and the next Save stores them. */
+      flash("Imported from your resume. Save to keep it.", true);
+    }
+  }
 
   at("#form").addEventListener("submit", async (event) => {
     event.preventDefault();

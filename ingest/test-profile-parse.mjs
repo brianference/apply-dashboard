@@ -628,5 +628,44 @@ check('the real module still keeps PUBLICATIONS as extra after the copies were b
     paras > 0, String(paras));
 }
 
+
+/* ---- auto-import, without ever overwriting saved work ------------------
+
+   Brian, 2026-09-03: do not force them to hit import on each section, just
+   auto-import and let them edit. The friction goes; the safety property must
+   not. mergeSections is the primitive both behaviours rest on, so both are
+   asserted here rather than only the new one. */
+{
+  const parsed = parseResume(FIXTURE_PROSE);
+
+  /* First visit: nothing stored, so the parse IS the starting state. */
+  const first = mergeSections(null, parsed);
+  check('a first visit starts from the parse, not an empty form',
+    first && Array.isArray(first.experience) && first.experience.length === parsed.experience.length,
+    first && first.experience && String(first.experience.length));
+
+  /* A later visit: something stored, so the parse must not be applied over it.
+     This is the case that protects a person's edits, and it is the reason the
+     auto-fill is gated on "nothing stored" rather than run on every load. */
+  const edited = structuredClone(first);
+  edited.experience[0].title = "Head of Product, edited by hand";
+  const later = mergeSections(edited, parsed);
+  check('a later visit keeps the edit rather than re-importing over it',
+    later.experience[0].title === "Head of Product, edited by hand",
+    later.experience[0].title);
+  check('and the parse by itself still carries the resume title, so the merge is what kept it',
+    parsed.experience[0].title !== "Head of Product, edited by hand",
+    parsed.experience[0].title);
+
+  /* An empty stored object is still "stored". Treating {} as nothing would
+     re-import over somebody who had deliberately cleared a section. */
+  const cleared = structuredClone(first);
+  cleared.experience = [];
+  const afterClear = mergeSections(cleared, parsed);
+  check('a deliberately emptied section is not refilled by the parse',
+    Array.isArray(afterClear.experience) && afterClear.experience.length === 0,
+    String(afterClear.experience.length));
+}
+
 console.log(bad ? `\n${bad} FAILED` : "\nresume parse holds on the grammar measured from the document");
 process.exitCode = bad ? 1 : 0;
