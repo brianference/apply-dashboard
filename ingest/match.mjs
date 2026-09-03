@@ -113,3 +113,42 @@ export function assignLane(job) {
 export function dedupeKey(company, title) {
   return `${String(company || "").toLowerCase()}|${String(title || "").toLowerCase()}`;
 }
+
+/**
+ * Normalise a company or title for duplicate detection: punctuation dropped,
+ * and the decorations that vary between boards removed.
+ *
+ * Originally written in apply/batch.mjs as the last-second check before
+ * submitting -- Brian's rule, 2026-08-25: aggressively prevent duplicates. An
+ * exact dedupe_key or URL match is not enough. The same job is listed under
+ * different keys when a title picks up or loses a suffix ("(Remote
+ * Eligible)", "- US", "II", a comma where another board used a hyphen), or
+ * when a company name is written two ways ("Kin" / "Kin Insurance").
+ *
+ * Shared here so the SAME normalisation runs at ingest time
+ * (ingest/sync-to-d1.mjs), not only in the last-second check immediately
+ * before a submission -- otherwise two still-queued rows for the same
+ * posting can sit side by side and both look submittable.
+ *
+ * @param {string} v
+ * @returns {string}
+ */
+export function normalizeForDedupe(v) {
+  return String(v || "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(remote|eligible|hybrid|onsite|on site|us|usa|united states|full time|contract)\b/g, " ")
+    .replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Is `a` the same posting as `b`, judged on normalised company and title
+ * rather than an exact key or URL match?
+ *
+ * @param {{company?: string, title?: string}} a
+ * @param {{company?: string, title?: string}} b
+ * @returns {boolean}
+ */
+export function sameJob(a, b) {
+  return normalizeForDedupe(a && a.company) === normalizeForDedupe(b && b.company)
+    && normalizeForDedupe(a && a.title) === normalizeForDedupe(b && b.title);
+}
