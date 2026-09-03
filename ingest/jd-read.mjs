@@ -10,8 +10,18 @@
  * instead of leaving 64 rows undated and 180 unpriced.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { isoFromUnknown } from './jobs.mjs';
 import { salaryFromText } from './salary-from-posting.mjs';
+
+/** Where reads are cached when a caller does not say. Same directory the board
+    tiers use, so one sweep clears everything. */
+const DEFAULT_CACHE_DIR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)), 'out', 'jd-cache'
+);
 
 /** Survey threshold: JSON-LD JobPosting.description counted as a read above this. */
 export const JSONLD_DESC_MIN = 400;
@@ -497,6 +507,92 @@ function fromPageText(html) {
   };
 }
 
+
+/**
+ * Where a non-board read is cached.
+ *
+ * The board tiers key their cache on ats-token-id. The tiers added on
+ * 2026-09-03 -- Himalayas, Workday CXS, JSON-LD, page text -- had no board
+ * reference, so they keyed on nothing and cached nothing. Two full re-scores of
+ * the same queue then reported 111 unread and 119, and the cache held ZERO
+ * himalayas files out of 197. A coverage number that moves when nothing about
+ * the postings moved is not a measurement.
+ *
+ * The URL is hashed rather than sanitised: a job URL carries query strings,
+ * unicode, and paths longer than a filename, and a lossy sanitiser would
+ * collide two postings into one file.
+ *
+ * @param {string} url
+ * @returns {string}
+ */
+export function urlCacheFileName(url) {
+  const key = String(url || '').trim().replace(/[#?].*$/, '').replace(/\/+$/, '');
+  return 'page-' + createHash('sha1').update(key).digest('hex') + '.json';
+}
+
+/**
+ * A cached read, or null.
+ *
+ * Only a result with real text counts as a hit. Caching an empty one would pin
+ * a transient failure forever, and a board that was rate-limiting for a minute
+ * would look permanently unreadable.
+ *
+ * @param {string|null} dir
+ * @param {string} url
+ * @returns {object|null}
+ */
+export function readUrlCache(dir, url) {
+  if (!dir) return null;
+  try {
+    const file = path.join(dir, urlCacheFileName(url));
+    if (!fs.existsSync(file)) return null;
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (parsed && parsed.text && String(parsed.text).length > 100) return parsed;
+    return null;
+  } catch { return null; }
+}
+
+/**
+ * @param {string|null} dir
+ * @param {string} url
+ * @param {object} result
+ * @returns {void}
+ */
+export function writeUrlCache(dir, url, result) {
+  if (!dir || !result || !result.text) return;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, urlCacheFileName(url)), JSON.stringify(result), 'utf8');
+  } catch { /* the cache is a shortcut, never a requirement */ }
+}
+
+/**
+ * Read a posting, caching whichever tier answered.
+ *
+ * A thin wrapper rather than a check at each of the five return sites, because
+ * a cache written in five places is a cache that will be forgotten in one.
+ *
+ * @param {string} url
+ * @param {object} [options]
+ * @returns {Promise<object>}
+ */
+export async function readJd(url, options = {}) {
+  /* Default to the same directory the board tiers already use. The wrapper
+     only cached when a caller passed cacheDir, and NO caller did: fetchJd
+     spreads its options through and daily.mjs calls readJd(url) bare, so the
+     cache existed and never once activated. Zero page- files were written
+     across three full re-scores while the code that writes them was correct
+     and tested. A default nobody has to remember is the difference. */
+  const dir = options.cacheDir || DEFAULT_CACHE_DIR;
+  if (!options.refetch) {
+    const hit = readUrlCache(dir, url);
+    if (hit) return { ...hit, via: hit.via || 'cache' };
+  }
+  const result = await readJdUncached(url, options);
+  writeUrlCache(dir, url, result);
+  return result;
+}
+
 /**
  * Read a posting through the five tiers. Blocked and known-dead hosts
  * return without calling fetch -- that is the distinction the 145 unread
@@ -513,7 +609,7 @@ function fromPageText(html) {
  * }} [options]
  * @returns {Promise<JdReadResult>}
  */
-export async function readJd(url, options = {}) {
+async function readJdUncached(url, options = {}) {
   const get = options.fetch || globalThis.fetch.bind(globalThis);
   const now = options.now || new Date();
   const policy = hostPolicy(url);

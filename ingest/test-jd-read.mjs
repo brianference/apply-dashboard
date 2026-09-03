@@ -14,7 +14,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import {
   workdayCxsUrl,
   extractJsonLdJobPosting,
@@ -23,6 +23,7 @@ import {
   matchHimalayasJob,
   hostPolicy,
   readJd,
+  urlCacheFileName,
   PAGE_TEXT_MIN
 } from './jd-read.mjs';
 import { fetchJd, strip, boardRef, fetchBoardJd } from './fit-score.mjs';
@@ -493,6 +494,12 @@ const PAGE_JSONLD = `<html><body>${ldScript({
   check('Workday page is not fetched when CXS answered',
     calls.every((c) => /\/wday\/cxs\//.test(c)),
     calls.join(' | '));
+  /* The URL the matcher built is the URL that was actually requested. Computing
+     it and never checking it left the matcher's output unasserted -- eslint's
+     no-unused-vars is what surfaced that, which is the second thing it has
+     caught in merged work today. */
+  check('the CXS URL the matcher built is the one that was requested',
+    calls.includes(cxs), `built ${cxs} | called ${calls.join(' | ')}`);
   try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* temp dir is a proof */ }
 }
 
@@ -709,6 +716,90 @@ async function loadBroken(mutated, name) {
 }
 
 try { fs.rmSync(tmpBreak, { recursive: true, force: true }); } catch { /* temp dir is a proof */ }
+
+
+/* ---- every tier is cached, not just the board APIs ---------------------
+   Two full re-scores of the same queue reported 111 unread and then 119, and
+   the cache held ZERO himalayas files out of 197: the tiers added here keyed
+   their cache on a board reference they do not have, so they re-fetched every
+   run and kept whatever that minute's rate limits allowed. A coverage number
+   that moves when nothing about the postings moved is not a measurement. */
+{
+  const page = '<html><head><script type="application/ld+json">'
+    + JSON.stringify({ '@type': 'JobPosting', description: '<p>' + 'Cached posting body. '.repeat(40) + '</p>',
+      datePosted: '2026-08-30' })
+    + '</script></head><body>x</body></html>';
+  const { fetch: fetchFn, calls } = fakeFetch([
+    { match: () => true, status: 200, contentType: 'text/html', body: page }
+  ]);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-cache-'));
+  const url = 'https://careers.lansweeper.com/jobs/1234-product-manager';
+
+  const first = await readJd(url, { fetch: fetchFn, cacheDir: tmp });
+  const callsAfterFirst = calls.length;
+  check('a non-board tier reads on the first call',
+    !!(first.text && /Cached posting body/.test(first.text)), first.via);
+  check('the first call actually fetched', callsAfterFirst > 0, String(callsAfterFirst));
+
+  const second = await readJd(url, { fetch: fetchFn, cacheDir: tmp });
+  check('the second call does NOT fetch again',
+    calls.length === callsAfterFirst, `${callsAfterFirst} -> ${calls.length}`);
+  check('the cached read returns the same text',
+    second.text === first.text, `${String(second.text).length} vs ${String(first.text).length}`);
+  check('the cached read keeps the posted date',
+    second.posted === first.posted, `${second.posted} vs ${first.posted}`);
+  check('a cache file was written for a URL with no board reference',
+    fs.readdirSync(tmp).some((f) => f.startsWith('page-')), fs.readdirSync(tmp).join(','));
+
+  /* refetch has to still work, or a decoder fix could never reach old rows. */
+  const third = await readJd(url, { fetch: fetchFn, cacheDir: tmp, refetch: true });
+  check('refetch bypasses the cache', calls.length > callsAfterFirst,
+    `${callsAfterFirst} -> ${calls.length}`);
+  check('refetch still returns the posting', !!third.text);
+
+  /* An empty result must NOT be cached: a board rate-limiting for a minute
+     would otherwise look permanently unreadable. */
+  const { fetch: failFn } = fakeFetch([{ match: () => true, status: 503, contentType: 'text/html', body: '' }]);
+  const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-cache2-'));
+  await readJd('https://careers.lansweeper.com/jobs/9999-other', { fetch: failFn, cacheDir: tmp2 });
+  check('a failed read is not cached',
+    !fs.readdirSync(tmp2).some((f) => f.startsWith('page-')), fs.readdirSync(tmp2).join(',') || '(empty)');
+
+  try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* proof, not product */ }
+  try { fs.rmSync(tmp2, { recursive: true, force: true }); } catch { /* proof, not product */ }
+}
+
+
+/* ---- the cache has a default, or it never activates --------------------
+   The wrapper only cached when a caller passed cacheDir, and NO caller did:
+   fetchJd spreads its options through and daily.mjs calls readJd(url) bare.
+   Three full re-scores wrote ZERO page- files while the caching code was
+   correct and tested. A default nobody has to remember is what makes it real,
+   and this is the case that fails if the default is dropped again. */
+{
+  const page = '<html><head><script type="application/ld+json">'
+    + JSON.stringify({ '@type': 'JobPosting', description: '<p>' + 'Default cache body. '.repeat(40) + '</p>' })
+    + '</script></head><body>x</body></html>';
+  const { fetch: fetchFn, calls } = fakeFetch([
+    { match: () => true, status: 200, contentType: 'text/html', body: page }
+  ]);
+  /* A URL nothing else in the suite touches, so the assertion is about the
+     default and not about a file some earlier case happened to leave. */
+  const url = 'https://careers.lansweeper.com/jobs/default-cache-probe-' + Date.now();
+  const before = calls.length;
+  await readJd(url, { fetch: fetchFn });
+  check('a read with NO cacheDir still fetched', calls.length > before);
+  const mid = calls.length;
+  await readJd(url, { fetch: fetchFn });
+  check('a second read with NO cacheDir is served from the default cache',
+    calls.length === mid, `${mid} -> ${calls.length}`);
+
+  const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'out', 'jd-cache');
+  const file = path.join(dir, urlCacheFileName(url));
+  check('the default cache directory is the one the board tiers use',
+    fs.existsSync(file), file);
+  try { fs.rmSync(file, { force: true }); } catch { /* proof, not product */ }
+}
 
 console.log(bad
   ? `\n${bad} FAILED`
