@@ -63,7 +63,8 @@ for (const [label, chip, badge] of [
   ['Over $180k', 'over', '#nover'],
   ['Apply direct', 'direct', '#ndirect'],
   ['Needs you', 'manual', '#nmanual'],
-  ['Over 30 days', 'stale', '#nstale']
+  ['Over 30 days', 'stale', '#nstale'],
+  ['Leadership', 'leadership', '#nlead']
 ]) {
   await page.locator('.chip[data-kind="all"]').click();
   await page.waitForTimeout(400);

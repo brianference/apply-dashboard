@@ -144,6 +144,7 @@ jobs:
           npx playwright install --with-deps chromium
           node apply/test-counts.mjs https://apply-dashboard.pages.dev
           node tests/clear-filters.mjs https://apply-dashboard.pages.dev
+          node tests/leadership-filter.mjs https://apply-dashboard.pages.dev
 
       - name: Confirm the database actually moved
         # A wrangler-style "success" is not proof. Read the API back and print

@@ -66,6 +66,7 @@ projects.
 | Header search and the `/` shortcut | — | yes | **Gap.** Verified by screenshot only |
 | Filter chips | — | yes | **Gap.** No test |
 | Posted column (age in days) | `tests/posted-filter.mjs` | — | "today", "Nd ago", or an em-dash. No-date rows sink in both sort directions. Newest sorts on `posted`, not crawl time |
+| Leadership roles hidden behind a pill | `tests/leadership-filter.mjs` | - | Director, Head of Product, VP and CPO off the default list. The test writes its own pattern rather than importing the page's, and floors the pill count, because a regex whose escapes were eaten matches nothing while every count still agrees with its own empty row set |
 | Clear all filters, and the Over $180k chip | `tests/clear-filters.mjs`, `apply/test-counts.mjs` | — | The button counts what it will clear and is disabled at zero. The test asserts the column filter actually engaged before checking it was cleared, and every numbered chip must equal the rows it reveals |
 | Posted-within toolbar filter | `tests/posted-filter.mjs` | — | Not persisted. Unknown dates do not survive a window. The hidden-count note must add up. Local drive via `tests/serve-local.mjs` |
 | Stale lens (over 30 days, unless refreshed) | `ingest/test-stale.mjs` | n/a | 31d posted + 2d refresh is kept (Pinterest). 31d + 40d refresh is hidden. Unknown refresh is kept -- ingest missing a field must not hide the row. No posted date is kept. Exactly 30 days is kept (`>` not `>=`) |
