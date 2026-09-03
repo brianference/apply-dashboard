@@ -2,6 +2,66 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v18.0.0 — Read the boards nobody could read, and stop trusting text about code (2026-09-03)
+
+Measured on production as this shipped: 261 queued rows, 178 of them with a
+description read, up from 170 of 315. Of the 83 still unread, 27 are on boards
+whose terms forbid automated reads, so the honest ceiling here is 56 rows on
+hosts that answer nothing usable.
+
+### A tiered description reader
+
+145 rows had never had a description read, and that one gap caused the two
+numbers next to it: no resume score and no published band. Every one of the 43
+distinct hosts was surveyed first, one request each, before any code was
+written.
+
+Tiers, in order: the three board APIs unchanged, Workday CXS with the locale
+segment optional, the Himalayas feed, JSON-LD JobPosting, then readable page
+text. `datePosted` and `baseSalary` come from the same fetch, USD and YEAR only,
+so no extra request closes two more gaps.
+
+Blocked hosts are never fetched, and the test asserts the fetch was not
+ATTEMPTED rather than that the result was null. Returning nothing and never
+being asked are different things.
+
+### 33 postings the reader already knew were gone
+
+`--unread` on closed-check asks the READER rather than fetching the page again,
+because the reader is what knows a board id has been dropped. It found 33 rows
+returning board-404 -- lever and greenhouse ids the boards no longer list --
+that had been sitting on the list looking like a reader which could not cope.
+
+### Three bugs found by not trusting a number
+
+The coverage number moved between identical runs: 111, then 119. The new tiers
+keyed their cache on a board reference they do not have, so they cached nothing
+and re-fetched every run, keeping whatever that minute's rate limits allowed.
+The cache held ZERO himalayas files out of 197.
+
+Fixing that exposed a second layer. The caching wrapper only ran when a caller
+passed `cacheDir`, and no caller did: `fetchJd` spreads its options through and
+`daily.mjs` calls `readJd(url)` bare. Three full re-scores wrote no cache files
+while the caching code was correct and tested. It has a default now, and a case
+asserts a second read with no `cacheDir` makes zero fetches.
+
+Clearing the cache to force a fresh read also wiped the corpus `resumeMatch`
+calibrates against, and every row lost its resume score. That was mine, and the
+next run restored it.
+
+### Two assertions that could not fail
+
+A test appended cases after `process.exitCode` was already set, so four new
+checks printed and could never fail the suite. The verdict is last in that file
+now, and falsifying a case exits 1.
+
+An assertion required `salary-sweep.mjs` to CONTAIN the literal call
+`boardTextHasBand(boardText)`. The reader consolidation renamed the variable:
+the assertion failed while the behaviour was intact and better. A text match
+cannot tell a rename from a removal, which is the same lesson as the
+ReferenceError that reached CI. The decision lives in a pure
+`withStructuredBand()` now and is asserted on behaviour.
+
 ## v17.0.0 — Pay is in the score, and the list is narrower on purpose (2026-09-03)
 
 Everything Brian asked for across one working day, all of it driven by looking

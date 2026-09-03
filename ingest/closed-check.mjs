@@ -22,6 +22,13 @@
  *
  *   node ingest/closed-check.mjs                 report only
  *   CF_D1_TOKEN=... node ingest/closed-check.mjs --write
+ *   node ingest/closed-check.mjs --unread        the never-read rows instead
+ *
+ * --unread exists because the tiered reader already knows. It returns
+ * outcome board-404 when the board itself no longer has the posting, and 24
+ * unread rows came back that way -- lever and greenhouse ids the board has
+ * dropped. Nothing acted on it, so they sat on the list looking like a
+ * reader that could not cope rather than postings that are gone.
  */
 
 import { isCli, parseArgs } from './cli.mjs';
@@ -120,6 +127,24 @@ export function rowsToRecheck(rows) {
     && String(r.status || '') !== 'submitted');
 }
 
+/**
+ * Queued rows whose description has never been read.
+ *
+ * The tiered reader returns outcome board-404 when the board itself no longer
+ * has the posting, and 24 unread rows came back that way -- lever and
+ * greenhouse ids the board has dropped. Nothing acted on it, so they sat on the
+ * list looking like a reader that could not cope rather than postings that are
+ * gone. This is the set to re-read and close.
+ *
+ * @param {Array<Record<string, any>>} rows
+ * @returns {Array<Record<string, any>>}
+ */
+export function rowsUnread(rows) {
+  return (rows || []).filter((r) => r
+    && String(r.status || '') === 'queued'
+    && String(r.jd_read || '') !== 'yes');
+}
+
 /* ------------------------------------------------------------------ CLI -- */
 
 if (isCli(import.meta.url)) {
@@ -143,6 +168,35 @@ if (isCli(import.meta.url)) {
   };
 
   const live = await (await fetch(API, { headers: { 'cache-control': 'no-cache' } })).json();
+
+  /* --unread asks the READER, not a page fetch. The reader is the thing that
+     knows a board id has been dropped, and asking it keeps one answer rather
+     than two that can disagree. */
+  if (args.unread) {
+    const { readJd } = await import('./jd-read.mjs');
+    await import('./fit-score.mjs');
+    const unread = rowsUnread(live.jobs || []);
+    logInfo('closed-check --unread', { rows: unread.length, write: doWrite });
+    const seen = { 'board-404': 0, read: 0, other: 0 };
+    for (const row of unread) {
+      let outcome = 'other';
+      try {
+        const r = await readJd(row.url, { refetch: true });
+        outcome = r && r.outcome === 'board-404' ? 'board-404'
+          : (r && r.text ? 'read' : 'other');
+      } catch { outcome = 'other'; }
+      seen[outcome] = (seen[outcome] || 0) + 1;
+      if (outcome !== 'board-404') continue;
+      logInfo('board-404', { company: row.company, title: String(row.title).slice(0, 44) });
+      if (!doWrite) continue;
+      const w = closedWrite(row, 'the board no longer lists this posting');
+      await d1(w.sql, w.params);
+    }
+    logInfo('unread sweep complete', seen);
+    if (!doWrite) logWarn('nothing written', { hint: 'pass --write to apply' });
+    process.exit(0);
+  }
+
   const rows = rowsToRecheck(live.jobs || []);
   logInfo('closed-check', { rows: rows.length, write: doWrite });
 
