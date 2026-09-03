@@ -89,6 +89,14 @@ const KIND = {
    the pipeline is sound. resume-match's self-check needs the gitignored resume,
    so it is skipped rather than failed when that file is absent. */
 const EXTRA = [
+  /* The lint that exists for one bug: a name that is defined in no environment.
+     Skipped rather than failed when eslint is absent, because this repo commits
+     no dependencies and a fresh clone has none -- CI installs it ad hoc the
+     same way it installs playwright. */
+  { name: 'npx eslint .', kind: 'node', argv: [],
+    spawnDirect: ['npx', ['eslint', '.']],
+    skipUnless: () => fs.existsSync(path.join(ROOT, 'node_modules', 'eslint')),
+    skipWhy: 'eslint is not installed here: npm install --no-save eslint' },
   { name: 'ingest/resume-match.mjs --self-check', kind: 'node',
     argv: ['ingest/resume-match.mjs', '--self-check'],
     skipUnless: () => fs.existsSync(path.join(ROOT, 'apply', 'resume-text.local.txt')),
@@ -172,13 +180,22 @@ if (withToken && !process.env.CF_D1_TOKEN) {
  * @param {Record<string,string>} [env]
  * @returns {Promise<{code:number, out:string, ms:number}>}
  */
-function run(args, env) {
+function run(args, env, direct) {
   return new Promise((resolve) => {
     const started = Date.now();
-    const child = spawn(process.execPath, args, {
-      cwd: ROOT,
-      env: Object.assign({}, process.env, env || {})
-    });
+    /* Everything here is a node script except the lint, which is a different
+       executable. `shell: true` is needed for npx on Windows, where it is a
+       .cmd shim and a bare spawn fails -- the same reason the grok CLI has to
+       be invoked through a shell. */
+    const child = direct
+      ? spawn(direct[0], direct[1], {
+        cwd: ROOT, shell: true,
+        env: Object.assign({}, process.env, env || {})
+      })
+      : spawn(process.execPath, args, {
+        cwd: ROOT,
+        env: Object.assign({}, process.env, env || {})
+      });
     let out = '';
     child.stdout.on('data', (d) => { out += d; });
     child.stderr.on('data', (d) => { out += d; });
@@ -236,7 +253,7 @@ for (const t of selected) {
   else if (t.kind === 'prod') args = [t.argv[0], '--site', prodSite];
   else args = t.argv.slice();
 
-  const r = await run(args);
+  const r = await run(args, null, t.spawnDirect);
   const ok = r.code === 0;
   results.push({ name: t.name, ok, out: r.out, ms: r.ms });
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${t.name.padEnd(42)} ${String(r.ms + 'ms').padStart(7)}`);

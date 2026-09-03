@@ -240,7 +240,7 @@ export async function postingText(job, refetch = false) {
     }
     const body = await res.text();
     return { text: textOf(body), via: 'page' };
-  } catch (error) {
+  } catch {
     if (boardText && boardText.length > BOARD_TEXT_MIN) return { text: boardText, via: 'board-api' };
     return { text: null, via: 'page-error' };
   }

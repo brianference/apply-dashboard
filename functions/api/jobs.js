@@ -80,10 +80,10 @@ export async function onRequestGet(context) {
     let rows;
     try {
       rows = (await env.DB.prepare(SELECT).all()).results;
-    } catch (refreshError) {
+    } catch {
       try {
         rows = (await env.DB.prepare(SELECT_NO_REFRESH).all()).results;
-      } catch (migrationError) {
+      } catch {
         // link_status has not been added yet -- serve the original columns.
         rows = (await env.DB.prepare(SELECT_LEGACY).all()).results;
       }

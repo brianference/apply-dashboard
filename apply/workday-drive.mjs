@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import {
   tenantCredentials, saveTenantCredential, markPendingVerification, newPassword,
   wdClick, wdFill, wdSelect, wdPromptPick,
-  wdErrors, wdPageInfo, wdDebug, wdFieldGroups, wdAnswerGroup, markCredentialVerified, wdSelectChoose, wdSelectOptions,
+  wdErrors, wdPageInfo, wdDebug, wdFieldGroups, wdAnswerGroup, markCredentialVerified, wdSelectChoose, 
   wdSelectByKeyboard,
 } from './workday.mjs';
 

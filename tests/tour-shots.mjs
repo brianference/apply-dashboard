@@ -1,7 +1,16 @@
 /**
  * One-off screenshots of each tour step. Not part of the gate.
  */
-import { chromium } from 'playwright';
+import { createRequire } from 'node:module';
+/* Brian's machine keeps Playwright in RedAnvil; a CI runner installs its own.
+   Try the local copy, fall back to a normal resolution, so the same file runs
+   in both places -- and in a git WORKTREE, which has no node_modules of its
+   own. A direct `import { chromium } from 'playwright'` fails there, which is
+   how a delegated run reported four failures that were not its fault. */
+const require = createRequire(import.meta.url);
+let chromium;
+try { ({ chromium } = require('C:/Users/brian/RedAnvil/node_modules/playwright')); }
+catch { ({ chromium } = await import('playwright')); }
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';

@@ -12,7 +12,16 @@
  *   CF_D1_TOKEN=... node tests/browser-signup.mjs http://127.0.0.1:8794
  */
 
-import { chromium } from 'playwright';
+import { createRequire } from 'node:module';
+/* Brian's machine keeps Playwright in RedAnvil; a CI runner installs its own.
+   Try the local copy, fall back to a normal resolution, so the same file runs
+   in both places -- and in a git WORKTREE, which has no node_modules of its
+   own. A direct `import { chromium } from 'playwright'` fails there, which is
+   how a delegated run reported four failures that were not its fault. */
+const require = createRequire(import.meta.url);
+let chromium;
+try { ({ chromium } = require('C:/Users/brian/RedAnvil/node_modules/playwright')); }
+catch { ({ chromium } = await import('playwright')); }
 import crypto from 'node:crypto';
 
 const SITE = process.argv[2] || 'https://apply-dashboard.pages.dev';
@@ -90,7 +99,7 @@ try {
      signup. Clearing this test harness's own register attempts first keeps the
      failure meaningful; the limiter itself is exercised deliberately at the end
      rather than tripped over by accident. */
-  const cleared = await q("DELETE FROM auth_attempts WHERE kind = 'register'");
+  await q("DELETE FROM auth_attempts WHERE kind = 'register'");
   console.log('cleared prior register attempts so the rate limiter is not the thing under test');
 
   /* 1. Arrive signed out and find the invitation above the table. */

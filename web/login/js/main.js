@@ -10,7 +10,7 @@
  * notice they changed pages.
  */
 
-import { el, mount } from "./dom.js";
+import { mount } from "./dom.js";
 import * as api from "./api.js";
 import { wirePasswordToggle } from "./password-toggle.js";
 

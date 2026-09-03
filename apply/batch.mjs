@@ -161,32 +161,20 @@ const RETRYABLE = new Set(['crashed', 'upload-failed']);
    postings it rehearsed from every later --submit run. On 2026-08-27 that cost
    RevenueCat and Aiwyn, the two highest-ranked jobs in the queue: the submit
    batch started at number three and reported nothing wrong. */
-/* A form that rejected the submit is blocked on a field the profile cannot
-   answer. Retrying it produces the same rejection, so it is recorded once and
-   never attempted again - that is what "skip and move on" means in practice. */
-const TERMINAL = new Set(['submitted-unconfirmed', 'needs-input', 'no-submit-button', 'needs-account-or-wizard',
-  'location-ineligible', 'needs-consent-decision', 'wall', 'captcha',
-  /* The form POST came back 428/403 -- a bot wall. Retrying only burns time. */
-  'captcha-blocked',
-  /* The board emailed a one-time code and will not accept the application
-     until a human types it in. Retrying just sends another email. */
-  'needs-email-code',
-  /* The Workday wizard never started on this posting. */
-  'wd-stuck',
-  /* The employer caps applications per candidate. No retry clears it. */
-  'employer-rate-limit',
-  /* Workday blockers that a retry cannot clear. wd-auth-blocked means Brian
-     already has a candidate account on that tenant under a password this repo
-     does not hold - it has to be added to apply/workday-accounts.local.json by
-     hand. wd-unknown-question and wd-validation-blocked mean the wizard asked
-     for something the profile and the answer bank do not cover; the run stops
-     rather than guessing. wd-no-apply-path is a posting Workday now 404s. */
-  'wd-auth-blocked', 'wd-unknown-question', 'wd-validation-blocked',
-  'wd-no-apply-path', 'wd-too-many-pages',
-  /* The form refused the submit and NAMED the fields it still needs. Retrying
-     the same run produces the same refusal; only new answers change it, which
-     is what ANSWERS_HASH reopens on. */
-  'needs-answers']);
+/* TERMINAL used to live here: a set of states that must never be retried.
+   It was removed on 2026-09-03 because nothing read it, and eslint's no-undef
+   sweep is what surfaced it -- a long, carefully commented rule that had been
+   documenting a decision the code stopped making.
+
+   The retry decision ALLOWLISTS instead. `if (!RETRYABLE.has(attempted.state))
+   return false;` means anything not named retryable is already never retried,
+   which is the same policy from the other side and cannot fall out of sync
+   with a second list. The comment above RETRYABLE still carries the history
+   that mattered: upload-failed is transient and was wrongly terminal, and
+   wd-stuck is not.
+
+   A rule that is written down and enforced by nothing is worse than no rule,
+   because the next reader believes it. */
 
 /** @returns {Record<string,string|boolean>} */
 function args() {
