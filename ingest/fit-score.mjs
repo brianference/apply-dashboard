@@ -9,7 +9,11 @@
  * cannot say anything about fit and must not be presented as if it does.
  *
  * Three separate numbers, because they answer three different questions and
- * averaging them into one hides which is failing:
+ * averaging them into one hides which is failing. The headline then mixes in
+ * a fourth term -- pay as a percentile of published starts -- so a high-pay
+ * posting that fits well and that he has a real shot at outranks a lower-pay
+ * one with a similar fit. The components stay on the row; only the headline
+ * is a blend.
  *
  *   requirements  a GATE, not a score. Salary floor, location, role. A posting
  *                 that fails is not "low ranked", it is off the list.
@@ -18,6 +22,9 @@
  *   success_pct   whether he could realistically win it: seniority distance,
  *                 hard requirements he does not meet, and whether the
  *                 application can even be submitted.
+ *   payTerm       percentile of the published START among the rows being
+ *                 scored. Unpriced takes the median. Not a dollars-per-point
+ *                 scale -- the same reason resume overlap is calibrated.
  *
  * NOTHING is scored without its source. A posting whose description could not
  * be fetched gets fit_pct = null, never a guess -- an invented fit number is
@@ -809,13 +816,118 @@ export function offFocusDomain(title) {
   return null;
 }
 
+/* Headline weights. Named so a future edit that makes them sum to 0.95
+   fails a test instead of silently compressing every score. Pay is a
+   percentile, not dollars, for the same reason resume overlap is
+   calibrated: a raw $170k cannot be averaged with a 45-94 fit score. */
+export const RANK_FIT_WEIGHT = 0.40;
+export const RANK_SUCCESS_WEIGHT = 0.35;
+export const RANK_PAY_WEIGHT = 0.25;
+/* Unread descriptions keep this weight on success alone. Mixing pay into
+   only that branch would be a second change with its own behaviour. */
+export const RANK_UNREAD_SUCCESS_WEIGHT = 0.6;
+
+/**
+ * Percentile of a published start among the starts being scored.
+ *
+ * Same shape as calibrate() in resume-match.mjs: count how many values sit
+ * strictly below this one, so a start that equals several others is not
+ * counted as beating itself. A raw dollar figure cannot be averaged with a
+ * 45-94 fit score; the percentile can.
+ *
+ * An empty or missing distribution returns 50, never 0. Zero would silently
+ * punish every posting, including ones that published nothing. Unknown is
+ * average here -- the same principle as unknown-is-not-low in the salary
+ * gate.
+ *
+ * @param {number} start
+ * @param {number[]|null|undefined} sortedStarts ascending published starts
+ * @returns {number} 0 to 100
+ */
+export function payPercentile(start, sortedStarts) {
+  if (!Array.isArray(sortedStarts) || sortedStarts.length === 0) return 50;
+  if (start == null || !Number.isFinite(Number(start))) return 50;
+  const n = Number(start);
+  let below = 0;
+  for (const v of sortedStarts) {
+    if (v < n) below++;
+    else break;
+  }
+  return Math.round((below / sortedStarts.length) * 100);
+}
+
+/**
+ * Sorted published starts from the rows about to be scored. Built once per
+ * run so every posting is judged against the same population, not against
+ * a distribution that grows as the loop writes.
+ *
+ * @param {Array<Record<string, any>>} rows
+ * @returns {number[]}
+ */
+export function publishedStarts(rows) {
+  const starts = [];
+  for (const row of rows || []) {
+    const start = parsePayStart(row && row.salary_min);
+    if (start != null && start > 0) starts.push(start);
+  }
+  starts.sort((a, b) => a - b);
+  return starts;
+}
+
+/**
+ * The three-term headline. Weights are named constants so a typo shows up
+ * as a failed sum rather than a list that all got a bit worse.
+ *
+ * @param {number} fitPct
+ * @param {number} successPct
+ * @param {number} payTerm
+ * @returns {number}
+ */
+export function rankBlend(fitPct, successPct, payTerm) {
+  return Math.round(
+    fitPct * RANK_FIT_WEIGHT
+    + successPct * RANK_SUCCESS_WEIGHT
+    + payTerm * RANK_PAY_WEIGHT
+  );
+}
+
+/**
+ * Pay component for one row. Unpriced takes the median (50). A missing
+ * distribution also returns 50 for every row -- never 0, because zero
+ * would silently punish the whole list.
+ *
+ * I first specified this the other way: unpriced rows kept the old
+ * two-term blend, priced rows got diluted by their pay percentile. Against
+ * the live queue the top twelve came out almost entirely unpriced
+ * (PeopleGrove 77, Jerry.ai 74, Camunda 72). That penalises an employer
+ * for publishing a band, which is backwards. Unknown is average here, the
+ * same principle as unknown-is-not-low in the salary gate.
+ *
+ * @param {Record<string, any>} job
+ * @param {number[]|null|undefined} payStarts
+ * @returns {number}
+ */
+function payTermFor(job, payStarts) {
+  const start = parsePayStart(job && job.salary_min);
+  if (start == null || start === 0) return 50;
+  return payPercentile(start, payStarts);
+}
+
 /**
  * Score one posting end to end.
- * Pay is not blended into rank; it is a separate tier so the list can sort
- * confirmed $180k+ first without pretending pay is a component of fit.
+ *
+ * Pay is in the headline as a percentile of published starts, AND still a
+ * separate `pay_tier` so Best match can sort confirmed $180k+ first. The
+ * lane is the sort; the percentile is the number on the row.
+ *
+ * `payStarts` is the sorted published starts of the rows being scored,
+ * built once per run. A missing or empty distribution degrades to
+ * payTerm 50 for every row, not to 0 -- zero would silently punish every
+ * posting. The function stays pure and never invents a number.
  *
  * @param {Record<string, any>} job
  * @param {string|null} jd
+ * @param {number[]|null|undefined} [payStarts]
  * @returns {{
  *   gate: {ok: boolean, reasons: string[], excludedDomain: string|null},
  *   fit: object|null,
@@ -823,10 +935,12 @@ export function offFocusDomain(title) {
  *   rank: number|null,
  *   pay_tier: 1|2|3|null,
  *   offFocus: {name: string}|null,
- *   jdRead: boolean
+ *   jdRead: boolean,
+ *   payTerm: number,
+ *   payStart: number|null
  * }}
  */
-export function scoreOne(job, jd) {
+export function scoreOne(job, jd, payStarts) {
   const gate = requirementsGate(job, jd);
   const concept = fitScore(jd);
   const success = successScore(job, jd);
@@ -852,12 +966,17 @@ export function scoreOne(job, jd) {
        preference I have no evidence for. */
     pct: resumeUsable ? Math.round(concept.pct * 0.6 + resume.pct * 0.4) : concept.pct
   };
-  /* The headline is deliberately NOT an average. A posting that fails the gate
-     has no headline at all, and one whose description was unreadable carries
-     its success score alone, clearly marked. */
+  const parsedStart = parsePayStart(job && job.salary_min);
+  const payStart = parsedStart != null && parsedStart > 0 ? parsedStart : null;
+  const payTerm = payTermFor(job, payStarts);
+  /* The headline is deliberately NOT a two-way average. A posting that fails
+     the gate has no headline at all. One whose description was unreadable
+     still carries success * 0.6 with no pay term -- adding pay to only that
+     branch would be a second change with its own behaviour. Everyone else
+     is fit, success, and the pay percentile, priced and unpriced alike. */
   const base = !gate.ok ? null
-    : fit === null ? Math.round(success.pct * 0.6)
-      : Math.round(fit.pct * 0.55 + success.pct * 0.45);
+    : fit === null ? Math.round(success.pct * RANK_UNREAD_SUCCESS_WEIGHT)
+      : rankBlend(fit.pct, success.pct, payTerm);
   /* A domain he does not work in costs points rather than the whole posting.
      Applied after the blend, not inside it, so the penalty is visible in the
      reason rather than dissolved into a component score. */
@@ -866,13 +985,23 @@ export function scoreOne(job, jd) {
   /* A failed gate clears the tier the same way it clears the rank: the row
      is off the list, not a low-ranked job in a pay lane. */
   const pay_tier = gate.ok ? payTier(job) : null;
-  return { gate, fit, success, rank, pay_tier, offFocus, jdRead: !!jd };
+  return { gate, fit, success, rank, pay_tier, offFocus, jdRead: !!jd, payTerm, payStart };
 }
 
 /**
  * The prose stored in rank_why for one scored row.
  *
- * @param {{fit: object|null, success: {reasons: string[]}, offFocus: {name: string}|null}} s
+ * Pay has to be named here. The percentage on the page carries this string
+ * in its hover title, and a score that moved 17 points with no visible
+ * reason is the thing this repo keeps being caught by.
+ *
+ * @param {{
+ *   fit: object|null,
+ *   success: {reasons: string[]},
+ *   offFocus: {name: string}|null,
+ *   payTerm?: number,
+ *   payStart?: number|null
+ * }} s
  * @returns {string}
  */
 export function rankWhy(s) {
@@ -881,6 +1010,16 @@ export function rankWhy(s) {
   if (s.fit && s.fit.resumePct != null) {
     why.push(`resume: better than ${s.fit.resumePct}% of your queue - matches ${(s.fit.matched || []).slice(0, 6).join(', ')}`);
     if ((s.fit.missing || []).length) why.push(`not in your resume: ${s.fit.missing.slice(0, 6).join(', ')}`);
+  }
+  /* Pay is in the headline only when fit was measured. The unread branch
+     ignores it, so naming a pay percentile there would claim a movement
+     that did not happen. */
+  if (s.fit && s.payTerm != null) {
+    if (s.payStart == null) {
+      why.push('pay: no published band, treated as the median of priced postings');
+    } else {
+      why.push(`pay: starts at $${Math.round(s.payStart / 1000)}k, higher than ${s.payTerm}% of priced postings`);
+    }
   }
   if (s.fit) why.push(...(s.fit.hits || []).slice(0, 3));
   why.push(...(s.success && s.success.reasons || []));
@@ -909,7 +1048,7 @@ export function rankWrite(s) {
      with the bare scoreOne() result, which carries no job, and every write
      in the twice-daily pipeline threw into a catch that only counted it. */
   const key = s.job && s.job.dedupe_key;
-  if (!key) throw new Error('rankWrite: no job.dedupe_key - pass { ...scoreOne(job, jd), job }');
+  if (!key) throw new Error('rankWrite: no job.dedupe_key - pass { ...scoreOne(job, jd, payStarts), job }');
   if (!s.gate.ok) {
     return {
       sql: `UPDATE jobs SET status = ?, blocked_reason = ?,
@@ -956,12 +1095,18 @@ if (isCli(import.meta.url)) {
     .sort((a, b) => (b.match_pct || 0) - (a.match_pct || 0))
     .slice(0, limit);
 
+  /* Built once from the rows about to be scored, not inside the loop.
+     A missing distribution would degrade every payTerm to 50, which is
+     neutral, not a crash -- but it would also make the run look like pay
+     was never wired in. */
+  const payStarts = publishedStarts(live);
+
   let read = 0;
   const scored = [];
   for (const j of live) {
     const jd = await fetchJd(j.url);
     if (jd) read++;
-    scored.push({ job: j, ...scoreOne(j, jd) });
+    scored.push({ job: j, ...scoreOne(j, jd, payStarts) });
   }
   scored.sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1));
 

@@ -198,8 +198,9 @@ check('still-rejected write keeps status skipped and writes current reasons',
 const reopenSrc = fs.readFileSync(path.join(ROOT, 'ingest', 'regate.mjs'), 'utf8');
 check('regate --write with no token process.exit(1)s',
   /!token[\s\S]{0,200}process\.exit\(1\)/.test(reopenSrc));
-check('regate re-runs requirementsGate, not a salary-only check',
-  /requirementsGate\(/.test(reopenSrc) && !/salaryOnly|salary-only/.test(reopenSrc));
+check('regate re-runs the whole gate via scoreOne, not a salary-only check',
+  /scoreOne\(/.test(reopenSrc) && /scored\.gate/.test(reopenSrc)
+    && !/salaryOnly|salary-only/.test(reopenSrc));
 
 /* ---- queued pass: the whole gate, over rows already in the list ----- */
 
