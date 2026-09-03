@@ -15,35 +15,54 @@
  */
 
 import { HEADERS } from "./_auth.js";
+import {
+  ensureProfileColumns,
+  normalizeSections,
+  publicView,
+  personJsonLd,
+  stripContact
+} from "./_profile-parse.js";
 
-/** Written this way so no build or shell step can mangle an escape into a real break. */
-const NEWLINE = String.fromCharCode(10);
+export { stripContact };
 
 /**
- * Remove anything that could be used to contact him directly.
+ * D1 runner the column guard expects. Same shape as the private profile
+ * route -- a second ALTER on a live database is how a deploy against an
+ * already-migrated table used to 500.
  *
- * Belt and braces: the summary this runs over is chosen by section, so it
- * should never contain the header line in the first place. If the resume is
- * ever re-parsed with different section boundaries, this is what stops the
- * phone number arriving on a public page anyway.
- *
- * @param {string} text
- * @returns {string}
+ * @param {D1Database} db
+ * @param {string} sql
+ * @returns {Promise<any>}
  */
-export function stripContact(text) {
-  return String(text || "")
-    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "")
-    .replace(/\+?\d{0,2}[\s.(-]*\d{3}[\s.)-]*\d{3}[\s.-]*\d{4}/g, "")
-    /* Tidy each line SEPARATELY, and keep the line breaks.
-       The first version collapsed `\s{2,}` across the whole string, and `\s`
-       includes a newline: the SKILLS lines begin with a leading space, so
-       "newline + space" matched and the entire section arrived as one flat
-       paragraph with its category labels gone. */
-    .split(NEWLINE)
-    .map((line) => line.replace(/ {2,}/g, " ").trim())
-    .filter((line, i, all) => line !== "" || (i > 0 && i < all.length - 1))
-    .join(NEWLINE)
-    .trim();
+function d1Run(db, sql) {
+  if (/^\s*PRAGMA/i.test(sql) || /^\s*SELECT/i.test(sql)) return db.prepare(sql).all();
+  return db.prepare(sql).run();
+}
+
+let profileColumnsReady = false;
+/**
+ * @param {D1Database} db
+ * @returns {Promise<void>}
+ */
+async function readyProfileColumns(db) {
+  if (profileColumnsReady) return;
+  await ensureProfileColumns((sql) => d1Run(db, sql));
+  profileColumnsReady = true;
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {object|null}
+ */
+function readSections(raw) {
+  if (raw == null || raw === "") return null;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return normalizeSections(parsed);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -119,13 +138,14 @@ export async function onRequestGet(context) {
        was rendered for EVERY handle - so a new account's portfolio showed its
        own name above somebody else's work. The page needs to be told whether
        the profile it is showing is the one those projects belong to. */
+    await readyProfileColumns(env.DB);
     const first = await env.DB.prepare("SELECT user_id FROM profile ORDER BY id LIMIT 1").first();
     const row = handle
       ? await env.DB.prepare(
-          "SELECT user_id, display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE lower(handle) = ?1"
+          "SELECT user_id, display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, profile_sections, updated_at FROM profile WHERE lower(handle) = ?1"
         ).bind(handle).first()
       : await env.DB.prepare(
-          "SELECT user_id, display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile ORDER BY id LIMIT 1"
+          "SELECT user_id, display_name, handle, headline, location, resume_text, linkedin_url, github_url, avatar_data_url, profile_sections, updated_at FROM profile ORDER BY id LIMIT 1"
         ).first();
     if (!row) {
       return new Response(JSON.stringify({ error: "no profile yet" }), { status: 404, headers: HEADERS });
@@ -141,28 +161,84 @@ export async function onRequestGet(context) {
        per visitor. A failure here returns an empty list and the section simply
        does not render. */
     const repos = await publicRepos(row.github_url);
+
+    /* Saved sections are the public source of truth. The parse of resume_text
+       is never applied here -- publishing a suggestion the person has not
+       accepted is how an edited title would reappear on the recruiter page. */
+    const stored = readSections(row.profile_sections);
+    const published = stored ? publicView(stored) : null;
+    const vis = published && published.visibility ? published.visibility : null;
+
+    const fallbackSummary = stripContact(section(resume, "SUMMARY"));
+    const fallbackSkills = stripContact(section(resume, "SKILLS"));
+    const fallbackEducation = stripContact(section(resume, "EDUCATION"));
+    const fallbackCerts = stripContact(section(resume, "CERTIFICATIONS"));
+
+    const headerOn = !vis || vis.header !== false;
+    const summary = published
+      ? (vis.about && published.about ? published.about.text : "")
+      : fallbackSummary;
+    const skills = published
+      ? (vis.skills ? published.skills : null)
+      : fallbackSkills;
+    const education = published
+      ? (vis.education ? published.education : null)
+      : fallbackEducation;
+    const certifications = published
+      ? (vis.certifications ? published.certifications : null)
+      : fallbackCerts;
+    const experience = published && vis.experience ? published.experience : null;
+    const projects = published && vis.projects ? published.projects : null;
+
+    const links = {
+      linkedin: headerOn ? (row.linkedin_url || null) : null,
+      github: headerOn ? (row.github_url || null) : null
+    };
+    const name = headerOn ? (row.display_name || null) : null;
+    const headline = headerOn ? (row.headline || null) : null;
+    const location = headerOn ? (row.location || null) : null;
+    const avatar = headerOn ? (row.avatar_data_url || null) : null;
+
+    const pageUrl = row.handle
+      ? `https://apply-dashboard.pages.dev/portfolio/${encodeURIComponent(row.handle)}`
+      : "https://apply-dashboard.pages.dev/portfolio/";
+
+    const jsonld = personJsonLd({
+      name,
+      headline,
+      location,
+      url: pageUrl,
+      links,
+      experience: experience || [],
+      education: Array.isArray(education)
+        ? education
+        : String(education || "").split("\n").filter(Boolean).map((line) => ({
+          line, parts: line.includes(" | ") ? line.split(" | ").map((p) => p.trim()) : [line]
+        }))
+    });
+
     return new Response(JSON.stringify({
       /* Name and headline are public by intent. Phone and email are not, and
          are never selected from the row above. The name is a COLUMN now: it was
          a string literal in two different endpoints, which is a fact with no
          source and two places to drift. */
-      name: row.display_name || null,
+      name,
       handle: row.handle || null,
       /* True only for the profile the built-in project list belongs to. */
       owner: !!(first && row.user_id && first.user_id === row.user_id),
       /* The photo is public on a portfolio by intent; the phone number and the
          address are not, and are never selected. */
-      avatar: row.avatar_data_url || null,
-      headline: row.headline || null,
-      location: row.location || null,
-      summary: stripContact(section(resume, "SUMMARY")),
-      skills: stripContact(section(resume, "SKILLS")),
-      education: stripContact(section(resume, "EDUCATION")),
-      certifications: stripContact(section(resume, "CERTIFICATIONS")),
-      links: {
-        linkedin: row.linkedin_url || null,
-        github: row.github_url || null
-      },
+      avatar,
+      headline,
+      location,
+      summary,
+      skills,
+      education,
+      certifications,
+      experience,
+      projects,
+      jsonld,
+      links,
       repos,
       updated_at: row.updated_at
     }), { headers: { ...HEADERS, "cache-control": "public, max-age=300" } });

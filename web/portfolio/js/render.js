@@ -83,6 +83,110 @@ export function projectRow(project) {
  * @param {Array<{name: string, description: string, html_url: string, language: string|null}>} repos
  * @returns {HTMLElement|null}
  */
+/**
+ * Insert Person JSON-LD. One script tag, type application/ld+json, the way
+ * ingest/jd-read.mjs reads JobPosting: a single object, @type as a string.
+ * Replaces any previous block so a second render cannot leave two Persons.
+ *
+ * @param {object|null} data
+ * @returns {void}
+ */
+export function putJsonLd(data) {
+  for (const node of document.querySelectorAll('script[type="application/ld+json"]')) {
+    node.remove();
+  }
+  if (!data || typeof data !== "object") return;
+  const script = document.createElement("script");
+  script.type = "application/ld+json";
+  script.textContent = JSON.stringify(data);
+  document.head.append(script);
+}
+
+/**
+ * Skills/education/certs as the line-oriented text `lines()` already knows,
+ * whether the API sent the old string or the new structured array.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function factText(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (!Array.isArray(value)) return "";
+  return value.map((item) => {
+    if (!item || typeof item !== "object") return String(item);
+    if (item.line) return item.line;
+    if (item.label) return item.label + ": " + (item.text || "");
+    return item.text || "";
+  }).filter(Boolean).join("\n");
+}
+
+/**
+ * Work history. Paragraphs, never a bullet list -- this resume has none, and
+ * a renderer that only drew `li` would show empty roles.
+ *
+ * @param {Array<object>} roles
+ * @returns {HTMLElement|null}
+ */
+export function experienceList(roles) {
+  if (!roles || !roles.length) return null;
+  return el("div", { class: "roles", id: "experience" }, roles.map((role) => {
+    const when = role.current
+      ? [role.start, "present"].filter(Boolean).join(" to ")
+      : [role.start, role.end].filter(Boolean).join(" to ");
+    const meta = [role.company, role.location, when].filter(Boolean).join(" · ");
+    const paras = (role.paragraphs && role.paragraphs.length)
+      ? role.paragraphs
+      : (role.raw || []);
+    return el("article", { class: "role" }, [
+      role.title ? el("h3", {}, [role.title]) : null,
+      meta ? el("p", { class: "role-meta" }, [meta]) : null,
+      ...paras.map((p) => el("p", {}, [p]))
+    ]);
+  }));
+}
+
+/**
+ * Resume-selected projects, as prose. The screenshot rows are a separate
+ * owner-only list and are not these.
+ *
+ * @param {Array<object>} projects
+ * @returns {HTMLElement|null}
+ */
+export function projectList(projects) {
+  if (!projects || !projects.length) return null;
+  return el("div", { class: "resume-projects", id: "resume-projects" }, projects.map((project) => {
+    const paras = project.paragraphs || [];
+    return el("article", { class: "role" }, [
+      project.name ? el("h3", {}, [project.name]) : null,
+      ...paras.map((p) => el("p", {}, [p])),
+      project.url ? el("p", {}, [
+        el("a", { href: project.url, target: "_blank", rel: "noopener noreferrer" }, [project.url])
+      ]) : null
+    ]);
+  }));
+}
+
+/**
+ * A closing band that is absent from the document when it has nothing to
+ * show. Building it here, rather than hiding a static heading, is what
+ * keeps a hidden section out of the public HTML.
+ *
+ * @param {string} title
+ * @param {string} label
+ * @param {HTMLElement|null} body
+ * @returns {HTMLElement|null}
+ */
+export function closingBand(title, label, body) {
+  if (!body) return null;
+  return el("section", { class: "band closing", "aria-label": label }, [
+    el("div", { class: "band-inner" }, [
+      el("h2", { class: "section-title" }, [title]),
+      body
+    ])
+  ]);
+}
+
 export function repoList(repos) {
   if (!repos || !repos.length) return null;
   return el("ul", { class: "repos" }, repos.slice(0, 12).map((r) => el("li", {}, [
