@@ -23,7 +23,7 @@ const SELECT = `
   SELECT ${COLUMNS.join(", ")}, link_status, link_checked_at, blocked_reason, blocked_detail, excluded_domain,
          salary_min, salary_max, salary_source, salary_checked_at,
          rank_pct, fit_pct, resume_pct, success_pct, rank_why, jd_read, pay_tier,
-         refreshed_at
+         refreshed_at, jd_read_status
   FROM jobs
   ORDER BY
     CASE lane WHEN 'submitted' THEN 0 WHEN 'ft' THEN 1 ELSE 2 END,
@@ -31,10 +31,15 @@ const SELECT = `
     company COLLATE NOCASE
 `;
 
+/** Same query without jd_read_status, for a database that has refreshed_at
+    but has not yet grown the read-outcome column. A missing column must
+    not 500 the list -- that is how an unread row looks like a deploy bug. */
+const SELECT_NO_JD_STATUS = SELECT.replace(/,\s*jd_read_status/, "");
+
 /** Same query without refreshed_at, for a database that has salary/rank but
     has not yet grown the employer-refresh column. Falling all the way back
     to SELECT_LEGACY would drop salary_min on a live list that already has it. */
-const SELECT_NO_REFRESH = SELECT.replace(/,\s*refreshed_at/, "");
+const SELECT_NO_REFRESH = SELECT_NO_JD_STATUS.replace(/,\s*refreshed_at/, "");
 
 /** Same query without the later column groups, for a database not yet migrated.
     Built by stripping from the first added group onward, so a newly added group
@@ -82,10 +87,14 @@ export async function onRequestGet(context) {
       rows = (await env.DB.prepare(SELECT).all()).results;
     } catch {
       try {
-        rows = (await env.DB.prepare(SELECT_NO_REFRESH).all()).results;
+        rows = (await env.DB.prepare(SELECT_NO_JD_STATUS).all()).results;
       } catch {
-        // link_status has not been added yet -- serve the original columns.
-        rows = (await env.DB.prepare(SELECT_LEGACY).all()).results;
+        try {
+          rows = (await env.DB.prepare(SELECT_NO_REFRESH).all()).results;
+        } catch {
+          // link_status has not been added yet -- serve the original columns.
+          rows = (await env.DB.prepare(SELECT_LEGACY).all()).results;
+        }
       }
     }
     /* Overlay the signed-in person's own applied state.

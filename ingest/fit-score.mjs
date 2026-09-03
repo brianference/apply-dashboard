@@ -46,6 +46,8 @@ import {
   employerBlockReason,
   findBlockedEmployer
 } from './blocked-employers.mjs';
+import { bindFit, readJd } from './jd-read.mjs';
+import { salaryFromAshbyCompensation } from './salary-from-posting.mjs';
 
 /* Built once, lazily: the corpus is a pass over every cached description and
    the resume is one file read. */
@@ -694,26 +696,29 @@ async function greenhouseIndex() {
 }
 
 /**
- * Fetch a posting's description, through the board API the URL names.
+ * Greenhouse / Ashby / Lever board-API fetch. Kept as its own function so
+ * the tiered reader can call it as tier 1 without a second copy of the
+ * token resolution and Ashby sidecar -- that split is how the normalised
+ * dedupe check ended up running in only one of two places.
  *
  * @param {string} url
- * @param {{refetch?: boolean}} [options] refetch: true skips the on-disk
- *   cache. Recover uses it because files written by the old decoder replaced
- *   `&mdash;` with a space, and re-decoding cannot put the separator back.
- * @returns {Promise<string|null>}
+ * @param {{ refetch?: boolean, fetch?: typeof fetch, cacheDir?: string }} [options]
+ * @returns {Promise<{ text: string|null, status: number, salary: { min: number|null, max: number|null }|null, salarySource: string|null, posted: string|null }>}
  */
-export async function fetchJd(url, options = {}) {
+export async function fetchBoardJd(url, options = {}) {
+  const get = options.fetch || globalThis.fetch.bind(globalThis);
+  const cacheDir = options.cacheDir || CACHE;
   const ref = boardRef(url);
-  if (!ref) return null;
+  if (!ref) return { text: null, status: 0, salary: null, salarySource: null, posted: null };
   if (ref.ats === 'greenhouse' && !ref.token) {
     const idx = await greenhouseIndex();
     ref.token = idx[ref.id] || null;
-    if (!ref.token) return null;          // unknown board: unread, never guessed
+    if (!ref.token) return { text: null, status: 0, salary: null, salarySource: null, posted: null };
   }
-  fs.mkdirSync(CACHE, { recursive: true });
-  const cacheFile = path.join(CACHE, jdCacheFileName(ref));
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const cacheFile = path.join(cacheDir, jdCacheFileName(ref));
   const compensationName = ashbyCompensationCacheFileName(ref);
-  const compensationFile = compensationName ? path.join(CACHE, compensationName) : null;
+  const compensationFile = compensationName ? path.join(cacheDir, compensationName) : null;
   /* Cache hits still run through strip(). Files written before the decoder
      loop left `&lt;span&gt;` and `&mdash;` in the text, and salaryFromText
      then reported no band on a posting that published one. Re-decoding is
@@ -731,15 +736,32 @@ export async function fetchJd(url, options = {}) {
     if (text !== cached) {
       try { fs.writeFileSync(cacheFile, text, 'utf8'); } catch { /* cache is a shortcut */ }
     }
-    return text;
+    let salary = null;
+    let salarySource = null;
+    if (compensationFile && fs.existsSync(compensationFile)) {
+      try {
+        const side = JSON.parse(fs.readFileSync(compensationFile, 'utf8'));
+        const band = salaryFromAshbyCompensation(side && side.compensation);
+        if (band.min != null || band.max != null) {
+          salary = band;
+          salarySource = 'ashby:compensation';
+        }
+      } catch { /* sidecar is a shortcut */ }
+    }
+    return { text, status: 200, salary, salarySource, posted: null };
   }
   let text = null;
+  let status = 0;
+  let salary = null;
+  let salarySource = null;
   try {
     if (ref.ats === 'greenhouse') {
-      const r = await fetch(`https://boards-api.greenhouse.io/v1/boards/${ref.token}/jobs/${ref.id}?content=true`);
+      const r = await get(`https://boards-api.greenhouse.io/v1/boards/${ref.token}/jobs/${ref.id}?content=true`);
+      status = r.status;
       if (r.ok) text = strip((await r.json()).content);
     } else if (ref.ats === 'ashby') {
-      const r = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${ref.token}?includeCompensation=true`);
+      const r = await get(`https://api.ashbyhq.com/posting-api/job-board/${ref.token}?includeCompensation=true`);
+      status = r.status;
       if (r.ok) {
         const payload = await r.json();
         const jobs = payload && Array.isArray(payload.jobs) ? payload.jobs : [];
@@ -754,9 +776,15 @@ export async function fetchJd(url, options = {}) {
           } catch { /* cache is a shortcut */ }
         }
         text = j ? (j.descriptionPlain || strip(j.descriptionHtml)) : null;
+        const band = salaryFromAshbyCompensation(j && j.compensation);
+        if (band.min != null || band.max != null) {
+          salary = band;
+          salarySource = 'ashby:compensation';
+        }
       }
     } else if (ref.ats === 'lever') {
-      const r = await fetch(`https://api.lever.co/v0/postings/${ref.token}/${ref.id}`);
+      const r = await get(`https://api.lever.co/v0/postings/${ref.token}/${ref.id}`);
+      status = r.status;
       if (r.ok) {
         const j = await r.json();
         text = [strip(j.descriptionPlain || j.description),
@@ -765,13 +793,46 @@ export async function fetchJd(url, options = {}) {
     }
   } catch {
     if (haveDescription) {
-      return strip(fs.readFileSync(cacheFile, 'utf8'));
+      return { text: strip(fs.readFileSync(cacheFile, 'utf8')), status: status || 0, salary: null, salarySource: null, posted: null };
     }
-    return null;
+    return { text: null, status: status || 0, salary: null, salarySource: null, posted: null };
   }
-  if (text && text.length > 100) { fs.writeFileSync(cacheFile, text, 'utf8'); return text; }
-  if (haveDescription) return strip(fs.readFileSync(cacheFile, 'utf8'));
-  return null;
+  if (text && text.length > 100) {
+    try { fs.writeFileSync(cacheFile, text, 'utf8'); } catch { /* cache is a shortcut */ }
+    return { text, status, salary, salarySource, posted: null };
+  }
+  if (haveDescription) {
+    return { text: strip(fs.readFileSync(cacheFile, 'utf8')), status, salary, salarySource, posted: null };
+  }
+  return { text: null, status, salary, salarySource, posted: null };
+}
+
+bindFit({
+  strip,
+  boardRef,
+  fetchBoardJd,
+  jdCacheFileName,
+  ashbyCompensationCacheFileName
+});
+
+/**
+ * Fetch a posting's description. Delegates to the tiered reader so a
+ * Workday or Himalayas URL is not a blank fit score. Returns the text
+ * string existing callers already pass to scoreOne -- the outcome, salary
+ * and posted date live on readJd for callers that need them.
+ *
+ * @param {string} url
+ * @param {{refetch?: boolean, fetch?: typeof fetch, cacheDir?: string, now?: Date}} [options] refetch: true skips the on-disk
+ *   cache. Recover uses it because files written by the old decoder replaced
+ *   `&mdash;` with a space, and re-decoding cannot put the separator back.
+ * @returns {Promise<string|null>}
+ */
+export async function fetchJd(url, options = {}) {
+  const result = await readJd(url, {
+    ...options,
+    fetchBoard: (u, o) => fetchBoardJd(u, o)
+  });
+  return result && result.text ? result.text : null;
 }
 
 /**
@@ -1075,11 +1136,13 @@ export function rankWrite(s) {
      in the twice-daily pipeline threw into a catch that only counted it. */
   const key = s.job && s.job.dedupe_key;
   if (!key) throw new Error('rankWrite: no job.dedupe_key - pass { ...scoreOne(job, jd, payStarts), job }');
+  const readStatus = s.jd_read_status
+    || (s.jdRead ? 'read' : 'never-tried');
   if (!s.gate.ok) {
     return {
       sql: `UPDATE jobs SET status = ?, blocked_reason = ?,
         blocked_detail = ?, excluded_domain = ?, blocked_at = ?,
-        rank_pct = NULL, pay_tier = NULL
+        rank_pct = NULL, pay_tier = NULL, jd_read_status = ?
         WHERE dedupe_key = ?`,
       params: [
         'skipped',
@@ -1087,13 +1150,14 @@ export function rankWrite(s) {
         (s.gate.reasons || []).join('; ').slice(0, 400),
         s.gate.excludedDomain ?? null,
         new Date().toISOString(),
+        readStatus,
         key
       ]
     };
   }
   return {
     sql: `UPDATE jobs SET rank_pct = ?, fit_pct = ?, resume_pct = ?, success_pct = ?,
-      jd_read = ?, rank_why = ?, pay_tier = ?
+      jd_read = ?, rank_why = ?, pay_tier = ?, jd_read_status = ?
       WHERE dedupe_key = ?`,
     params: [
       s.rank,
@@ -1103,6 +1167,7 @@ export function rankWrite(s) {
       s.jdRead ? 'yes' : 'no',
       rankWhy(s),
       s.pay_tier,
+      readStatus,
       key
     ]
   };

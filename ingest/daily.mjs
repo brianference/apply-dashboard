@@ -26,7 +26,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from './cli.mjs';
 import { decide } from './sync-to-d1.mjs';
-import { fetchJd, scoreOne, boardRef, requirementsGate, rankWrite, strip, publishedStarts } from './fit-score.mjs';
+import { scoreOne, boardRef, requirementsGate, rankWrite, strip, publishedStarts } from './fit-score.mjs';
+import { readJd } from './jd-read.mjs';
 import { salaryFromAshbyCompensation, salaryFromText } from './salary-from-posting.mjs';
 import { judgeBand, FLOOR } from './salary-sweep.mjs';
 import { ensurePayColumns } from './pay-columns.mjs';
@@ -152,9 +153,12 @@ for (const job of quarantined.filter(j => !boardRef(j.url))) {
 const needsRank = live
   .filter(j => j.status === 'queued' || j.status === 'pending-review')
   .filter(j => j.rank_pct === null || j.rank_pct === undefined)
-  .filter(j => boardRef(j.url))            // ranking needs a readable description
+  /* boardRef used to be the gate. That is why 145 queued rows never got a
+     description: Himalayas, Workday and JSON-LD hosts were skipped before
+     the reader ran. Blocked and dead hosts still short-circuit inside
+     readJd without a fetch. */
   .slice(0, MAX_RANK);
-say(`unranked and readable: ${needsRank.length}`);
+say(`unranked, to read: ${needsRank.length}`);
 
 /* Fetch every description FIRST. resumeMatch weighs a posting's terms against
    how rare they are across the cached corpus, and the corpus is those cached
@@ -162,10 +166,12 @@ say(`unranked and readable: ${needsRank.length}`);
    nothing. On a fresh CI runner the cache starts empty, which is why the
    twice-daily run produced no resume scores at all. */
 const descriptions = new Map();
+const reads = new Map();
 for (const job of needsRank) {
   try {
-    const jd = await fetchJd(job.url);
-    if (jd) { descriptions.set(job.dedupe_key, jd); stats.jdRead++; }
+    const result = await readJd(job.url);
+    reads.set(job.dedupe_key, result);
+    if (result.text) { descriptions.set(job.dedupe_key, result.text); stats.jdRead++; }
   } catch { /* unreadable stays unread */ }
 }
 say(`descriptions fetched before scoring: ${descriptions.size}`);
@@ -187,6 +193,11 @@ for (const job of needsRank) {
   const structured = salaryFromAshbyCompensation(readCachedAshbyCompensation(job.url));
   if (structured.min != null || structured.max != null) {
     bands.set(job.dedupe_key, { ...structured, source: 'ashby:compensation' });
+    continue;
+  }
+  const fromRead = reads.get(job.dedupe_key);
+  if (fromRead && fromRead.salary && (fromRead.salary.min != null || fromRead.salary.max != null)) {
+    bands.set(job.dedupe_key, { ...fromRead.salary, source: fromRead.salarySource || 'posting:daily' });
     continue;
   }
   if (!jd) continue;
@@ -223,7 +234,10 @@ for (const job of needsRank) {
   const scoredJob = band
     ? { ...job, salary_min: band.min, salary_max: band.max }
     : job;
+  const read = reads.get(job.dedupe_key) || null;
   const s = scoreOne(scoredJob, jd, payStarts);
+  s.jd_read_status = read && read.outcome ? read.outcome : (jd ? 'read' : 'never-tried');
+  if (read && read.closed) s.jd_read_status = 'board-404';
   /* A published band under the floor rules the row out here, before it can be
      ranked well and shown. An ABSENT band is unknown, not low, and never
      rules anything out - that distinction is the whole point. */
@@ -252,6 +266,18 @@ for (const job of needsRank) {
           [minPay, maxPay, band.source || 'posting:daily', job.dedupe_key]
         );
       }
+    }
+    /* Date from the same fetch that got the description. Do not overwrite
+       an existing posted with a refresh -- that mix is how a 103-day-old
+       Pinterest role looked like it was published yesterday. */
+    if (read && read.posted && (job.posted == null || String(job.posted).trim() === '')) {
+      await d1('UPDATE jobs SET posted = ? WHERE dedupe_key = ?', [read.posted, job.dedupe_key]);
+    }
+    if (read && read.closed) {
+      await d1(
+        'UPDATE jobs SET blocked_reason = ? WHERE dedupe_key = ? AND (blocked_reason IS NULL OR blocked_reason = \'\')',
+        ['posting-closed', job.dedupe_key]
+      );
     }
     if (!s.gate.ok) {
       /* excluded_domain is written as a bare value so the list can offer it as

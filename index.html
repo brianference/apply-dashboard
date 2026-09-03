@@ -1204,13 +1204,31 @@
     var shown = scored ? j.rank_pct : j.match_pct;
     var pct = (shown == null || shown === "") ? "" : shown + "%";
     var hi = shown != null && Number(shown) >= 70;
+    /**
+     * Why the fit score is present or blank. A blank used to mean "we
+     * failed to read this", including for LinkedIn where we are not
+     * allowed to try -- that is how 46 percent of the list looked like
+     * a defect.
+     * @param {object} j
+     * @returns {string}
+     */
+    function jdReadNote(j) {
+      var s = j && j.jd_read_status;
+      if (s === "read" || j.jd_read === "yes") return " - read the job description";
+      if (s === "blocked-by-policy") return " - we cannot read this board";
+      if (s === "board-404") return " - this posting is gone";
+      if (s === "unreadable-host") return " - this board has no readable description";
+      if (s === "never-tried") return " - description has not been read yet";
+      return " - description could not be read";
+    }
+
     var pctWhy = scored
       ? ("fit " + (j.fit_pct == null ? "not measured" : j.fit_pct + "%")
          + (j.resume_pct != null
              ? " / your resume matches this better than " + j.resume_pct + "% of your queue"
              : " / resume match not measurable")
          + " / likelihood " + j.success_pct + "%"
-         + (j.jd_read === "yes" ? " - read the job description" : " - description could not be read")
+         + jdReadNote(j)
          + (j.rank_why ? " — " + j.rank_why : ""))
       : "keyword score only - the job description has not been read";
     var loc = shortLoc(j.work_type);
