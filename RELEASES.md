@@ -2,6 +2,56 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v21.0.0 - American Express, and a pay band the parser was refusing (2026-09-03)
+
+Brian asked for American Express as a source. Their board is Oracle Recruiting
+Cloud, which is a ninth source module rather than another token in
+`companies.json`, because Oracle addresses a board by host plus site instead of
+a single slug.
+
+313 requisitions match "product manager" on their site, and three survive the
+standing rules: Phoenix, Arizona product roles. New York hybrid drops on
+location, London and Bengaluru drop on being outside the US, and business
+development drops on the title. Oracle's keyword search is a loose OR that
+returns a Financial Systems Analyst for that query, so the shared query filter
+is doing real work here rather than passing everything through.
+
+### Three things this board does that no other one does
+
+A pulled requisition answers HTTP 200 with an EMPTY items array. Every other
+board in this repo 404s. A tier that only read the status would call a dead
+posting readable, find no text, fall through, and leave the row queued forever,
+so the empty list is what marks it closed.
+
+The published pay band is not in the description. It sits in a requisition flex
+field, and a prose scan over the job text finds nothing at all. The first live
+run returned `salary: null` on a Director posting whose band was right there in
+the payload, which is exactly the loss the never-lose-published-salary rule
+exists to prevent.
+
+That band reads `$144250 - $256250`, with no thousands separator, and the shared
+salary parser required a comma or a k. It now accepts an ungrouped five or six
+digit figure behind a dollar sign. The protections the narrow rule was carrying
+had to survive: the filter-widget range ending in 999 is still refused, so is a
+pair under the sanity floor, and a longer run of digits is not chopped down into
+something salary-shaped.
+
+### A posting-end date is in the future by definition
+
+`validThrough` was being run through the posted-date clamp, which pulls any
+future date back to now. An end date is in the future or it is not an end date,
+so "open until the 6th" was being stored as "expired today". Nothing reads the
+field yet, which is the only reason this never showed up. Fixed on the Workday
+tier too, which had the same line.
+
+35 cases cover the source. Four temp copies are required to fail: a narrowed
+salary parser, a closed signal reduced to a status check, a re-clamped end date,
+and a refresh date Oracle never reported. The suite's own guard caught that the
+new test was missing from FEATURES.md before any of this shipped.
+
+Requisition 26011057, which Brian asked about earlier, is not on the CX_1 site.
+The detail finder returns zero items for that id.
+
 ## v20.0.0 — The resume imports itself (2026-09-03)
 
 Brian: the import-from-resume work is good, but do not force them to hit import

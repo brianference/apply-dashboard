@@ -20,7 +20,7 @@ projects.
 
 | Feature | Automated | Seen | Notes |
 |---|---|---|---|
-| Read employers' boards twice a day | `ingest/test-sync.mjs` | n/a | 269 companies in `ingest/companies.json`, plus eight source modules in `ingest/sources/` |
+| Read employers' boards twice a day | `ingest/test-sync.mjs` | n/a | 269 companies plus one Oracle tenant in `ingest/companies.json`, and nine source modules in `ingest/sources/` |
 | Rank a posting against the resume | `ingest/test-fit.mjs` | n/a | Inverse document frequency over the cached descriptions |
 | Read a description from Workday, Himalayas, JSON-LD or the page, not only three board APIs | `ingest/test-jd-read.mjs` | n/a | 145 of 315 queued rows had never been read because `fetchJd` stopped at greenhouse/ashby/lever. LinkedIn is blocked-by-policy (never fetched). Lever 404 is posting-closed, not a retry. JSON-LD is a real Jobspresso payload, including array, @graph, and a malformed block beside a good one. Workday matcher covers all 11 live URLs with and without a locale segment. USD YEAR salary is taken; EUR and HOUR are refused. A future datePosted clamps. Board API still wins over JSON-LD. Known-bad: a temp copy of each tier is required to fail |
 | Location and role eligibility | `ingest/test-location.mjs` | n/a | Remote or Arizona, product roles only. Product success is customer success, not product management; a PM who owns a success product still passes |
@@ -34,6 +34,7 @@ projects.
 | Healthcare, construction, clearance, risk-compliance and hardware excluded | `ingest/test-domain.mjs` | yes | Healthcare, construction and hardware are read from the DESCRIPTION. Risk-compliance is title-only, because searching the description would treat legal boilerplate as the job. URLs are stripped before any pattern is matched -- TLDR's only "silicon" sat inside an inc.com URL. Hardware fixtures: vCluster (ruled out), Camunda one bare-metal deployment target (kept), Vultr four weak cloud-SKU mentions (kept), silicon only in a URL (kept). Submitted compliance rows are not rewritten |
 | Advanced search puts them back | — | yes | **Gap.** Switches are covered by a browser check that is not yet in the repo |
 | Reading a description from a non-board host | `ingest/test-jd-read.mjs` | n/a | Tiers: board APIs, Workday CXS with the locale optional, the Himalayas feed, JSON-LD JobPosting, then page text. Blocked hosts are never FETCHED, asserted on the call not the result. Every tier caches by URL hash, with a default directory, or the coverage number moves between runs |
+| American Express and other Oracle Recruiting Cloud tenants | `ingest/test-oracle.mjs` | n/a | Three things here are unlike every other board. A pulled requisition answers 200 with an EMPTY items array rather than 404, so a status check alone would leave closed Amex rows queued forever. The published band is not in the description at all -- it sits in a requisition flex field, and reading only the prose lost a real $144,250-$256,250 range. That band is written with no thousands separator, which the shared parser refused until it was widened, with the widget-999 and sanity-floor protections kept. Oracle's keyword search is a loose OR, so the shared query filter is what removes a Financial Systems Analyst. Known-bad: temp copies that narrow the parser, drop the empty-items branch, re-clamp the end date, or invent a refresh date are each required to fail |
 | Re-verifying a closed posting | `ingest/test-closed-check.mjs` | n/a | A bare HTTP 200 is LIVE, not gone: an uncommitted script had written "HTTP 200 -- the posting is gone" on 27 rows and retired 10 real ones. A 403 or a network error is unknown, never gone, and a wrongly-retired row is worse than a wrongly-kept one |
 | Live duplicates already in the queue | `ingest/test-dedupe-queue.mjs` | n/a | The normalised company+title comparison CRITERIA.md describes only ran seconds before a submission, so duplicate pairs sat queued and applyable. `sameJob()` is shared by the ingest guard and the retroactive sweep so the two cannot drift apart |
 | Blocked employers, second-lane reopen, and the queued full-gate pass | `ingest/test-employer-block.mjs` | n/a | A blocked employer is skipped before anything is measured, a `submitted` row is left alone because it is history, and re-checking a reject with a subset of the rules that rejected it must not reverse it. The queued pass re-runs the whole gate over every queued row so a rule added today reaches rows that are already there (Teamworks product-success). An unreadable description is unknown, not a skip |
@@ -155,6 +156,7 @@ node ingest/test-board-dates.mjs
 node ingest/test-refresh-audit.mjs
 node ingest/test-date-backfill.mjs
 node ingest/test-jd-read.mjs
+node ingest/test-oracle.mjs
 ```
 
 The browser tests need Playwright, which this repo does not depend on. It is

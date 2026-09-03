@@ -126,6 +126,68 @@ export function workdayCxsUrl(pageUrl) {
 }
 
 /**
+ * Detail-API URL for an Oracle candidate-experience posting.
+ *
+ * The finder takes QUOTED values, and the quotes have to be encoded or the
+ * gateway rejects the request; the semicolon and comma separating the finder
+ * arguments must not be.
+ *
+ * @param {string} pageUrl
+ * @returns {{ url: string, host: string, site: string, id: string }|null}
+ */
+export function oracleDetailUrl(pageUrl) {
+  let parsed;
+  try {
+    parsed = new URL(String(pageUrl || ''));
+  } catch {
+    return null;
+  }
+  if (!/\.oraclecloud\.com$/i.test(parsed.hostname)) return null;
+  const match = parsed.pathname.match(/\/hcmUI\/CandidateExperience\/[^/]+\/sites\/([^/]+)\/job\/([^/?#]+)/i);
+  if (!match) return null;
+  const site = match[1];
+  const id = match[2];
+  const url = `https://${parsed.hostname}/hcmRestApi/resources/latest/recruitingCEJobRequisitionDetails`
+    + `?expand=all&onlyData=true&finder=ById;Id=%22${encodeURIComponent(id)}%22,siteNumber=%22${encodeURIComponent(site)}%22`;
+  return { url, host: parsed.hostname, site, id };
+}
+
+/**
+ * Oracle keeps the published pay band in a requisition flex field rather than
+ * in the description, so a prose scan over the JD finds nothing and the band
+ * is lost. Read the field.
+ *
+ * @param {unknown} item
+ * @returns {{ min: number|null, max: number|null }|null}
+ */
+export function salaryFromOracleFlexFields(item) {
+  const fields = item && Array.isArray(item.requisitionFlexFields) ? item.requisitionFlexFields : [];
+  for (const field of fields) {
+    const prompt = String(field && field.Prompt || '');
+    if (!/salary|pay|compensation/i.test(prompt)) continue;
+    const band = salaryFromText(String(field && field.Value || ''));
+    if (band && (band.min != null || band.max != null)) return { min: band.min, max: band.max };
+  }
+  return null;
+}
+
+/**
+ * Join the external-facing description parts of an Oracle requisition.
+ *
+ * @param {unknown} item
+ * @returns {string}
+ */
+export function oracleDescriptionHtml(item) {
+  if (!item) return '';
+  return [
+    item.ExternalDescriptionStr,
+    item.ExternalResponsibilitiesStr,
+    item.ExternalQualificationsStr,
+    item.CorporateDescriptionStr
+  ].map((part) => String(part || '')).filter(Boolean).join('\n\n');
+}
+
+/**
  * Last path segment, used as a Himalayas slug.
  *
  * @param {string} url
@@ -703,8 +765,11 @@ async function readJdUncached(url, options = {}) {
           salary: picked.min != null || picked.max != null ? { min: picked.min, max: picked.max } : null,
           salarySource: picked.source,
           posted,
+          /* NOT clamped. A posting-end date is in the future by
+             definition, and clamping the future to now turns "open
+             until December" into "expired today". */
           validThrough: info.endDate
-            ? clampPostedIso(isoFromUnknown(info.endDate) || String(info.endDate), now)
+            ? (isoFromUnknown(info.endDate) || String(info.endDate))
             : null,
           closed: false,
           via: 'workday-cxs'
@@ -712,6 +777,50 @@ async function readJdUncached(url, options = {}) {
       }
     } catch {
       /* 403 tenants (Adobe, Cisco) fall through to JSON-LD / page text */
+    }
+  }
+
+  /* 3. Oracle Recruiting Cloud. */
+  const oracle = oracleDetailUrl(url);
+  if (oracle) {
+    try {
+      const res = await getUrl(get, oracle.url);
+      const items = res.json && Array.isArray(res.json.items) ? res.json.items : null;
+      /* A pulled requisition answers 200 with an EMPTY items array, not 404.
+         Treating only a 404 as gone would leave every closed Amex posting
+         sitting at queued forever, so the empty list is the closed signal. */
+      if (res.status >= 200 && res.status < 300 && items && items.length === 0) {
+        return emptyResult('board-404', { closed: true, via: 'oracle-cx' });
+      }
+      if (res.status === 404 || res.status === 410) {
+        return emptyResult('board-404', { closed: true, via: 'oracle-cx' });
+      }
+      const item = items && items[0];
+      const text = item ? htmlToText(oracleDescriptionHtml(item)) : '';
+      if (res.status >= 200 && res.status < 300 && text.length > 100) {
+        const posted = item.ExternalPostedStartDate
+          ? clampPostedIso(isoFromUnknown(item.ExternalPostedStartDate) || String(item.ExternalPostedStartDate), now)
+          : null;
+        const flex = salaryFromOracleFlexFields(item);
+        const picked = pickSalary({ prose: flex || salaryFromText(text) });
+        return {
+          text,
+          outcome: 'read',
+          salary: picked.min != null || picked.max != null ? { min: picked.min, max: picked.max } : null,
+          salarySource: picked.source ? (flex ? 'oracle:flexfield' : picked.source) : null,
+          posted,
+          /* NOT clamped. A posting-end date is in the future by
+             definition, and clamping the future to now turns "open
+             until December" into "expired today". */
+          validThrough: item.ExternalPostedEndDate
+            ? (isoFromUnknown(item.ExternalPostedEndDate) || String(item.ExternalPostedEndDate))
+            : null,
+          closed: false,
+          via: 'oracle-cx'
+        };
+      }
+    } catch {
+      /* fall through to JSON-LD / page text */
     }
   }
 

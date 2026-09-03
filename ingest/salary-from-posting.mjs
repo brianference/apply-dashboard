@@ -64,7 +64,13 @@ export function figures(text) {
 export function rangePair(text) {
   /* Written as one literal so the escapes cannot be mangled by a build or an
      editor round-trip: two dollar figures joined by a dash, "to", or "up to". */
-  const re = /\$\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{2,3}(?:\.[0-9])?\s?[kK])\s*(?:-|–|—|to|through|up to)\s*\$?\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{2,3}(?:\.[0-9])?\s?[kK])/gi;
+  /* An UNGROUPED figure counts too. Oracle sites publish the band as
+     "$144250 - $256250 annually" with no separator, and requiring a comma or a
+     k dropped a real employer-published range on the floor -- the one thing
+     this file must never do. The dollar sign, the 5-6 digit length, the
+     no-more-digits guard, and the range sanity gate below are what keep it
+     from matching an arbitrary number. */
+  const re = /\$\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{5,6}(?![0-9])|[0-9]{2,3}(?:\.[0-9])?\s?[kK])\s*(?:-|–|—|to|through|up to)\s*\$?\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{5,6}(?![0-9])|[0-9]{2,3}(?:\.[0-9])?\s?[kK])/gi;
   const toN = (raw) => {
     const r = String(raw).replace(/[,\s]/g, '');
     return /[kK]$/.test(r) ? Math.round(parseFloat(r) * 1000) : Number(r);
