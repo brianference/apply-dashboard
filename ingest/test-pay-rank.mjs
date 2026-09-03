@@ -253,6 +253,42 @@ check('the real module still scores that case 76 after the copy was broken',
 
 try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* temp dir is a proof, not a product */ }
 
+/* ---- the percentile must not depend on the batch ----------------------
+   daily.mjs caps the batch (--max-rank 200) and the fit-score CLI caps it with
+   --limit. Both built the distribution from the rows being scored, so the same
+   posting could read one percentile on a run of 200 and another on a run of 40
+   because the batch around it changed. A score that moves when nothing about
+   the job moved is the class of bug this repo keeps finding. The distribution
+   comes from every queued row now, and these are what fail if that reverts. */
+const population = [
+  { salary_min: 150000 }, { salary_min: 160000 }, { salary_min: 170000 },
+  { salary_min: 180000 }, { salary_min: 200000 }, { salary_min: 220000 },
+  { salary_min: 240000 }, { salary_min: 280000 }, { salary_min: 300000 },
+  { salary_min: 400000 }
+];
+const wholeQueue = publishedStarts(population);
+const smallBatch = publishedStarts(population.slice(0, 3));
+check('a batch-sized distribution gives a different answer, which is why it is wrong',
+  payPercentile(170000, wholeQueue) !== payPercentile(170000, smallBatch),
+  `whole ${payPercentile(170000, wholeQueue)} vs batch ${payPercentile(170000, smallBatch)}`);
+check('against the whole population $170k is the 20th percentile',
+  payPercentile(170000, wholeQueue) === 20,
+  String(payPercentile(170000, wholeQueue)));
+
+/* The call sites are asserted against the SOURCE, because using the wrong
+   population is a wiring mistake and no unit test of a pure function can see
+   it. This is the same reason check-coverage reads FEATURES.md. */
+const dailySrc = fs.readFileSync(path.join(ROOT, 'ingest', 'daily.mjs'), 'utf8');
+check('daily.mjs builds the distribution from every queued row',
+  dailySrc.indexOf('publishedStarts(all.filter(') !== -1
+  && dailySrc.indexOf('publishedStarts(needsRank') === -1,
+  dailySrc.indexOf('publishedStarts(needsRank') !== -1 ? 'STILL USES THE BATCH' : '');
+const fitSrc = fs.readFileSync(path.join(ROOT, 'ingest', 'fit-score.mjs'), 'utf8');
+check('the fit-score CLI builds it from every queued row',
+  fitSrc.indexOf('publishedStarts(jobs.filter(') !== -1
+  && fitSrc.indexOf('publishedStarts(live)') === -1,
+  fitSrc.indexOf('publishedStarts(live)') !== -1 ? 'STILL USES THE SLICE' : '');
+
 console.log(bad
   ? `\n${bad} FAILED`
   : '\npay is a percentile in the headline, unpriced is the median, and a weight typo fails');

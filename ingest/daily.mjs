@@ -198,12 +198,19 @@ for (const job of needsRank) {
 }
 say(`pay bands read from those descriptions: ${bands.size}`);
 
-/* Pay percentile is against THIS run's published starts, built once so a
-   posting scored first is not judged against a shorter list than one
-   scored last. Unpriced rows are omitted here and take the median inside
-   scoreOne -- leaving them out of the distribution is what makes 50 mean
-   "average of the priced ones", not "average of a list padded with zeros". */
-const payStarts = publishedStarts(needsRank.map((job) => {
+/* Pay percentile is against every QUEUED row's published start, not against
+   the rows this run happens to score.
+
+   The batch is capped (--max-rank 200 in CI) and ordered, so building the
+   distribution from it would make a job's score depend on which batch it
+   landed in: the same $200k posting could read 57 on one run and 80 on the
+   next because the batch around it changed. A percentile is only meaningful
+   against a fixed population, and the population here is the queue.
+
+   Unpriced rows are omitted from the distribution and take the median inside
+   scoreOne -- leaving them out is what makes 50 mean "average of the priced
+   ones" rather than "average of a list padded with zeros". */
+const payStarts = publishedStarts(all.filter((job) => job.status === 'queued').map((job) => {
   const band = bands.get(job.dedupe_key);
   return band ? { ...job, salary_min: band.min, salary_max: band.max } : job;
 }));

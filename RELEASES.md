@@ -2,7 +2,98 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
-## v16.1.0 — Pay is in the rank, as a percentile (2026-09-03)
+## v17.0.0 — Pay is in the score, and the list is narrower on purpose (2026-09-03)
+
+Everything Brian asked for across one working day, all of it driven by looking
+at the live page rather than at the code.
+
+Measured on production as this shipped: 315 queued rows, 135 carrying a
+published band, and the correlation between published start and rank moving from
+**-0.155 to +0.082** across priced rows and from **-0.125 to +0.346** over the
+priced rows he actually sees, with leadership behind its pill.
+
+### Pay is in the score
+
+`rank = fit*0.40 + success*0.35 + payPercentile*0.25`, against the old
+`fit*0.55 + success*0.45`. The pay term is the percentile of the published START
+among the starts of every queued row, not dollars: a raw $170k cannot be
+averaged with a 45-94 fit score, which is the same reason resume overlap is
+calibrated.
+
+A row with no published band takes the MEDIAN, 50. The first version of this
+spec had unpriced rows keep the old two-term blend, and simulating it against
+the live queue before proposing it is what caught the problem: every priced row
+got diluted while unpriced ones kept their higher score, so the top twelve came
+out almost entirely unpriced. That penalises an employer for publishing a band.
+
+The percentile is taken against every queued row, not against the batch being
+scored. Both call sites built it from the batch, and the batch is capped
+(`--max-rank 200` in CI, `--limit` on the CLI), so the same posting could read
+one percentile on one run and another on the next because the batch around it
+changed. A score that moves when nothing about the job moved is the class of
+bug this repo keeps finding. `ingest/test-pay-rank.mjs` asserts it against the
+SOURCE of both call sites, because using the wrong population is a wiring
+mistake that no unit test of a pure function can see.
+
+The top of the list is a genuine mix now: Reddit at $217k, PeopleGrove unpriced,
+Tremendous at $240k, Owner at $280k, Affirm Bank at $230k.
+
+### Marketing products are ruled out, not de-ranked
+
+Marketing was a 25-point off-focus penalty, and the comment in `fit-score.mjs`
+named "Staff Product Manager, Marketing Pro" as the case that must NOT be
+excluded, reasoning that a product manager working on a marketing product is
+still a product manager. The evidence beat the reasoning: the penalty left that
+posting at 41 percent and at the TOP of his $165k-this-week view.
+
+It is a domain exclusion now, decided on the TITLE like risk-compliance, because
+nearly every description names marketing somewhere. `OFF_FOCUS` is empty and
+kept rather than deleted, since de-ranking and exclusion answer different
+questions. The old test cases were rewritten rather than removed: each title is
+ruled out AND no longer penalised, because a row that was both would be
+double-counted the day somebody switches the domain back on.
+
+### Role and Company are two columns
+
+They were one `1fr` cell labelled "Role / Company". The flexible column carries
+no grip, so there was no way to widen it. Role keeps the `1fr` so the table
+still fills the width; Company has a real width and a grip, so narrowing Company
+widens Role. `tests/column-split.mjs` requires the header and the rows to share
+one grid, because a mismatch shifts every column sideways and throws nothing.
+
+### Director level is behind a pill
+
+32 rows moved off the default list. Principal, Staff, Group and Senior Product
+Manager all stay, because Principal is a senior individual contributor rather
+than a manager of managers. The first version of that pattern went through a
+shell heredoc which turned every `\b` into a literal backspace: it read
+correctly in an editor, matched almost nothing, and the pill counted 3 rows
+where 32 were expected. The test writes its own copy of the pattern rather than
+importing the page's, and floors the count.
+
+### A quick filter, and a way back out
+
+`$165k+ this week` sets three things in one click: the pay lens, the seven-day
+window and a PURE rank sort. Best match orders by pay lane first, so under it
+the top row of that set reads 74 while the set holds an 82. `Clear all filters`
+names the count it will clear and is disabled at zero.
+
+### The column popup is reachable on a phone
+
+Its search field was focused unconditionally, which is what raises the on-screen
+keyboard over it. `left` was clamped against the right edge only. Nothing kept
+it inside the viewport vertically. All three are fixed, and Escape discards, so
+a selection made in a popup whose Apply cannot be clicked was simply lost.
+
+### One command runs the whole suite
+
+`node tests/run-all.mjs` DISCOVERS test files and FAILS on any it cannot
+classify. Six suites were added in a day, each wired into CI by hand, and a test
+nobody runs is worse than no test because the green tick claims coverage that
+never executed. Its first real use caught a scheduled cloud routine adding
+`ingest/test-dedupe-queue.mjs` without wiring it in.
+
+### The pay blend, in detail
 
 Brian, 2026-09-02: higher paying jobs that fit well and that he has a good
 shot of getting should have a higher rank %. He approved the change on
