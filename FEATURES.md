@@ -66,6 +66,8 @@ projects.
 | Header search and the `/` shortcut | — | yes | **Gap.** Verified by screenshot only |
 | Filter chips | — | yes | **Gap.** No test |
 | Posted column (age in days) | `tests/posted-filter.mjs` | — | "today", "Nd ago", or an em-dash. No-date rows sink in both sort directions. Newest sorts on `posted`, not crawl time |
+| Role and Company as two resizable columns | `tests/column-split.mjs` | - | Asserts the header and rows share one grid (a mismatch shifts every column sideways and throws nothing), that the company is not in both cells, and that dragging the grip actually widens it |
+| Marketing products ruled out, not de-ranked | `ingest/test-off-focus.mjs`, `ingest/test-domain.mjs` | n/a | Was a 25-point penalty, which left Marketing Pro at 41% and top of the $165k-this-week view. Decided on the title; marketing in a description rules nothing out; Marketplace and Supermarket must not match |
 | Quick filter: $165k+, posted within a week, ranked | `tests/quick-filter.mjs` | - | Checks all three separately, and requires the TOP row to hold the highest score in the set. Best match orders by pay lane first, so under it the top row reads 74 while the set holds an 82 |
 | The whole suite in one command | `tests/run-all.mjs` | - | Discovers test files rather than listing them, and FAILS on any test file it does not classify. Six suites were added in one day and each had to be wired into CI by hand; a test nobody runs is worse than no test |
 | The column-filter popup on a phone in desktop mode | `tests/column-menu.mjs` | - | Clamped on both axes, height capped so Apply and the checkboxes stay on screen, and no autofocus on a coarse pointer -- the focus is what raised the keyboard over it |

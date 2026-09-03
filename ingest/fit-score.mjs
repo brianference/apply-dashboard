@@ -771,13 +771,19 @@ export async function fetchJd(url, options = {}) {
  * not a domain to penalise on my guess.
  */
 const OFF_FOCUS = [
-  /* Word boundaries are real \b escapes. The first version of this line went
-     through a shell heredoc, which turned every one of them into a literal
-     backspace character, and the pattern then matched nothing at all: the
-     penalty was in the code, the reason was wired into the row, and the score
-     never moved. It read as implemented. Running the matcher against the very
-     title that prompted it is what caught it. */
-  { name: 'marketing', pattern: /\bmarketing\b|\bdemand gen(eration)?\b|\bmartech\b|\bcampaign management\b/i }
+  /* Empty on purpose, and kept rather than deleted.
+
+     Marketing was the only member. It became a domain EXCLUSION on
+     2026-09-03 (see MARKETING_TITLE in domain-eligible.mjs), because a
+     25-point penalty still left "Staff Product Manager, Marketing Pro" at 41
+     percent and at the top of Brian's $165k-this-week view.
+
+     The machinery stays because de-ranking and exclusion answer different
+     questions, and the next domain he is lukewarm rather than firm about
+     belongs here rather than in the gate. An empty list means
+     offFocusDomain() returns null for everything, which is correct and is
+     asserted in ingest/test-off-focus.mjs -- an empty rule that still
+     claimed to penalise something would be the worse failure. */
 ];
 
 /**
