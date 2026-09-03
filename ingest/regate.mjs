@@ -11,8 +11,8 @@
  *   queued   every queued row, re-run through the WHOLE gate with its
  *            cached description
  *
- * The reopen pass re-runs `requirementsGate` with the cached job description,
- * never the salary rule on its own. A row rejected for pay may ALSO be a
+ * The reopen pass re-runs the whole gate (via `scoreOne`) with the cached
+ * job description, never the salary rule on its own. A row rejected for pay may ALSO be a
  * security product, a healthcare product or a San Francisco role, and
  * re-checking a rejection with a subset of the rules that made it silently
  * reverses everything the subset cannot see.
@@ -34,7 +34,7 @@
 
 import { isCli, parseArgs } from './cli.mjs';
 import { logInfo, logWarn } from './logger.mjs';
-import { requirementsGate, blockedEmployer, fetchJd } from './fit-score.mjs';
+import { blockedEmployer, fetchJd, scoreOne, publishedStarts } from './fit-score.mjs';
 import { rowsToBlock, employerBlockWrite } from './apply-employer-block.mjs';
 import { rowsToDomainBlock, domainBlockWrite, domainSignals } from './domain-eligible.mjs';
 import {
@@ -69,7 +69,11 @@ if (isCli(import.meta.url)) {
   };
 
   const rows = (await (await fetch(API, { headers: { 'cache-control': 'no-cache' } })).json()).jobs || [];
-  logInfo('regate', { rows: rows.length, write: doWrite });
+  /* Built once from the live list so a reopen that later writes a rank is
+     judged against the same priced population as daily.mjs, not against
+     whatever subset this pass happens to be walking. */
+  const payStarts = publishedStarts(rows);
+  logInfo('regate', { rows: rows.length, write: doWrite, pricedStarts: payStarts.length });
 
   /* ---- pass 1: employers ruled out by name ---- */
   /* rowsToBlock and employerBlockWrite are the pure, tested pair in
@@ -118,7 +122,8 @@ if (isCli(import.meta.url)) {
        read. Re-gating without it is the subset problem this script exists to
        avoid, so an unreadable description leaves the row skipped. */
     const jd = await fetchJd(r.url).catch(() => null);
-    const gate = requirementsGate(r, jd);
+    const scored = scoreOne(r, jd, payStarts);
+    const gate = scored.gate;
     const decision = decideReopen(r, gate);
     if (decision.action !== 'reopen') {
       const key = decision.reasons[0] || 'unknown';

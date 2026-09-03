@@ -22,7 +22,7 @@
 import { isCli, parseArgs } from './cli.mjs';
 import { logInfo, logWarn } from './logger.mjs';
 import {
-  fetchJd, requirementsGate, rankWrite, strip, payTier
+  fetchJd, rankWrite, strip, payTier, scoreOne, publishedStarts
 } from './fit-score.mjs';
 import { salaryFromAshbyCompensation, salaryFromText } from './salary-from-posting.mjs';
 import { bandWrite, checkedWrite } from './salary-sweep.mjs';
@@ -86,8 +86,14 @@ if (isCli(import.meta.url)) {
   };
 
   const live = await (await fetch(API, { headers: { 'cache-control': 'no-cache' } })).json();
-  const candidates = rowsToRecover(live.jobs || []);
-  logInfo('recover', { examined: candidates.length, write: doWrite });
+  const allRows = live.jobs || [];
+  const candidates = rowsToRecover(allRows);
+  /* Percentile against the already-priced queue, not against this walk's
+     recoveries. A single recovered $240k would otherwise be judged against
+     a one-element list and land at 50, which is the unpriced default, not
+     "higher than most priced postings". */
+  const payStarts = publishedStarts(allRows);
+  logInfo('recover', { examined: candidates.length, write: doWrite, pricedStarts: payStarts.length });
 
   const summary = { examined: candidates.length, recovered: 0, ruledOut: 0, empty: 0, unreadable: 0 };
   const checkedAt = new Date().toISOString();
@@ -121,7 +127,8 @@ if (isCli(import.meta.url)) {
 
     summary.recovered += 1;
     const scoredJob = { ...row, salary_min: verdict.band.min, salary_max: verdict.band.max };
-    const gate = requirementsGate(scoredJob, jd);
+    const scored = scoreOne(scoredJob, jd, payStarts);
+    const gate = scored.gate;
     const lane = payTier(scoredJob);
     logInfo('recovered', {
       company: row.company,
