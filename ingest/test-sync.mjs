@@ -13,9 +13,19 @@ const cands = [
   { company: 'Eps',   title: 'Principal Product Manager, AI',     url: '',                  work_type: 'Remote US' },
   { company: 'Zeta',  title: 'Staff Product Manager, AI Platform', url: 'https://x.test/6', work_type: 'Remote United States' },
   { company: 'Zeta',  title: 'Staff Product Manager, AI Platform', url: 'https://x.test/7', work_type: 'Remote United States' },
+  /* Hopper, 2026-09-03: Ashby's own listing ("Principal Product Manager-
+     Conversational AI") and jobspresso's copy of it ("Principal Product
+     Manager, Conversational AI") differ in dedupe_key and URL -- an exact
+     match on either misses it -- but are the same posting once punctuation
+     is normalised. */
+  { company: 'Hopper', title: 'Principal Product Manager, Conversational AI', url: 'https://jobspresso.co/job/principal-product-manager-conversational-ai/', work_type: 'Remote' },
 ];
-const { fresh, rejected } = decide(cands, existing);
-const want = { role: 1, location: 1, "duplicate-key": 2, "duplicate-url": 1, "no-url": 1 }; /* Zeta#2 is an in-batch key collision, which is the same rejection */
+const existingWithHopper = [
+  ...existing,
+  { dedupe_key: 'hopper|principal product manager- conversational ai', url: 'https://jobs.ashbyhq.com/hopper/241f7145-06b9-4ae5-969e-3cccaff85d98', company: 'Hopper', title: 'Principal Product Manager- Conversational AI' },
+];
+const { fresh, rejected } = decide(cands, existingWithHopper);
+const want = { role: 1, location: 1, "duplicate-key": 2, "duplicate-url": 1, "duplicate-job": 1, "no-url": 1 }; /* Zeta#2 is an in-batch key collision, which is the same rejection */
 let bad = 0;
 for (const [k, v] of Object.entries(want)) {
   const got = rejected[k];

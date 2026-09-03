@@ -50,12 +50,19 @@ check('seniority: associate', seniorityOf('Associate Product Manager') === 0);
 /* success must drop for the things that really do reduce his odds */
 const base = successScore({ title: 'Senior Product Manager' }, STRONG);
 const vp = successScore({ title: 'VP, Product' }, STRONG);
-const clearance = successScore({ title: 'Senior Product Manager' }, STRONG + ' Requires an active TS/SCI security clearance.');
 const closed = successScore({ title: 'Senior Product Manager', blocked_reason: 'posting-closed' }, STRONG);
 check('VP scores far below senior', vp.pct < base.pct - 30, `${base.pct} -> ${vp.pct}`);
-check('clearance craters it', clearance.pct < base.pct - 30, `${base.pct} -> ${clearance.pct}`);
 check('a closed posting craters it', closed.pct < base.pct - 25, `${base.pct} -> ${closed.pct}`);
 check('a 10-year ask lowers it', successScore({ title: 'Senior Product Manager' }, WEAK).pct < base.pct, '');
+
+/* Clearance is a requirementsGate concern, not a successScore deduction --
+   see HARD_BLOCKERS in fit-score.mjs. successScore must NOT dock a posting
+   whose only "clearance"-shaped word is the Employee Polygraph Protection
+   Act notice every US employer's footer carries, or Elastic's own listing
+   silently craters for a requirement it does not have. */
+const eppaFooter = STRONG + ' Employee Polygraph Protection Act (EPPA) Poster. Know Your Rights. E-Verify participant.';
+check('EPPA footer does not touch success score', successScore({ title: 'Senior Product Manager' }, eppaFooter).pct === base.pct,
+  `${base.pct} -> ${successScore({ title: 'Senior Product Manager' }, eppaFooter).pct}`);
 
 /* the gate */
 check('gate rejects San Francisco', !requirementsGate({ title: 'Senior Product Manager', work_type: 'San Francisco, CA' }).ok);
@@ -63,6 +70,10 @@ check('gate rejects program manager', !requirementsGate({ title: 'Senior Technic
 check('gate rejects published $120k', !requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US', salary_max: 120000 }).ok);
 check('gate ALLOWS unknown salary', requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US' }).ok);
 check('gate allows a good one', requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US', salary_max: 220000 }).ok);
+check('gate rejects a genuine clearance requirement',
+  !requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US' }, STRONG + ' Requires an active TS/SCI security clearance.').ok);
+check('gate keeps a posting whose only hit is the EPPA footer',
+  requirementsGate({ title: 'Senior Product Manager', work_type: 'Remote US' }, eppaFooter).ok);
 /* Failing input: a $165k-$175k band used to be dropped because the top sat
    under $180k. That is now a lane, not a reject. */
 check('gate allows a published $165k-$175k band',
