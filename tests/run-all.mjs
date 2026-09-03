@@ -47,6 +47,7 @@ const KIND = {
   'ingest/test-index-freshness.mjs': 'node',
   'ingest/test-location.mjs': 'node',
   'ingest/test-off-focus.mjs': 'node',
+  'ingest/test-pay-rank.mjs': 'node',
   'ingest/test-pay-tier.mjs': 'node',
   'ingest/test-refresh-audit.mjs': 'node',
   'ingest/test-resolve-by-board.mjs': 'node',

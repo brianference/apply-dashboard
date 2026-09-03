@@ -26,7 +26,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from './cli.mjs';
 import { decide } from './sync-to-d1.mjs';
-import { fetchJd, scoreOne, boardRef, requirementsGate, rankWrite, strip } from './fit-score.mjs';
+import { fetchJd, scoreOne, boardRef, requirementsGate, rankWrite, strip, publishedStarts } from './fit-score.mjs';
 import { salaryFromAshbyCompensation, salaryFromText } from './salary-from-posting.mjs';
 import { judgeBand, FLOOR } from './salary-sweep.mjs';
 import { ensurePayColumns } from './pay-columns.mjs';
@@ -198,6 +198,16 @@ for (const job of needsRank) {
 }
 say(`pay bands read from those descriptions: ${bands.size}`);
 
+/* Pay percentile is against THIS run's published starts, built once so a
+   posting scored first is not judged against a shorter list than one
+   scored last. Unpriced rows are omitted here and take the median inside
+   scoreOne -- leaving them out of the distribution is what makes 50 mean
+   "average of the priced ones", not "average of a list padded with zeros". */
+const payStarts = publishedStarts(needsRank.map((job) => {
+  const band = bands.get(job.dedupe_key);
+  return band ? { ...job, salary_min: band.min, salary_max: band.max } : job;
+}));
+
 for (const job of needsRank) {
   const jd = descriptions.get(job.dedupe_key) || null;
   const band = bands.get(job.dedupe_key) || null;
@@ -206,7 +216,7 @@ for (const job of needsRank) {
   const scoredJob = band
     ? { ...job, salary_min: band.min, salary_max: band.max }
     : job;
-  const s = scoreOne(scoredJob, jd);
+  const s = scoreOne(scoredJob, jd, payStarts);
   /* A published band under the floor rules the row out here, before it can be
      ranked well and shown. An ABSENT band is unknown, not low, and never
      rules anything out - that distinction is the whole point. */

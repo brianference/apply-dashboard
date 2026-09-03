@@ -2,6 +2,89 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v16.1.0 — Pay is in the rank, as a percentile (2026-09-03)
+
+Brian, 2026-09-02: higher paying jobs that fit well and that he has a good
+shot of getting should have a higher rank %. He approved the change on
+2026-09-03.
+
+Until this release pay only picked the sort lane. The headline was
+`fit * 0.55 + success * 0.45`. Measured over the live queue, the
+correlation between published start and rank was -0.155 across all priced
+rows, and -0.125 over priced non-leadership rows. Negative: higher pay
+tracked a lower score.
+
+### The blend
+
+Priced or unpriced alike:
+
+    fit * 0.40 + success * 0.35 + payTerm * 0.25
+
+`payTerm` is the percentile of the posting's published START among the
+published starts of the rows being scored, 0 to 100. Not a dollars-per-point
+scale. The repo already does this for resume overlap via `calibrate()`,
+because a raw figure that runs 0-30 cannot be averaged against a 45-94
+concept score.
+
+A row with no published band takes the median, 50. The first specification
+kept unpriced rows on the old two-term blend. Simulated against the live
+queue it was wrong: every priced row got diluted by its pay percentile
+while unpriced rows kept their higher score, so the top twelve came out
+almost entirely unpriced (PeopleGrove 77, Jerry.ai 74, Camunda 72). That
+penalises an employer for publishing a band, which is backwards. Unknown
+is average here, the same principle as unknown-is-not-low in the salary
+gate.
+
+When no distribution is supplied, payTerm is 50 for every row. Missing
+degrades to neutral, not to zero, because zero would silently punish every
+posting.
+
+The `fit === null` branch is unchanged at `success * 0.6`. A row whose
+description could not be read has no fit component, and adding pay to only
+that branch would be a second change with its own behaviour. Noted as a
+known gap in RANKING.md.
+
+`rank_why` names the pay component in the same voice as the resume line
+("pay: starts at $170k, higher than 18% of priced postings"). The
+percentage on the page carries `rank_why` in its hover title, and a score
+that moved 17 points with no visible reason is the thing this repo keeps
+being caught by.
+
+The distribution is built once per run from the rows about to be scored
+and threaded through `ingest/daily.mjs`, the `ingest/fit-score.mjs` CLI,
+`ingest/salary-recover.mjs`, and `ingest/regate.mjs`.
+
+Simulated against the live queue using the stored fit_pct and success_pct
+(a real re-score recomputes those from the descriptions, so exact values
+may move a point or two):
+
+    correlation(published start, rank), all priced rows:        -0.155 -> +0.118
+    correlation, priced non-leadership rows:                    -0.125 -> +0.167
+    rows whose score changes:                                   139 of 316 (49 up, 90 down)
+
+    Tremendous  Senior Product Manager - Growth   $240k   63 -> 70
+    Owner       Principal PM, AI Restaurant       $280k   61 -> 69
+    Instacart   Senior PM, Caper Recommendations  $221k   65 -> 69
+    Affirm      Staff PM, Affirm Bank             $230k   63 -> 68
+    Vanilla     Senior Product Manager            $170k   82 -> 65
+    Mitratech   Sr. Product Manager AI            $160k   73 -> 55
+    15Five      Director, Product                 $160k   68 -> 50
+
+This release does not write those scores. The dry run reports; `--write`
+is a separate step.
+
+### Verification
+
+- `ingest/test-pay-rank.mjs`: percentile 0 / ~100 / ~50, ties not
+  double-counted, empty or missing distribution is 50 not 0, hand-worked
+  blend `fit 80, success 60, pay 90` is 76, weights sum to 1.0, unpriced
+  and a median band share payTerm 50, unread still returns
+  `success * 0.6` and ignores pay, and two rows that today's blend ranks
+  the wrong way around reverse under the new one.
+- Known-bad: a temporary copy with one weight changed is required to FAIL
+  the arithmetic and the weights-sum assertion. The real build is required
+  to pass.
+
 ## v16.0.0 — Every rule reaches the rows already in the table (2026-09-02)
 
 Five branches shipped together, so they are one release. The thread running
