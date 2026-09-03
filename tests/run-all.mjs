@@ -40,6 +40,7 @@ const KIND = {
   'apply/test-order.mjs': 'node',
   'ingest/test-board-dates.mjs': 'node',
   'ingest/test-date-backfill.mjs': 'node',
+  'ingest/test-closed-check.mjs': 'node',
   'ingest/test-dedupe-queue.mjs': 'node',
   'ingest/test-domain.mjs': 'node',
   'ingest/test-employer-block.mjs': 'node',
