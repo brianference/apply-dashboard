@@ -66,6 +66,7 @@ projects.
 | Header search and the `/` shortcut | — | yes | **Gap.** Verified by screenshot only |
 | Filter chips | — | yes | **Gap.** No test |
 | Posted column (age in days) | `tests/posted-filter.mjs` | — | "today", "Nd ago", or an em-dash. No-date rows sink in both sort directions. Newest sorts on `posted`, not crawl time |
+| The column-filter popup on a phone in desktop mode | `tests/column-menu.mjs` | - | Clamped on both axes, height capped so Apply and the checkboxes stay on screen, and no autofocus on a coarse pointer -- the focus is what raised the keyboard over it |
 | Leadership roles hidden behind a pill | `tests/leadership-filter.mjs` | - | Director, Head of Product, VP and CPO off the default list. The test writes its own pattern rather than importing the page's, and floors the pill count, because a regex whose escapes were eaten matches nothing while every count still agrees with its own empty row set |
 | Clear all filters, and the Over $180k chip | `tests/clear-filters.mjs`, `apply/test-counts.mjs` | — | The button counts what it will clear and is disabled at zero. The test asserts the column filter actually engaged before checking it was cleared, and every numbered chip must equal the rows it reveals |
 | Posted-within toolbar filter | `tests/posted-filter.mjs` | — | Not persisted. Unknown dates do not survive a window. The hidden-count note must add up. Local drive via `tests/serve-local.mjs` |
