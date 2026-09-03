@@ -1080,5 +1080,12 @@
       "token": "quorum",
       "name": "Quorum Software"
     }
+  ],
+  "oracle": [
+    {
+      "host": "egug.fa.us2.oraclecloud.com",
+      "site": "CX_1",
+      "name": "American Express"
+    }
   ]
 }

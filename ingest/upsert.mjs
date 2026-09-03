@@ -26,7 +26,8 @@ const SOURCE_LOADERS = {
   remoteok: () => import("./sources/remoteok.mjs"),
   himalayas: () => import("./sources/himalayas.mjs"),
   weworkremotely: () => import("./sources/weworkremotely.mjs"),
-  jobspresso: () => import("./sources/jobspresso.mjs")
+  jobspresso: () => import("./sources/jobspresso.mjs"),
+  oracle: () => import("./sources/oracle.mjs")
 };
 
 /**
