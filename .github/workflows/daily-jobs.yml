@@ -69,6 +69,18 @@ jobs:
           printf '%s' "$RESUME_TEXT" > apply/resume-text.local.txt
           echo "resume text written ($(wc -c < apply/resume-text.local.txt) bytes)"
 
+      - name: Lint for undefined references
+        # This step exists for one bug: a fix used `all`, which index.html
+        # declares and ingest/daily.mjs does not, and CI died with
+        # ReferenceError at daily.mjs:213 -- on a line whose own test asserted
+        # the STRING was present. A text match cannot see an undefined
+        # reference. no-undef catches that class in one pass. eslint is
+        # installed ad hoc, like playwright, because this repo commits no
+        # dependencies.
+        run: |
+          npm install --no-save --no-audit --no-fund eslint
+          npx eslint .
+
       - name: Run the rule tests
         # One runner, not a list. Every suite here used to be named by hand,
         # and six were added in a single day -- each one a chance to write the

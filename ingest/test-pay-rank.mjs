@@ -123,7 +123,14 @@ check('unpriced payStart is null, median-priced payStart is 210000',
   unpriced.payStart === null && pricedMedian.payStart === 210000,
   `unpriced=${unpriced.payStart} priced=${pricedMedian.payStart}`);
 
-/* ---- fit === null still returns success * 0.6 and ignores pay ------- */
+/* ---- fit === null counts pay, and stays capped at 60 -----------------
+
+   This branch ignored pay until 2026-09-03, so a posting with a published
+   $280k band and no fetchable description scored on success alone. Brian asked
+   for it. The fit term is dropped WITHOUT renormalising, so success and pay
+   carry 0.35 and 0.25 and the ceiling is 60 -- the same ceiling success * 0.6
+   gave before. That matters: a row nobody could read must not outrank one that
+   WAS read, because less evidence cannot beat more. */
 
 const unreadHigh = scoreOne(
   { ...JOB, salary_min: 400000, dedupe_key: 'unread' },
@@ -131,12 +138,31 @@ const unreadHigh = scoreOne(
   [160000, 180000, 200000, 400000]
 );
 check('unread description has fit null', unreadHigh.fit === null);
-check('unread rank is round(success * 0.6), ignoring a top-of-list pay band',
-  unreadHigh.rank === Math.round(unreadHigh.success.pct * RANK_UNREAD_SUCCESS_WEIGHT),
+check('unread rank counts the pay term',
+  unreadHigh.rank === Math.round(
+    unreadHigh.success.pct * RANK_SUCCESS_WEIGHT + unreadHigh.payTerm * RANK_PAY_WEIGHT),
   `rank=${unreadHigh.rank} success=${unreadHigh.success.pct} payTerm=${unreadHigh.payTerm}`);
-check('unread rank is NOT the three-term blend -- that would be mixing pay in',
-  unreadHigh.rank !== rankBlend(0, unreadHigh.success.pct, unreadHigh.payTerm),
-  `rank=${unreadHigh.rank} blendIfPayCounted=${rankBlend(0, unreadHigh.success.pct, unreadHigh.payTerm)}`);
+check('a top-of-list band raises an unread row above success * 0.6',
+  unreadHigh.rank > Math.round(unreadHigh.success.pct * RANK_UNREAD_SUCCESS_WEIGHT),
+  `${unreadHigh.rank} > ${Math.round(unreadHigh.success.pct * RANK_UNREAD_SUCCESS_WEIGHT)}`);
+
+/* The ceiling, asserted at the extreme rather than assumed. Perfect success and
+   the top pay percentile must still land at 60, or an unread row could reach
+   the same score as a fully-scored one. */
+check('the unread ceiling is 60, even at success 100 and pay 100',
+  Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT) === 60,
+  String(Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT)));
+check('the unread ceiling equals the old success-only ceiling',
+  Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT)
+    === Math.round(100 * RANK_UNREAD_SUCCESS_WEIGHT),
+  `${Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT)} vs `
+  + `${Math.round(100 * RANK_UNREAD_SUCCESS_WEIGHT)}`);
+
+/* And an unpriced unread row takes the median, so it is not punished for the
+   board publishing nothing. */
+const unreadUnpriced = scoreOne({ ...JOB, dedupe_key: 'unread-unpriced' }, null, [160000, 400000]);
+check('an unread unpriced row uses the median pay term',
+  unreadUnpriced.payTerm === 50, String(unreadUnpriced.payTerm));
 
 /* ---- rank_why names the pay component ------------------------------- */
 

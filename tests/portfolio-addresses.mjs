@@ -12,7 +12,16 @@
  *   node tests/portfolio-addresses.mjs --site http://127.0.0.1:8795
  */
 
-import { chromium } from 'playwright';
+import { createRequire } from 'node:module';
+/* Brian's machine keeps Playwright in RedAnvil; a CI runner installs its own.
+   Try the local copy, fall back to a normal resolution, so the same file runs
+   in both places -- and in a git WORKTREE, which has no node_modules of its
+   own. A direct `import { chromium } from 'playwright'` fails there, which is
+   how a delegated run reported four failures that were not its fault. */
+const require = createRequire(import.meta.url);
+let chromium;
+try { ({ chromium } = require('C:/Users/brian/RedAnvil/node_modules/playwright')); }
+catch { ({ chromium } = await import('playwright')); }
 
 const args = process.argv.slice(2);
 const siteFlag = args.indexOf('--site');

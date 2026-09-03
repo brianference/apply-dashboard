@@ -39,7 +39,7 @@ export async function onRequestPost(context) {
   let body;
   try {
     body = await request.json();
-  } catch (error) {
+  } catch {
     return new Response(JSON.stringify({ error: "body must be JSON" }),
       { status: 400, headers: HEADERS });
   }

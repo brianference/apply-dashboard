@@ -993,7 +993,15 @@ export function scoreOne(job, jd, payStarts) {
      branch would be a second change with its own behaviour. Everyone else
      is fit, success, and the pay percentile, priced and unpriced alike. */
   const base = !gate.ok ? null
-    : fit === null ? Math.round(success.pct * RANK_UNREAD_SUCCESS_WEIGHT)
+    /* No readable description means no fit term, and the row must stay
+       capped below one that WAS read: less evidence cannot outrank more.
+       Dropping the fit term without renormalising does exactly that --
+       success and pay carry 0.35 and 0.25, so the ceiling is 60, the same
+       ceiling success * 0.6 gave before. Pay now counts inside it, which it
+       did not: a posting with a published $280k band and no fetchable
+       description ignored the band completely. */
+    : fit === null
+      ? Math.round(success.pct * RANK_SUCCESS_WEIGHT + payTerm * RANK_PAY_WEIGHT)
       : rankBlend(fit.pct, success.pct, payTerm);
   /* A domain he does not work in costs points rather than the whole posting.
      Applied after the blend, not inside it, so the penalty is visible in the
