@@ -1113,11 +1113,16 @@ if (isCli(import.meta.url)) {
     .sort((a, b) => (b.match_pct || 0) - (a.match_pct || 0))
     .slice(0, limit);
 
-  /* Built once from the rows about to be scored, not inside the loop.
+  /* Built from every QUEUED row, not from the sliced batch. --limit caps how
+     many get re-scored, and a percentile taken against the batch would make a
+     job's score depend on the batch it landed in: the same posting could read
+     57 on a run of 200 and 80 on a run of 40. A percentile needs a fixed
+     population, and the population is the queue.
+
      A missing distribution would degrade every payTerm to 50, which is
-     neutral, not a crash -- but it would also make the run look like pay
+     neutral rather than a crash, but it would also make the run look like pay
      was never wired in. */
-  const payStarts = publishedStarts(live);
+  const payStarts = publishedStarts(jobs.filter((j) => j.status === 'queued'));
 
   let read = 0;
   const scored = [];
