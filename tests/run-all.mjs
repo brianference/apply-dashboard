@@ -61,6 +61,7 @@ const KIND = {
   'tests/check-coverage.mjs': 'node',
   'tests/clear-filters.mjs': 'site',
   'tests/column-menu.mjs': 'site',
+  'tests/column-split.mjs': 'site',
   'tests/header-panel.mjs': 'site',
   'tests/leadership-filter.mjs': 'site',
   'tests/posted-filter.mjs': 'site',

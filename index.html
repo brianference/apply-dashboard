@@ -203,7 +203,12 @@
      together. A fixed location column clipped two-city strings and anything
      carrying a salary, and no amount of shortening the TEXT fixes a column
      that is simply too narrow for what Brian wants to read. */
-  :root { --w-pct: 42px; --w-ats: 96px; --w-loc: 320px; --w-pay: 92px; --w-posted: 84px; }
+  /* Role and Company were one 1fr cell labelled "Role / Company", so neither
+     could be widened: the flexible column had no grip and the two values
+     shared whatever space was left. Brian, 2026-09-03: he could not expand
+     it and they should be two columns. Role keeps the 1fr so the table still
+     fills the width, and Company gets a real width and a grip of its own. */
+  :root { --w-pct: 42px; --w-co: 190px; --w-ats: 96px; --w-loc: 320px; --w-pay: 92px; --w-posted: 84px; }
 
   .colgrip {
     position: absolute; top: 2px; bottom: 2px; right: -5px; width: 10px;
@@ -226,7 +231,7 @@
   /* ---- per-column filter header ---- */
   .colhead {
     display: grid; align-items: center; gap: 10px;
-    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-ats) var(--w-loc) var(--w-pay) var(--w-posted) minmax(82px,auto);
+    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-co) var(--w-ats) var(--w-loc) var(--w-pay) var(--w-posted) minmax(82px,auto);
     padding: 6px 10px; background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
@@ -295,7 +300,7 @@
     display: grid; align-items: center; gap: 10px;
     /* the action cell must be allowed to grow: the "Sent? Yes No" confirm is
        wider than an Apply button, and a fixed 82px made it overlap the location */
-    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-ats) var(--w-loc) var(--w-pay) var(--w-posted) minmax(82px,auto);
+    grid-template-columns: var(--w-pct) minmax(0,1fr) var(--w-co) var(--w-ats) var(--w-loc) var(--w-pay) var(--w-posted) minmax(82px,auto);
     padding: 0 10px; height: 40px;
     border-top: 1px solid var(--border);
     font-size: 13px;
@@ -312,6 +317,14 @@
   }
   .pct.hi { color: var(--success); }
   .main { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+  /* Its own grid item now, not a sibling inside .main. On mobile the grid
+     collapses to three columns and this is hidden, with .conly inside the
+     meta line carrying the company instead -- the same arrangement the
+     pay and posted columns already use. */
+  .cocol {
+    min-width: 0; color: var(--muted); font-size: 12.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .ttl {
     font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     color: var(--text); min-width: 0;
@@ -381,7 +394,7 @@
      Showing it at the same weight as a real fit score is how a 100% that means
      nothing ends up at the top of the list. */
   .pct.unscored { opacity: .55; font-style: italic; }
-  @media (max-width: 860px) { .pay { display: none; } }
+  @media (max-width: 860px) { .pay { display: none; } .cocol { display: none; } }
 
   /* "I already applied to this myself." Deliberately quiet -- it sits beside
      the main action on every unrecorded row, and it should never compete with
@@ -1254,7 +1267,8 @@
           ? '<span class="domain-badge" title="' + esc(String(j.blocked_detail || "")) + '">'
             + esc(DOMAIN_LABELS[j.excluded_domain] || j.excluded_domain) + "</span>"
           : "")
-        + '</span><span class="co">' + esc(j.company || "") + "</span></span>"
+        + "</span></span>"
+      + '<span class="cocol" title="' + esc(j.company || "") + '">' + esc(j.company || "") + "</span>"
       + '<span class="meta">'
         + '<span class="ats ' + a.cls + '">' + esc(a.label) + "</span>"
         /* The reason goes INSIDE .who. On desktop .meta is `display: contents`,
@@ -1285,8 +1299,8 @@
 
   /* Which columns can be dragged, and the variable each one drives. Company is
      the flexible 1fr column and takes whatever is left, so it has no grip. */
-  var RESIZABLE = { match: "--w-pct", ats: "--w-ats", loc: "--w-loc", pay: "--w-pay", posted: "--w-posted" };
-  var COLW_DEFAULTS = { match: 42, ats: 96, loc: 320, pay: 92, posted: 84 };
+  var RESIZABLE = { match: "--w-pct", company: "--w-co", ats: "--w-ats", loc: "--w-loc", pay: "--w-pay", posted: "--w-posted" };
+  var COLW_DEFAULTS = { match: 42, company: 190, ats: 96, loc: 320, pay: 92, posted: 84 };
   var COLW_MIN = 40, COLW_MAX = 640;
 
   function loadWidths() {
@@ -1373,6 +1387,7 @@
     if (id === "match") return Number(j.rank_pct != null ? j.rank_pct : j.match_pct);
     if (id === "pay") return payValue(j);
     if (id === "posted") return Date.parse(j.posted);
+    if (id === "role") return clean(j.title).toLowerCase();
     if (id === "company") return clean(j.company).toLowerCase();
     if (id === "ats") return atsOf(j).label.toLowerCase();
     if (id === "loc") return shortLoc(j.work_type).toLowerCase();
@@ -1483,13 +1498,14 @@
      which would mean "everything is unticked, show nothing". */
   var COLS = [
     { id: "match",   label: "%",              value: function (j) { return matchBucket(j.rank_pct != null ? j.rank_pct : j.match_pct); }, align: "right" },
-    { id: "company", label: "Role / Company", value: function (j) { return clean(j.company) || "(none)"; } },
+    { id: "role",    label: "Role",    value: function (j) { return clean(j.title) || "(none)"; } },
+    { id: "company", label: "Company", value: function (j) { return clean(j.company) || "(none)"; } },
     { id: "ats",     label: "Apply via",      value: function (j) { return atsOf(j).label; } },
     { id: "loc",     label: "Location",       value: function (j) { return shortLoc(j.work_type) || "(none)"; } },
     { id: "pay",     label: "Pay",            value: function (j) { return payBucket(j); }, align: "right" },
     { id: "posted",  label: "Posted",         value: postedBucket, align: "right" }
   ];
-  var colSel = { match: null, company: null, ats: null, loc: null, pay: null, posted: null };
+  var colSel = { match: null, role: null, company: null, ats: null, loc: null, pay: null, posted: null };
 
   /**
    * A posting's pay, as a short string.
@@ -1762,6 +1778,7 @@
     construction: "Construction and architecture",
     clearance: "Needs a security clearance",
     "risk-compliance": "Risk and compliance",
+    marketing: "Marketing products",
     hardware: "Hardware"
   };
 

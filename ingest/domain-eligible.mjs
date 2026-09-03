@@ -145,6 +145,21 @@ const CLEARANCE = new RegExp([
 /* Title only. Standalone "governance" is deliberately omitted: Webflow's
    "Staff Product Manager, Governance" is data governance, a different job.
    "governance, risk" is the GRC product phrase that cannot mean that. */
+/* Title only, for the same reason risk-compliance is. Nearly every product
+   description mentions marketing somewhere -- a stakeholder, an adjacent
+   team, a go-to-market paragraph -- so matching the description would rule
+   out most of the queue. The title is where a product's domain is declared.
+
+   This was a 25-point OFF-FOCUS PENALTY until 2026-09-03, and the comment in
+   fit-score.mjs named "Staff Product Manager, Marketing Pro" as the case that
+   must NOT be excluded, on the reasoning that a product manager working on a
+   marketing product is still a product manager. Brian settled it: remove them
+   from everywhere. A penalty left that posting at 41 percent and at the top of
+   his $165k-this-week view, which is not what "outside your focus" should
+   look like. Exclusion and de-ranking are different answers, and he wanted
+   the other one. */
+const MARKETING_TITLE = /\bmarketing\b|\bdemand gen(eration)?\b|\bmartech\b|\bcampaign management\b/i;
+
 const RISK_COMPLIANCE_TITLE = /\brisk\b|\bcompliance\b|\bregulatory\b|\bgrc\b|governance,\s*risk/i;
 
 /**
@@ -195,6 +210,15 @@ export function domainSignals(job, jd) {
     };
   }
 
+  const marketingHit = title.match(MARKETING_TITLE);
+  if (marketingHit) {
+    return {
+      ruled: true,
+      domain: 'marketing',
+      why: `title names a marketing product: "${marketingHit[0].trim()}"`
+    };
+  }
+
   const parts = [job && job.title, job && job.company, jd].filter(Boolean).join('\n');
   /* URLs first, then benefits. A slug can carry any word this file matches,
      not only silicon, which is why stripping is not hardware-specific. */
@@ -219,7 +243,7 @@ export function domainSignals(job, jd) {
 }
 
 /** The domains a signed-in account can switch back on. */
-export const TOGGLEABLE_DOMAINS = ['healthcare', 'construction', 'clearance', 'risk-compliance', 'hardware'];
+export const TOGGLEABLE_DOMAINS = ['healthcare', 'construction', 'clearance', 'risk-compliance', 'hardware', 'marketing'];
 
 /**
  * Queued rows whose title (or company, for the description-based domains)

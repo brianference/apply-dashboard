@@ -299,6 +299,19 @@ check(!jobgetherHw.ruled,
   'Jobgether silicon as a partner ecosystem is not hardware',
   jobgetherHw.ruled ? `WRONGLY RULED OUT as ${jobgetherHw.domain} (${jobgetherHw.why})` : '');
 
+/* ---- marketing, decided on the title like risk-compliance ------------- */
+const mkt = domainSignals(
+  { company: 'Jobgether (anonymized partner employer)', title: 'Staff Product Manager, Marketing Pro' },
+  null
+);
+check(mkt.ruled && mkt.domain === 'marketing',
+  'Staff Product Manager, Marketing Pro is ruled out as marketing',
+  mkt.ruled ? `${mkt.domain} (${mkt.why})` : 'NOT RULED OUT');
+
+check(TOGGLEABLE_DOMAINS.indexOf('marketing') !== -1,
+  'marketing can be switched back on from Advanced',
+  TOGGLEABLE_DOMAINS.join(', '));
+
 console.log(failures.length
   ? `\n${failures.length} FAILED`
   : '\nthe domain rule catches the right postings and leaves the rest alone');
