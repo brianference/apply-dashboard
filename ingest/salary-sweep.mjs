@@ -30,7 +30,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isCli, parseArgs } from './cli.mjs';
 import { logInfo, logWarn } from './logger.mjs';
-import { fetchJd, payTier } from './fit-score.mjs';
+import { payTier } from './fit-score.mjs';
+import { readJd } from './jd-read.mjs';
 import { salaryFromText } from './salary-from-posting.mjs';
 import { ensurePayColumns } from './pay-columns.mjs';
 
@@ -46,9 +47,6 @@ const DATABASE = '10e8a6c0-1fa7-4c33-a007-2044876ce6a7';
 
 /** Brian's floor. A band whose START is under this fails, however high its top. */
 export const FLOOR = 160000;
-
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-  + '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /** Board API bodies shorter than this are not treated as the posting. */
 const BOARD_TEXT_MIN = 200;
@@ -210,6 +208,36 @@ export function belowFloorWrite(r) {
 
 
 /**
+ * Put a structured band in front of the description when the text does not
+ * already state one.
+ *
+ * Structured salary -- JSON-LD baseSalary, the Himalayas feed, Ashby's
+ * compensation field -- is often absent from the prose, so a posting that
+ * publishes its band in a field and not in a sentence stayed unpriced. The
+ * existing extractor reads text, so the band is written where it can see it.
+ *
+ * The guard matters as much as the prefix: text that ALREADY states a range
+ * must not get a second one in front of it, or the extractor picks whichever
+ * comes first and the two can disagree.
+ *
+ * Pulled out as a pure function because the test for it used to assert that
+ * salary-sweep.mjs CONTAINED the string `boardTextHasBand(boardText)`. That
+ * assertion failed the moment the variable was renamed, while the behaviour was
+ * intact -- a text match cannot tell a rename from a removal.
+ *
+ * @param {string|null} text
+ * @param {{min?: number|null, max?: number|null}|null} salary
+ * @returns {string|null}
+ */
+export function withStructuredBand(text, salary) {
+  if (!text) return text;
+  if (!salary || salary.min == null) return text;
+  if (boardTextHasBand(text)) return text;
+  const max = salary.max != null ? salary.max : salary.min;
+  return `$${salary.min} - $${max}. ${text}`;
+}
+
+/**
  * The posting text for a row: the board API when it is a board we can read
  * AND that text already has a published band; otherwise the destination page.
  *
@@ -223,27 +251,18 @@ export function belowFloorWrite(r) {
  * @returns {Promise<{text: string|null, via: string}>}
  */
 export async function postingText(job, refetch = false) {
-  let boardText = null;
-  if (!refetch) {
-    boardText = await fetchJd(job.url).catch(() => null);
-    if (boardTextHasBand(boardText)) return { text: boardText, via: 'board-api' };
-  }
-  try {
-    const res = await fetch(job.url, {
-      headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(25000)
-    });
-    if (!res.ok) {
-      if (boardText && boardText.length > BOARD_TEXT_MIN) return { text: boardText, via: 'board-api' };
-      return { text: null, via: `page-${res.status}` };
-    }
-    const body = await res.text();
-    return { text: textOf(body), via: 'page' };
-  } catch {
-    if (boardText && boardText.length > BOARD_TEXT_MIN) return { text: boardText, via: 'board-api' };
+  /* One reader. A second page fetch here is how a JSON-LD band would be
+     found in only one of two places, the same class of bug as the
+     normalised dedupe check. */
+  const result = await readJd(job.url, { refetch }).catch(() => null);
+  if (!result || !result.text) {
+    if (result && result.outcome === 'board-404') return { text: null, via: 'page-404' };
+    if (result && result.outcome === 'blocked-by-policy') return { text: null, via: 'blocked' };
     return { text: null, via: 'page-error' };
   }
+  const text = withStructuredBand(result.text, result.salary);
+  const via = result.via === 'board-api' ? 'board-api' : 'page';
+  return { text, via };
 }
 
 if (isCli(import.meta.url)) {
