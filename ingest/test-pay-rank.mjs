@@ -279,10 +279,28 @@ check('against the whole population $170k is the 20th percentile',
    population is a wiring mistake and no unit test of a pure function can see
    it. This is the same reason check-coverage reads FEATURES.md. */
 const dailySrc = fs.readFileSync(path.join(ROOT, 'ingest', 'daily.mjs'), 'utf8');
-check('daily.mjs builds the distribution from every queued row',
-  dailySrc.indexOf('publishedStarts(all.filter(') !== -1
-  && dailySrc.indexOf('publishedStarts(needsRank') === -1,
-  dailySrc.indexOf('publishedStarts(needsRank') !== -1 ? 'STILL USES THE BATCH' : '');
+/* The identifier has to be one the file actually declares.
+
+   My first version of this case asserted the STRING
+   "publishedStarts(all.filter(" was present, and it was -- while `all` was
+   undefined in daily.mjs. CI died with a ReferenceError on a line this test
+   had just called correct, and it died in the --dry step, which is the only
+   reason it did not reach a scheduled write. A text match cannot see an
+   undefined reference, so the name is extracted and checked against the
+   file's own declarations. */
+const dailyCall = /publishedStarts\((\w+)\.filter\(/.exec(dailySrc);
+const dailyName = dailyCall ? dailyCall[1] : null;
+check('daily.mjs builds the distribution from a queued filter, not the batch',
+  !!dailyName && dailySrc.indexOf('publishedStarts(needsRank') === -1,
+  dailySrc.indexOf('publishedStarts(needsRank') !== -1 ? 'STILL USES THE BATCH'
+    : (dailyName || 'NO CALL FOUND'));
+check('and that identifier is declared in daily.mjs',
+  !!dailyName && new RegExp('(?:const|let|var)\\s+' + dailyName + '\\b').test(dailySrc),
+  dailyName || '');
+check('the queued filter really is on status',
+  !!dailyName && new RegExp(dailyName + '\\.filter\\([^)]*status').test(dailySrc),
+  dailyName || '');
+
 const fitSrc = fs.readFileSync(path.join(ROOT, 'ingest', 'fit-score.mjs'), 'utf8');
 check('the fit-score CLI builds it from every queued row',
   fitSrc.indexOf('publishedStarts(jobs.filter(') !== -1
