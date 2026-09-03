@@ -210,7 +210,7 @@ say(`pay bands read from those descriptions: ${bands.size}`);
    Unpriced rows are omitted from the distribution and take the median inside
    scoreOne -- leaving them out is what makes 50 mean "average of the priced
    ones" rather than "average of a list padded with zeros". */
-const payStarts = publishedStarts(all.filter((job) => job.status === 'queued').map((job) => {
+const payStarts = publishedStarts(live.filter((job) => job.status === 'queued').map((job) => {
   const band = bands.get(job.dedupe_key);
   return band ? { ...job, salary_min: band.min, salary_max: band.max } : job;
 }));
