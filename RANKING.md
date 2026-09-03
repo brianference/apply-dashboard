@@ -61,11 +61,40 @@ not an application until a human finishes it.
 ## The headline
 
     gate failed        -> no rank at all, off the list; rank_pct and pay_tier cleared
-    description unread -> success_pct * 0.6, marked as unread
-    normal             -> fit_pct * 0.55 + success_pct * 0.45
+    description unread -> success_pct * 0.6, marked as unread (pay is not mixed in)
+    normal             -> fit_pct * 0.40 + success_pct * 0.35 + payTerm * 0.25
 
-Pay is not in that blend. It is a separate `pay_tier` decided on the published
-start only (a top figure with no start is unknown, not confirmed):
+Brian, 2026-09-02: higher paying jobs that fit well and that he has a good
+shot of getting should have a higher rank %. Until 2026-09-03 pay only picked
+the sort lane. Measured over the live queue, the correlation between published
+start and rank was -0.155 across all priced rows, and -0.125 over priced
+non-leadership rows. Negative: higher pay tracked a lower score.
+
+`payTerm` is the percentile of the posting's published START among the
+published starts of the rows being scored, 0 to 100. Not a dollars-per-point
+scale. A raw $170k cannot be averaged with a 45-94 fit score; the percentile
+can. Same shape as `calibrate()` for resume overlap.
+
+A row with no published band takes the median, 50. That last rule is the
+whole design and it is not obvious. The first specification kept unpriced
+rows on the old two-term blend. Simulated against the live queue it was
+wrong: every priced row got diluted by its pay percentile while unpriced
+rows kept their higher score, so the top twelve came out almost entirely
+unpriced (PeopleGrove 77, Jerry.ai 74, Camunda 72). That penalises an
+employer for publishing a band, which is backwards. Unknown is average here,
+the same principle as unknown-is-not-low in the salary gate.
+
+When no distribution is supplied, payTerm is 50 for every row. Missing
+degrades to neutral, not to zero, because zero would silently punish every
+posting.
+
+**Known gap.** The `fit === null` branch is still `success * 0.6`. A row
+whose description could not be read has no fit component, and adding pay to
+only that branch would be a second change with its own behaviour.
+
+Pay is also still a separate `pay_tier` decided on the published start only
+(a top figure with no start is unknown, not confirmed). The lane is the
+sort; the percentile is the number on the row:
 
     1  salary_min >= $180k     confirmed at or above the floor
     2  no published start      unknown — crawled, or not yet priced
@@ -122,6 +151,7 @@ than reading it.
 
     node ingest/test-fit.mjs            # every rejection reason, on inputs built to trip it
     node ingest/test-pay-tier.mjs       # pay-first tiers; the retired sort must fail
+    node ingest/test-pay-rank.mjs       # pay percentile in the headline; a weight typo must fail
 
 `--write` updates `rank_pct`, `fit_pct`, `success_pct`, `jd_read` and
 `rank_why`, `pay_tier`, and rules out anything failing the gate. Descriptions are cached
