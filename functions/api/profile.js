@@ -13,6 +13,55 @@
 
 import { HEADERS, preflight } from "./_auth.js";
 import { currentUser, originAllowed } from "./_session.js";
+import {
+  parseResume, normalizeSections, ensureProfileColumns
+} from "./_profile-parse.js";
+
+/** Stored JSON is what the person saved. Cap matches the avatar: a caller
+    that skips the page cannot put a megabyte in a row the public page reads. */
+const MAX_SECTIONS_CHARS = 200000;
+
+const PROFILE_COLUMNS = "display_name, handle, headline, location, resume_filename, resume_text, linkedin_url, github_url, avatar_data_url, profile_sections, updated_at";
+
+/**
+ * D1 runner the column guard expects. PRAGMA/SELECT use `.all()` so the
+ * Workers envelope `{ results }` is what pragmaColumns already knows;
+ * ALTER uses `.run()`.
+ *
+ * @param {D1Database} db
+ * @param {string} sql
+ * @returns {Promise<any>}
+ */
+function d1Run(db, sql) {
+  if (/^\s*PRAGMA/i.test(sql) || /^\s*SELECT/i.test(sql)) return db.prepare(sql).all();
+  return db.prepare(sql).run();
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {object|null}
+ */
+function readSections(raw) {
+  if (raw == null || raw === "") return null;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return normalizeSections(parsed);
+  } catch {
+    return null;
+  }
+}
+
+let profileColumnsReady = false;
+/**
+ * @param {D1Database} db
+ * @returns {Promise<void>}
+ */
+async function readyProfileColumns(db) {
+  if (profileColumnsReady) return;
+  await ensureProfileColumns((sql) => d1Run(db, sql));
+  profileColumnsReady = true;
+}
 
 /** Only these are editable here. resume_text is replaced by the extractor. */
 const EDITABLE = ["display_name", "headline", "location", "resume_filename", "linkedin_url", "github_url"];
@@ -95,11 +144,18 @@ export async function onRequestGet(context) {
   }
   /* THEIR row, not row one. It was pinned to id = 1, so a second account would
      have been shown Brian's resume and would have edited it. */
+  await readyProfileColumns(env.DB);
   const row = await env.DB.prepare(
-    "SELECT display_name, handle, headline, location, resume_filename, resume_text, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE user_id = ?1"
+    `SELECT ${PROFILE_COLUMNS} FROM profile WHERE user_id = ?1`
   ).bind(user.id).first();
+  const stored = row ? readSections(row.profile_sections) : null;
+  const profile = row ? { ...row, profile_sections: stored } : null;
+  /* The parse is offered, never written. Putting it on the row here is how a
+     person's edited title would vanish the next time they opened the page. */
+  const suggested = row && row.resume_text ? parseResume(row.resume_text) : null;
   return new Response(JSON.stringify({
-    profile: row || null,
+    profile,
+    suggested,
     /* The length rather than nothing, so the page can say whether a resume is
        loaded without shipping ten thousand characters to render a status line. */
     resume_chars: row && row.resume_text ? row.resume_text.length : 0
@@ -122,6 +178,7 @@ export async function onRequestPut(context) {
   if (!user) {
     return new Response(JSON.stringify({ error: "sign in to change your profile" }), { status: 401, headers: HEADERS });
   }
+  await readyProfileColumns(env.DB);
 
   let body;
   try {
@@ -188,6 +245,27 @@ export async function onRequestPut(context) {
     sets.push(`${field} = ?`);
     values.push(value);
   }
+  /* profile_sections is the saved editor state. It is stored as the person
+     sent it (after shape-normalising). Re-parsing the resume here and writing
+     that instead is the overwrite this column exists to prevent. */
+  if ("profile_sections" in body) {
+    if (body.profile_sections === null) {
+      sets.push("profile_sections = ?");
+      values.push(null);
+    } else if (typeof body.profile_sections !== "object" || Array.isArray(body.profile_sections)) {
+      return new Response(JSON.stringify({ error: "profile_sections must be an object" }), { status: 400, headers: HEADERS });
+    } else {
+      const normalized = normalizeSections(body.profile_sections);
+      const json = JSON.stringify(normalized);
+      if (json.length > MAX_SECTIONS_CHARS) {
+        return new Response(JSON.stringify({
+          error: `profile_sections is too large (${Math.round(json.length / 1024)}KB); keep it under ${Math.round(MAX_SECTIONS_CHARS / 1024)}KB`
+        }), { status: 400, headers: HEADERS });
+      }
+      sets.push("profile_sections = ?");
+      values.push(json);
+    }
+  }
   if (!sets.length) {
     return new Response(JSON.stringify({ error: "nothing to update" }), { status: 400, headers: HEADERS });
   }
@@ -202,9 +280,10 @@ export async function onRequestPut(context) {
   values.push(user.id);
   await env.DB.prepare(`UPDATE profile SET ${sets.join(", ")} WHERE user_id = ?`).bind(...values).run();
   const saved = await env.DB.prepare(
-    "SELECT display_name, handle, headline, location, resume_filename, linkedin_url, github_url, avatar_data_url, updated_at FROM profile WHERE user_id = ?1"
+    `SELECT ${PROFILE_COLUMNS} FROM profile WHERE user_id = ?1`
   ).bind(user.id).first();
-  return new Response(JSON.stringify({ ok: true, profile: saved }), { headers: HEADERS });
+  const profile = saved ? { ...saved, profile_sections: readSections(saved.profile_sections) } : saved;
+  return new Response(JSON.stringify({ ok: true, profile }), { headers: HEADERS });
 }
 
 /**

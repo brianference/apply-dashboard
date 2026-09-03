@@ -2,7 +2,7 @@
  * Entry point for the split-hero portfolio. Fetches, then renders.
  */
 
-import { el, lines, projectRow, repoList } from "./render.js";
+import { el, lines, projectRow, repoList, putJsonLd, factText, experienceList, projectList, closingBand } from "./render.js";
 import { fetchProfile, currentHandle } from "./api.js";
 import { PROJECTS } from "./projects.js";
 import { mountSiteNav } from "/shared/site-nav.js";
@@ -128,13 +128,38 @@ async function start() {
   if (profile.links.github) links.push(link(profile.links.github, "GitHub", "pill"));
   at("#links").replaceChildren(...links);
 
-  for (const [id, text] of [["skills", profile.skills], ["education", profile.education], ["certifications", profile.certifications]]) {
-    const node = at(`#${id}`);
-    /* Hide the whole block, heading included. Hiding only the body left an
-       orphaned title with nothing under it. */
-    if (!text) { (node.closest(".fact") || node).hidden = true; continue; }
-    node.replaceChildren(lines(text));
+  putJsonLd(profile.jsonld || null);
+
+  const bands = [];
+  const experience = experienceList(profile.experience || []);
+  const expBand = closingBand("Experience", "Experience", experience);
+  if (expBand) bands.push(expBand);
+
+  const resumeProjects = projectList(profile.projects || []);
+  const projBand = closingBand("Selected projects", "Selected projects", resumeProjects);
+  if (projBand) bands.push(projBand);
+
+  const facts = [];
+  for (const [title, value] of [
+    ["Skills", profile.skills],
+    ["Education", profile.education],
+    ["Certifications", profile.certifications]
+  ]) {
+    const text = factText(value);
+    if (!text) continue;
+    facts.push(el("div", { class: "fact" }, [
+      el("h2", { class: "section-title" }, [title]),
+      el("div", {}, [lines(text)])
+    ]));
   }
+  if (facts.length) {
+    bands.push(el("section", { class: "band closing", "aria-label": "Background" }, [
+      el("div", { class: "band-inner" }, [
+        el("div", { class: "facts" }, facts)
+      ])
+    ]));
+  }
+  at("#resume-sections").replaceChildren(...bands);
 
   const list = repoList(profile.repos || []);
   if (list) at("#repos").replaceChildren(list);
