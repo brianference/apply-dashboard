@@ -22,7 +22,7 @@
 
 import { readFile } from "node:fs/promises";
 import { isCli, parseArgs } from "./cli.mjs";
-import { assignLane, dedupeKey, scoreMatch } from "./match.mjs";
+import { assignLane, dedupeKey, sameJob, scoreMatch } from "./match.mjs";
 import { locationEligible, roleEligible } from "./location-eligible.mjs";
 
 const ACCOUNT = "dd01b432f0329f87bb1cc1a3fad590ee";
@@ -96,7 +96,15 @@ async function d1(token, sql) {
 export function decide(candidates, existing) {
   const seenKeys = new Set(existing.map(r => String(r.dedupe_key || "").toLowerCase()));
   const seenUrls = new Set(existing.map(r => normalizeUrl(r.url)));
-  const rejected = { role: 0, location: 0, "duplicate-key": 0, "duplicate-url": 0, "no-url": 0 };
+  /* An exact key or URL match is not enough. Hopper's "Principal Product
+     Manager- Conversational AI" (Ashby) and "Principal Product Manager,
+     Conversational AI" (Jobspresso) differ in both dedupe_key and URL and
+     both reached the queue, live, under the old checks alone. sameJob()
+     compares on normalised company and title -- the same guard already run
+     immediately before a submission in apply/batch.mjs, now shared so the
+     two cannot drift apart -- and catches it before either copy is written. */
+  const seenJobs = existing.map(r => ({ company: r.company, title: r.title }));
+  const rejected = { role: 0, location: 0, "duplicate-key": 0, "duplicate-url": 0, "duplicate-job": 0, "no-url": 0 };
   const fresh = [];
   for (const c of candidates) {
     const title = String(c.title || "");
@@ -108,10 +116,12 @@ export function decide(candidates, existing) {
     if (seenKeys.has(key.toLowerCase())) { rejected["duplicate-key"] += 1; continue; }
     const nurl = normalizeUrl(url);
     if (seenUrls.has(nurl)) { rejected["duplicate-url"] += 1; continue; }
+    if (seenJobs.some(j => sameJob(j, c))) { rejected["duplicate-job"] += 1; continue; }
     /* Guard the batch against itself as well as against D1: two sources
        routinely carry the same posting, and nothing upstream has merged them. */
     seenKeys.add(key.toLowerCase());
     seenUrls.add(nurl);
+    seenJobs.push({ company: c.company, title: c.title });
     const row = { ...c, dedupe_key: key };
     row.match_pct = scoreMatch(row);
     row.lane = assignLane(row);

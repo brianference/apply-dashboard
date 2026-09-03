@@ -234,3 +234,66 @@ row whose description cannot be read is unknown, not disqualifying -- 114
 queued rows currently have no cached JD, and ruling those out would empty
 a third of the list. Title-only rules still fire when the description is
 missing, which is how Teamworks is caught either way.
+
+---
+
+## Two defects found and fixed by a queue audit, 2026-09-03
+
+### The normalised-company-and-title dedupe guard only ran at submit time
+
+The "Duplicates" section above describes comparing normalised company and
+title -- that comparison existed, but only in `apply/batch.mjs`, seconds
+before a submission. `ingest/sync-to-d1.mjs`, which decides what gets
+WRITTEN to the queue in the first place, only checked an exact `dedupe_key`
+or an exact normalised URL. Two still-queued, still-applyable rows for the
+same posting could sit side by side for as long as neither had been
+submitted yet, and an audit of the live queue found exactly that: Hopper's
+"Principal Product Manager- Conversational AI" (Ashby) and "... Conversational
+AI" with a comma instead of a hyphen (jobspresso) never collided on key or
+URL, so both were written.
+
+`normalizeForDedupe`/`sameJob` now live in `ingest/match.mjs`, shared by both
+call sites, so the ingest-time guard and the submit-time guard cannot drift
+apart again. `ingest/dedupe-queue.mjs` is the retroactive counterpart --
+`node ingest/dedupe-queue.mjs --write` finds duplicate groups already sitting
+in D1 (URL or normalised title, regardless of source) and skips every row in
+a group except the one to keep, preferring an already-submitted row over a
+higher-ranked queued one. Report-only without `--write`, same as `regate.mjs`.
+
+It stays deliberately narrow: two titles that merely share most of their
+words -- Bjak's "Product Manager - AI Stockbroking" and "... AI Stockbroking
+App" -- are NOT grouped. That is the Cisco case above, run the other
+direction: collapsing two different roles because their titles overlap is
+the same mistake as failing to catch two identical roles because their
+titles don't match exactly.
+
+This does not reach rows written directly to D1 by the unidentified process
+described under "Standing filters" below (capitalised source tags,
+minute-truncated `updated_at`) before they are ingested -- there is no
+ingest step to guard. `dedupe-queue.mjs` is the backstop for exactly that
+case, since it compares whatever is already in D1 regardless of who wrote
+it. Running it against the 2026-09-03 snapshot found five duplicate groups:
+Hopper, Kin/"Kin Insurance" (identical Ashby URL, two different writers) and
+Stripe among still-queued rows, plus Webflow and Twilio each carrying TWO
+rows marked `submitted` for what reads as the same posting -- worth Brian's
+own eyes, since a double-submission is not something a queue-side fix can
+undo.
+
+### A stale, unstripped duplicate of the clearance check in successScore
+
+`domain-eligible.mjs`'s `CLEARANCE` check reads the description AFTER
+benefits and legal boilerplate are stripped, and is the version wired into
+`requirementsGate` -- the actual gate. `fit-score.mjs`'s `HARD_BLOCKERS` used
+to carry its own separate `clearance` entry, checked inside `successScore`
+against the RAW, unstripped description. The comment already sitting in
+`domain-eligible.mjs` when this was found ("A security clearance was in
+HARD_BLOCKERS but only cost 40 points off the success score") describes the
+migration that was supposed to retire it; the entry itself was never
+removed. The result: Elastic's own posting, whose only "clearance"-shaped
+text is the "Employee Polygraph Protection Act" notice every US employer's
+footer carries, passed the real gate (correctly) but still had 40 points
+silently docked from its success score and "blocker: security clearance"
+written into `rank_why`, with `blocked_reason` sitting null the whole time
+-- ranked at 0, live in the queue, and self-contradictory on its face.
+`HARD_BLOCKERS` no longer carries a `clearance` entry; the gate is now the
+only place clearance is decided.
