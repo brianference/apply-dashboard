@@ -70,31 +70,20 @@ jobs:
           echo "resume text written ($(wc -c < apply/resume-text.local.txt) bytes)"
 
       - name: Run the rule tests
-        # These were gitignored until 2026-08-27 -- they matched *.local.* and so
-        # were never in the repository, which meant CI could not run the suites
-        # that prove Brian's location, role, hybrid, security and dedupe rules.
-        # They gate the run now: a rule change that breaks a case stops the
-        # pipeline before it writes anything.
-        run: |
-          node ingest/test-location.mjs
-          node ingest/test-fit.mjs
-          node ingest/test-pay-tier.mjs
-          node ingest/test-employer-block.mjs
-          node ingest/test-sync.mjs
-          node ingest/test-domain.mjs
-          node ingest/test-off-focus.mjs
-          node ingest/resume-match.mjs --self-check
-          node apply/test-order.mjs
-          node ingest/test-resolve-by-board.mjs
-          node ingest/test-index-freshness.mjs
-          node ingest/test-strip.mjs
-          node ingest/test-salary-audit.mjs
-          node ingest/test-salary-ashby.mjs
-          node ingest/test-domain.mjs
-          node ingest/test-stale.mjs
-          node ingest/test-board-dates.mjs
-          node ingest/test-refresh-audit.mjs
-          node ingest/test-date-backfill.mjs
+        # One runner, not a list. Every suite here used to be named by hand,
+        # and six were added in a single day -- each one a chance to write the
+        # test and forget the wiring, which leaves a green tick claiming
+        # coverage that never ran. tests/run-all.mjs DISCOVERS test files and
+        # fails on any it does not classify, so a new test cannot be silently
+        # skipped. Browser suites are excluded here because they need the
+        # deployed site; they run after the write, below.
+        run: node tests/run-all.mjs --only ingest/ --no-prod
+
+      - name: Check every test is named in FEATURES.md
+        run: node tests/check-coverage.mjs
+
+      - name: Prove the apply queue order
+        run: node apply/test-order.mjs
 
       - name: Repair and attack the database guards
         # A guard that existed once is not a guard: protect_submitted_status
@@ -132,20 +121,17 @@ jobs:
         if: ${{ inputs.dry != true }}
         run: node ingest/refresh-audit.mjs
 
-      - name: Check every count equals the rows it claims
+      - name: Drive the deployed page
+        # After the write, so it checks the numbers Brian will actually see.
         # The FULL-TIME tile once read 510 over a list of 237 because the rows
-        # and the tile were written from separate predicates. This drives the
-        # live page and compares each count against the rows actually rendered.
-        # It runs AFTER the write, so it checks the numbers Brian will see.
+        # and the tile came from separate predicates.
         run: |
           # `playwright install` fetches BROWSERS. The package itself still has
           # to be installed or the import fails with ERR_MODULE_NOT_FOUND.
           npm install --no-save --no-audit --no-fund playwright@1.49.1
           npx playwright install --with-deps chromium
+          node tests/run-all.mjs --site https://apply-dashboard.pages.dev --only tests/
           node apply/test-counts.mjs https://apply-dashboard.pages.dev
-          node tests/clear-filters.mjs https://apply-dashboard.pages.dev
-          node tests/leadership-filter.mjs https://apply-dashboard.pages.dev
-          node tests/column-menu.mjs https://apply-dashboard.pages.dev
 
       - name: Confirm the database actually moved
         # A wrangler-style "success" is not proof. Read the API back and print

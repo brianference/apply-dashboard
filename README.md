@@ -11,6 +11,23 @@ what never reaches it.
 
 ---
 
+## Running the tests
+
+```
+node tests/run-all.mjs                  # everything that needs no secret
+node tests/run-all.mjs --list           # say what would run, run nothing
+node tests/run-all.mjs --only stale     # just the suites matching a string
+node tests/run-all.mjs --with-token     # add the D1 audits (needs CF_D1_TOKEN)
+node tests/run-all.mjs --with-account   # add the signup suites (creates and deletes a real account)
+node tests/run-all.mjs --site <url>     # drive the browser suites against a deployment
+```
+
+It builds `.deploy`, starts `tests/serve-local.mjs`, drives the browser suites
+against that, and tears the server down. It DISCOVERS test files rather than
+listing them, and fails on any it cannot classify, so a new test cannot be
+written and then silently left out of CI.
+
+
 ## What it does
 
 **Finds.** Eight sources, including the public job-board APIs of 152 company
