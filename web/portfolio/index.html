@@ -51,24 +51,11 @@
     </div>
   </section>
 
-  <section class="band closing" aria-label="Background">
-    <div class="band-inner">
-      <div class="facts">
-        <div class="fact">
-          <h2 class="section-title">Skills</h2>
-          <div id="skills"></div>
-        </div>
-        <div class="fact">
-          <h2 class="section-title">Education</h2>
-          <div id="education"></div>
-        </div>
-        <div class="fact">
-          <h2 class="section-title">Certifications</h2>
-          <div id="certifications"></div>
-        </div>
-      </div>
-    </div>
-  </section>
+  <!-- Resume sections are created in JS only when the API sends them. A
+       heading that sits in this file would still appear in the HTML of a
+       public page after the section was hidden -- "hidden" on a public page
+       has to mean not published, not display:none. -->
+  <div id="resume-sections"></div>
 </main>
 
 <script type="module" src="/portfolio/js/main.js"></script>

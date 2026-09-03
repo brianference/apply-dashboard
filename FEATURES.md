@@ -102,7 +102,13 @@ projects.
 | Custom portfolio address | `tests/portfolio-addresses.mjs` | yes | Shape, reserved words and collision are enforced server-side |
 | `/portfolio/<handle>` serves the page | `tests/portfolio-addresses.mjs` | yes | Both with and without a trailing slash |
 | A portfolio shows only its own account | `tests/portfolio-addresses.mjs` | yes | Name, resume text AND the project list |
-| Contact details never reach a public page | — | yes | **Gap.** `stripContact` has no unit test |
+| Contact details never reach a public page | `ingest/test-profile-parse.mjs`, `tests/portfolio-profile.mjs` | yes | Email and phone are stripped from about, role paragraphs and JSON-LD. Known-bad: a temp copy that puts `email` on Person is required to fail |
+| Resume parse of the real grammar (prose, no bullets, Mon YYYY to Present) | `ingest/test-profile-parse.mjs` | n/a | Role count, title, location, start, and `end` null for a current role. A bullet resume still parses. Unknown headings survive as `extra`. Known-bad: bullet-only splitter, `YYYY - YYYY` dates, dropping extra, storing Present |
+| A saved profile edit survives a re-parse | `ingest/test-profile-parse.mjs` | n/a | Parse, edit a title, re-parse, merge: the edit is still there. Known-bad: a merge that returns the parse is required to fail |
+| Reorder writes the stored order, not just the DOM | `ingest/test-profile-parse.mjs`, `tests/portfolio-profile.mjs` | n/a | `moveItem` returns a new array; the editor PUT body has the swapped titles. Known-bad: a no-op splice is required to fail |
+| A section hidden on the profile is absent from the portfolio HTML | `ingest/test-profile-parse.mjs`, `tests/portfolio-profile.mjs` | n/a | Not `display:none` -- the key is omitted from the public JSON and the heading is not in the HTML. The visible case still renders, so hiding is not "never draw". Known-bad: always sending experience is required to fail |
+| Print stylesheet: the page is the virtual resume | `tests/portfolio-profile.mjs` | n/a | `emulateMedia({ media: 'print' })`: nav `display:none`, body background white even in dark theme. Known-bad: a temp copy of the CSS without `@media print` is required to fail |
+| JSON-LD Person with alumniOf and worksFor | `ingest/test-profile-parse.mjs`, `tests/portfolio-profile.mjs` | n/a | One `application/ld+json` object, `@type` as a string, no email or telephone keys |
 | The owner's projects still render | `tests/portfolio-addresses.mjs` | yes | A fix that hid them from everyone would pass every other check |
 
 ## Pages
@@ -119,8 +125,6 @@ The rows marked **Gap** above, in one place, so they can be worked through:
 
 1. The pay floor has no test, and it is the rule that decides what is shown.
 2. The advanced-search switches are verified by a browser run and a screenshot, but that check is not yet a file in `tests/`.
-2. `stripContact` has no unit test, and it is what keeps a phone number off a
-   public page.
 3. Header search, filter chips, theme toggle and the legal pages are verified by
    screenshot only.
 4. Origin-checked writes and photo upload are verified by hand.
@@ -131,6 +135,8 @@ The rows marked **Gap** above, in one place, so they can be worked through:
 CF_D1_TOKEN=<token> node tests/third-party-signup.mjs
 CF_D1_TOKEN=<token> node tests/browser-signup.mjs
 node tests/promo-strip.mjs
+node ingest/test-profile-parse.mjs
+node tests/portfolio-profile.mjs
 node tests/portfolio-addresses.mjs
 node tests/check-coverage.mjs
 node tests/tour.mjs

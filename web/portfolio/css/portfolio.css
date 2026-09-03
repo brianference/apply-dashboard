@@ -349,3 +349,38 @@ a:hover { text-decoration: underline; }
   color: var(--muted);
   font-size: 16px;
 }
+
+/* Work history and resume projects. One column of prose, matching the
+   document -- this resume has no bullets, so a list renderer would be empty. */
+.roles, .resume-projects { display: flex; flex-direction: column; gap: 28px; }
+.role h3 { margin: 0 0 6px; font-size: 22px; letter-spacing: -0.03em; }
+.role-meta {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font: 500 13px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+}
+.role p { margin: 0 0 10px; color: var(--muted); max-width: 62ch; }
+.role p:last-child { margin-bottom: 0; }
+
+/* Print: the page IS the virtual resume. Navigation and a dark canvas burn
+   ink and are not the document; Playwright's emulateMedia({ media: 'print' })
+   is what proves this, because a screen screenshot cannot. */
+@media print {
+  header.site, #sitenav, a.skip { display: none !important; }
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body { font-size: 12pt; }
+  .hero, .row, .band-inner {
+    display: block;
+    max-width: none;
+    padding: 0;
+    margin: 0 0 18pt;
+    box-shadow: none;
+  }
+  .hero-shot, .row .shot { display: none; }
+  .pill, .visit, .source { border: 1px solid #000; color: #000; background: #fff; }
+  .section-title { color: #000; border-bottom-color: #000; }
+  .role p, .hero-copy .bio, .lines p { color: #000; }
+}
