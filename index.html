@@ -625,6 +625,7 @@
         <button type="button" class="chip" data-kind="over" aria-pressed="false" title="Only the postings whose published band STARTS at $180k or above -- the same rows the Confirmed $180k+ lane holds">Over $180k <span id="nover"></span></button>
         <button type="button" class="chip" data-kind="under" aria-pressed="false" title="Only the postings that publish a band topping out below $180k">Under $180k</button>
         <button type="button" class="chip" data-kind="stale" aria-pressed="false" title="Postings first published more than 30 days ago whose employer has not refreshed them. Hidden by default -- they are still real jobs.">Over 30 days <span id="nstale"></span></button>
+        <button type="button" class="chip" data-kind="leadership" aria-pressed="false" title="Director, Head of Product, VP and CPO roles. Hidden from the main list because they ask for more experience -- press this to see them.">Leadership <span id="nlead"></span></button>
         <button type="button" class="chip" data-kind="direct" aria-pressed="false" title="Applies on the company's own site - no aggregator in the way, no account to make first">Apply direct <span id="ndirect"></span></button>
         <button type="button" class="chip adv-toggle" id="adv-toggle" aria-expanded="false" aria-controls="advanced"
                 title="Show postings the rules removed">Advanced</button>
@@ -917,6 +918,41 @@
   }
 
   /**
+   * Is this a leadership title, director level and above?
+   *
+   * Brian, 2026-09-02: he is less confident about director of product or
+   * head of product roles because they ask for more experience than he has,
+   * so they come off the main list and live behind their own pill instead.
+   *
+   * Decided on the TITLE. Principal, Staff, Group and Senior Product Manager
+   * all stay -- Principal is a senior individual contributor, not a manager
+   * of managers, and hiding it would take most of the strong rows off the
+   * list. Measured against the live queue when this was written: 36 of 317
+   * queued rows match and those four controls do not.
+   *
+   * A lens, not a gate. The rows keep their rank and their lane and come
+   * straight back when the pill is pressed, because "less confident" is not
+   * "never" -- success_pct already discounts them, which is why most of them
+   * sit in the 20s to 50s rather than at the top.
+   *
+   * @param {object} j
+   * @returns {boolean}
+   */
+  function isLeadership(j) {
+    return LEADERSHIP_TITLE.test(String((j && j.title) || ""));
+  }
+
+  /* The word boundaries are real. The first version of this line went
+     through a shell heredoc, which turned every \b into a literal backspace
+     character: the pattern still looked right in an editor, matched almost
+     nothing, and the pill counted 3 rows where 32 were expected. The same
+     trap is recorded in ingest/domain-eligible.mjs for the off-focus rule.
+
+     \bvp\b matches "VP" and "VP," but not "vpn". "Chief of Staff Director"
+     is director level and is meant to match. */
+  var LEADERSHIP_TITLE = /\bdirector\b|head of product|\bvp\b|vice president|chief product officer|\bcpo\b/i;
+
+  /**
    * Cell text for the posted column: "today", "Nd ago", or an em-dash.
    * @param {object} j
    * @returns {string}
@@ -968,7 +1004,7 @@
      adding it to the list produced a chip that counted 72 rows and showed 0.
      A set means the next lens cannot be forgotten in one place while working
      in the other. */
-  var LENS_KINDS = { under: true, over: true, stale: true, manual: true, direct: true };
+  var LENS_KINDS = { under: true, over: true, stale: true, leadership: true, manual: true, direct: true };
 
 
   /* Sorting by clicking a column header, which is where Brian looked for it.
@@ -1828,6 +1864,12 @@
          row is still reachable there. */
       if (kind !== "stale" && kind !== "under" && isStale(j) && !isApplied(j)) return false;
       if (kind === "stale") { if (!isStale(j) || isApplied(j)) return false; }
+      /* Leadership is the same shape as stale: hidden by default, shown on
+         its own pill. Skipped on the Under $180k and Over 30 days lenses so a
+         director role is still reachable from either of those. */
+      if (kind !== "leadership" && kind !== "under" && kind !== "stale"
+          && isLeadership(j) && !isApplied(j)) return false;
+      if (kind === "leadership") { if (!isLeadership(j) || isApplied(j)) return false; }
       if (kind === "manual") { if (!j.blocked_reason || isApplied(j)) return false; }
       else if (kind === "direct") { if (atsOf(j).cls !== "direct") return false; }
       else if (kind !== "all" && !LENS_KINDS[kind] && kind !== bucketOf(j)) return false;
@@ -1889,9 +1931,9 @@
        counts every recorded application, stale or not. */
     var live = all.filter(onTheList);
     var nSub = live.filter(isApplied).length;
-    var nFt = live.filter(function (j) { return bucketOf(j) === "ft" && (isApplied(j) || !isStale(j)); }).length;
-    var nPt = live.filter(function (j) { return bucketOf(j) === "ptc2c" && (isApplied(j) || !isStale(j)); }).length;
-    var nDirect = live.filter(function (j) { return !isApplied(j) && !isStale(j) && atsOf(j).cls === "direct"; }).length;
+    var nFt = live.filter(function (j) { return bucketOf(j) === "ft" && (isApplied(j) || (!isStale(j) && !isLeadership(j))); }).length;
+    var nPt = live.filter(function (j) { return bucketOf(j) === "ptc2c" && (isApplied(j) || (!isStale(j) && !isLeadership(j))); }).length;
+    var nDirect = live.filter(function (j) { return !isApplied(j) && !isStale(j) && !isLeadership(j) && atsOf(j).cls === "direct"; }).length;
     document.getElementById("s-ft").textContent = nFt;
     document.getElementById("s-pt").textContent = nPt;
     document.getElementById("s-sub").textContent = nSub;
@@ -1901,10 +1943,19 @@
        stale rows exactly as nDirect and nManual do, so the number on the
        chip and the rows it reveals answer one question. Counting them
        separately is what once put 510 over a list of 237. */
-    var nOver = live.filter(function (j) { return publishesOverFloor(j) && !isApplied(j) && !isStale(j); }).length;
+    var nOver = live.filter(function (j) { return publishesOverFloor(j) && !isApplied(j) && !isStale(j) && !isLeadership(j); }).length;
+    /* Excludes stale, because the leadership lens does not lift the stale hide
+       -- a director role older than 30 days with no refresh stays behind the
+       Over 30 days pill like everything else. Counting it here without
+       excluding stale would put a number on the pill larger than the rows it
+       reveals, which is the 510-over-237 failure in miniature. */
+    var nLead = live.filter(function (j) { return isLeadership(j) && !isApplied(j) && !isStale(j); }).length;
+    var lEl = document.getElementById("nlead");
+    if (lEl) lEl.textContent = nLead ? String(nLead) : "";
+
     var oEl = document.getElementById("nover");
     if (oEl) oEl.textContent = nOver ? String(nOver) : "";
-    var nManual = live.filter(function (j) { return j.blocked_reason && !isApplied(j) && !isStale(j); }).length;
+    var nManual = live.filter(function (j) { return j.blocked_reason && !isApplied(j) && !isStale(j) && !isLeadership(j); }).length;
     var mEl = document.getElementById("nmanual");
     if (mEl) mEl.textContent = nManual ? String(nManual) : "";
     /* Same array the Over 30 days chip draws from: on the list, not applied,
