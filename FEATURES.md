@@ -66,6 +66,7 @@ projects.
 | Header search and the `/` shortcut | — | yes | **Gap.** Verified by screenshot only |
 | Filter chips | — | yes | **Gap.** No test |
 | Posted column (age in days) | `tests/posted-filter.mjs` | — | "today", "Nd ago", or an em-dash. No-date rows sink in both sort directions. Newest sorts on `posted`, not crawl time |
+| Quick filter: $165k+, posted within a week, ranked | `tests/quick-filter.mjs` | - | Checks all three separately, and requires the TOP row to hold the highest score in the set. Best match orders by pay lane first, so under it the top row reads 74 while the set holds an 82 |
 | The whole suite in one command | `tests/run-all.mjs` | - | Discovers test files rather than listing them, and FAILS on any test file it does not classify. Six suites were added in one day and each had to be wired into CI by hand; a test nobody runs is worse than no test |
 | The column-filter popup on a phone in desktop mode | `tests/column-menu.mjs` | - | Clamped on both axes, height capped so Apply and the checkboxes stay on screen, and no autofocus on a coarse pointer -- the focus is what raised the keyboard over it |
 | Leadership roles hidden behind a pill | `tests/leadership-filter.mjs` | - | Director, Head of Product, VP and CPO off the default list. The test writes its own pattern rather than importing the page's, and floors the pill count, because a regex whose escapes were eaten matches nothing while every count still agrees with its own empty row set |
