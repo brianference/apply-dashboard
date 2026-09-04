@@ -208,6 +208,81 @@ export function belowFloorWrite(r) {
 
 
 /**
+ * Write every measured result, collecting per-row failures instead of throwing.
+ *
+ * Pulled out of the CLI so it can be driven by a stand-in for D1. It had no
+ * test at all, which is uncomfortable for the one loop in this file that
+ * decides whether a measurement is actually SAVED.
+ *
+ * The failure it exists to prevent: this loop used to let the first rejected
+ * UPDATE escape, abandoning every remaining write. Nine rows held match_pct =
+ * '' instead of NULL, and SQLite compares text as greater than any integer, so
+ * '' > 100 is TRUE and the range trigger rejected any update to them. The sweep
+ * reported "205 bands found", wrote seven, and exited zero, because the count it
+ * printed was what it had MEASURED and nothing connected that to what it saved.
+ *
+ * @param {Array<object>} results
+ * @param {{ run: (sql: string, params: Array<string|number|null>) => Promise<any>, checkedAt: string }} options
+ * @returns {Promise<{wroteBands: number, wroteChecked: number, ruledOut: number, writeFailures: object[], writeUnchanged: object[]}>}
+ */
+export async function applyWrites(results, options) {
+  const run = options.run;
+  const checkedAt = options.checkedAt;
+  let wroteBands = 0;
+  let wroteChecked = 0;
+  let ruledOut = 0;
+  const writeFailures = [];
+  const writeUnchanged = [];
+  for (const r of results) {
+    if (r.band.min != null) {
+      try {
+        const w = bandWrite(r, checkedAt);
+        const res = await run(w.sql, w.params);
+        if (d1Changes(res) > 0) {
+          wroteBands += 1;
+          wroteChecked += 1;
+        } else {
+          writeUnchanged.push({ dedupe_key: r.dedupe_key, what: 'band' });
+        }
+      } catch (error) {
+        writeFailures.push({ dedupe_key: r.dedupe_key, what: 'band', error: String(error.message || error).slice(0, 160) });
+      }
+    } else if (fetchSucceeded(r.via)) {
+      /* A successful fetch that found no band is still a check. Leaving
+         salary_checked_at NULL made "crawled, publishes nothing" look
+         identical to "never crawled". Do not invent a band. */
+      try {
+        const w = checkedWrite(r, checkedAt);
+        const res = await run(w.sql, w.params);
+        if (d1Changes(res) > 0) {
+          wroteChecked += 1;
+        } else {
+          writeUnchanged.push({ dedupe_key: r.dedupe_key, what: 'checked' });
+        }
+      } catch (error) {
+        writeFailures.push({ dedupe_key: r.dedupe_key, what: 'checked', error: String(error.message || error).slice(0, 160) });
+      }
+    }
+    /* Rule out only what is BELOW the floor and still open. A submitted row
+       is history: marking it off-criteria now would rewrite what happened. */
+    if (r.verdict === 'below-floor' && r.status !== 'submitted') {
+      try {
+        const w = belowFloorWrite(r);
+        const res = await run(w.sql, w.params);
+        if (d1Changes(res) > 0) {
+          ruledOut += 1;
+        } else {
+          writeUnchanged.push({ dedupe_key: r.dedupe_key, what: 'rule-out' });
+        }
+      } catch (error) {
+        writeFailures.push({ dedupe_key: r.dedupe_key, what: 'rule-out', error: String(error.message || error).slice(0, 160) });
+      }
+    }
+  }
+  return { wroteBands, wroteChecked, ruledOut, writeFailures, writeUnchanged };
+}
+
+/**
  * Put a structured band in front of the description when the text does not
  * already state one.
  *
@@ -337,66 +412,8 @@ if (isCli(import.meta.url)) {
     };
     await ensurePayColumns(run);
     const checkedAt = new Date().toISOString();
-    let wroteBands = 0;
-    let wroteChecked = 0;
-    let ruledOut = 0;
-    /* Per-row failures are collected, not thrown.
-
-       This loop used to let the first rejected UPDATE escape, which abandoned
-       every remaining write. Nine rows held match_pct = '' instead of NULL,
-       and SQLite compares text as greater than any integer, so '' > 100 is
-       TRUE and the range trigger rejected any update to them. The sweep
-       reported "205 bands found", wrote seven, and exited zero. The count it
-       printed was what it had MEASURED, not what it had SAVED, and nothing
-       connected the two. */
-    const writeFailures = [];
-    const writeUnchanged = [];
-    for (const r of results) {
-      if (r.band.min != null) {
-        try {
-          const w = bandWrite(r, checkedAt);
-          const res = await run(w.sql, w.params);
-          if (d1Changes(res) > 0) {
-            wroteBands += 1;
-            wroteChecked += 1;
-          } else {
-            writeUnchanged.push({ dedupe_key: r.dedupe_key, what: 'band' });
-          }
-        } catch (error) {
-          writeFailures.push({ dedupe_key: r.dedupe_key, what: 'band', error: String(error.message || error).slice(0, 160) });
-        }
-      } else if (fetchSucceeded(r.via)) {
-        /* A successful fetch that found no band is still a check. Leaving
-           salary_checked_at NULL made "crawled, publishes nothing" look
-           identical to "never crawled". Do not invent a band. */
-        try {
-          const w = checkedWrite(r, checkedAt);
-          const res = await run(w.sql, w.params);
-          if (d1Changes(res) > 0) {
-            wroteChecked += 1;
-          } else {
-            writeUnchanged.push({ dedupe_key: r.dedupe_key, what: 'checked' });
-          }
-        } catch (error) {
-          writeFailures.push({ dedupe_key: r.dedupe_key, what: 'checked', error: String(error.message || error).slice(0, 160) });
-        }
-      }
-      /* Rule out only what is BELOW the floor and still open. A submitted row
-         is history: marking it off-criteria now would rewrite what happened. */
-      if (r.verdict === 'below-floor' && r.status !== 'submitted') {
-        try {
-          const w = belowFloorWrite(r);
-          const res = await run(w.sql, w.params);
-          if (d1Changes(res) > 0) {
-            ruledOut += 1;
-          } else {
-            writeUnchanged.push({ dedupe_key: r.dedupe_key, what: 'rule-out' });
-          }
-        } catch (error) {
-          writeFailures.push({ dedupe_key: r.dedupe_key, what: 'rule-out', error: String(error.message || error).slice(0, 160) });
-        }
-      }
-    }
+    const written = await applyWrites(results, { run, checkedAt });
+    const { wroteBands, wroteChecked, ruledOut, writeFailures, writeUnchanged } = written;
     logInfo('written to D1', {
       bands: wroteBands, checked: wroteChecked, ruledOut,
       failed: writeFailures.length, unchanged: writeUnchanged.length

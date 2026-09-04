@@ -20,6 +20,11 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UPSTREAM = 'https://apply-dashboard.pages.dev';
 
+/* The same header rules Pages applies, so a policy that holds in production
+   holds here too. Without this the local server sent no CSP and a check that a
+   blob: image is refused passed against production and failed locally. */
+import { loadHeaderRules, headersFor } from './headers-file.mjs';
+
 const args = process.argv.slice(2);
 let dir = path.join(ROOT, '.deploy');
 let port = 0;
@@ -36,6 +41,8 @@ if (!fs.existsSync(path.join(dir, 'index.html'))) {
   console.error('FAIL  ' + dir + ' has no index.html');
   process.exit(1);
 }
+
+const HEADER_RULES = loadHeaderRules(dir);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -129,7 +136,7 @@ const server = http.createServer(async (req, res) => {
     res.end('not found');
     return;
   }
-  res.writeHead(200, { 'content-type': mime(file) });
+  res.writeHead(200, { 'content-type': mime(file), ...headersFor(HEADER_RULES, url) });
   fs.createReadStream(file).pipe(res);
 });
 
