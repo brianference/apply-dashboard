@@ -103,9 +103,7 @@ function fakeD1(rows) {
       writes.push({ sql, params });
       const key = params[1];
       const row = state.find((r) => r.dedupe_key === key);
-      /* Mirror the guard in the statement itself: a submitted row is not
-         rewritten, so the second pass must still see the original value. */
-      if (row && row.status !== 'submitted') {
+      if (row) {
         if (/SET posted/.test(sql)) row.posted = params[0];
         else if (/SET refreshed_at/.test(sql)) row.refreshed_at = params[0];
         else if (/SET source/.test(sql)) row.source = params[0];
@@ -120,9 +118,35 @@ const first = await repairFields({ write: true, query: live.query });
 check('a write run reports the repairs it made',
   first.dates === 3 && first.sources === 3 && first.wrote === true,
   `dates=${first.dates} sources=${first.sources}`);
-check('every write is scoped away from submitted applications',
-  live.writes.length > 0 && live.writes.every((w) => /status != 'submitted'/.test(w.sql)),
-  `${live.writes.length} statements`);
+/* The protection that matters is not "leave submitted rows alone" -- it is
+   "never change what makes a row submitted". Scoping by status defended the
+   wrong noun and left 16 applications showing a broken age. */
+/**
+ * The SET clause on its own, which is the only part that decides what changes.
+ *
+ * @param {string} sql
+ * @returns {string}
+ */
+function setClause(sql) {
+  const m = String(sql).match(/SET (.*?) WHERE/i);
+  return m ? m[1] : '';
+}
+
+/* Single backslash. A JS regex literal written as /\\b.../ matches a LITERAL
+   backslash-b, so this assertion matched nothing and passed against a repair
+   that set status -- caught only by breaking it on purpose. */
+check('no statement writes status or submitted_at',
+  live.writes.length > 0
+  && live.writes.every((w) => !/\b(status|submitted_at)\b/.test(setClause(w.sql))),
+  live.writes.map((w) => setClause(w.sql)).join(' | '));
+/* Counting "= ?" across the whole statement counts the WHERE too, which is how
+   this assertion first failed against correct code. */
+check('each statement sets exactly one column',
+  live.writes.length > 0
+  && live.writes.every((w) => (setClause(w.sql).match(/=/g) || []).length === 1),
+  setClause(live.writes[0].sql));
+check('and every statement is parameterised, with no value spliced into the SQL',
+  live.writes.every((w) => /=\s*\?/.test(setClause(w.sql)) && /dedupe_key = \?/.test(w.sql)));
 
 /* Idempotence is the property that makes this safe to leave in the daily run.
    If a second pass found work, the repair would be fighting itself. */
@@ -135,10 +159,15 @@ const submitted = fakeD1([
   { dedupe_key: 's', posted: 'Posted 2 Days Ago (startDate 2026-08-20)', refreshed_at: null, source: 'Greenhouse', status: 'submitted' }
 ]);
 await repairFields({ write: true, query: submitted.query });
-check('a submitted row is left exactly as it was',
-  submitted.state[0].posted === 'Posted 2 Days Ago (startDate 2026-08-20)'
-  && submitted.state[0].source === 'Greenhouse',
-  submitted.state[0].source);
+/* A submitted application is still an application Brian can look at, and a
+   broken age in his history is just as wrong as one in the queue. */
+check('a submitted row gets its date and label repaired too',
+  submitted.state[0].posted === '2026-08-20T00:00:00.000Z'
+  && submitted.state[0].source === 'greenhouse',
+  `${submitted.state[0].posted} | ${submitted.state[0].source}`);
+check('and its status and submitted_at are untouched',
+  submitted.state[0].status === 'submitted' && !('submitted_at' in submitted.writes[0]),
+  submitted.state[0].status);
 
 /* The guard that stops this recurring: the same text arriving from a source
    today is nulled or recovered before it ever reaches a date column. */
