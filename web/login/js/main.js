@@ -13,6 +13,12 @@
 import { mount } from "./dom.js";
 import * as api from "./api.js";
 import { wirePasswordToggle } from "./password-toggle.js";
+/* The footer, and only the footer. It is documented as being on every page
+   and it mounts inside mountSiteNav(), which this page never called, so the
+   four legal documents were unreachable from the one page a new person is
+   most likely to land on. The HEADER is deliberately left off: a sign-in
+   control at the top of the sign-in page is noise. */
+import { mountFooter } from "/shared/site-nav.js";
 
 const params = new URLSearchParams(location.search);
 const token = params.get("token");
@@ -199,3 +205,5 @@ if (!token && !verifyToken) {
     if (who.authenticated) location.href = "/";
   }).catch(() => { /* offline is not a reason to block the form */ });
 }
+
+mountFooter();

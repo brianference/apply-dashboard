@@ -2,6 +2,64 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v22.0.0 - The nine gaps, and a footer nobody could reach (2026-09-04)
+
+FEATURES.md carried nine rows marked **Gap**: verified by hand, verified by
+screenshot, or not verified at all. There are none left. 50 suites pass, up
+from 44.
+
+### Two of them were hiding a defect
+
+/login/ had no footer. It mounts inside `mountSiteNav()` and the sign-in page
+never called that, so the four legal documents were unreachable from the page a
+new person is most likely to land on. It mounts the footer alone now -- a
+sign-in control at the top of the sign-in page is noise.
+
+The local server sent no Content-Security-Policy while production did. The
+avatar check that a `blob:` image is REFUSED passed against production and
+failed locally, which is a local run certifying something production does not
+do. It reads `_headers` and applies the same rules.
+
+### What each gap turned into
+
+The salary sweep's write loop had no test, which is uncomfortable for the one
+loop that decides whether a measurement is SAVED. It once let the first rejected
+UPDATE escape and abandoned every remaining write: nine rows held an empty
+string in `match_pct`, SQLite compares text as greater than any integer, a range
+trigger rejected them, and the run reported 205 bands found, wrote seven, and
+exited zero. Its cases are mostly about writes FAILING, because a loop that only
+gets successful answers proves nothing about that.
+
+Origin-checked writes were verified with curl. Curling a few endpoints says
+nothing about the route added next week, so every write handler on disk must now
+be authorised by a mechanism the test can see: the origin check, directly or
+through `refuseWrite`, or a hashed single-use token from an emailed link, which
+arrives with no usable Origin. Mechanisms rather than a list of exempt
+filenames, because such lists grow holes.
+
+The theme is measured on PAINTED colour. Flipping `data-theme` and asserting
+that `data-theme` flipped proves nothing about what a person sees, so the
+context emulates a dark operating system and the assertions are on luminance.
+
+The legal pages render client-side, so a word count over the raw HTML reads
+about five words and would pass a page that renders nothing. Every count is
+taken from `innerText` in a real browser, with a floor per page.
+
+Slash focuses the search box, which no screenshot could ever have shown. Filter
+chips are judged on the ROWS they produce rather than on `aria-pressed`, because
+a chip that only recolours itself is the failure worth catching.
+
+The avatar test loads a `blob:` URL and requires it to still fail, so the reason
+the resize returns `data:` cannot quietly go away.
+
+### Two of my own checks could not fail
+
+One assertion was written as a JS regex literal with a doubled backslash, so it
+matched a literal backslash-b rather than a word boundary. It passed against a
+repair that set `status`. Another counted `= ?` across a whole statement, which
+counts the WHERE clause, so a correct one-column update looked like two. Both
+were found by breaking the code on purpose rather than by reading them.
+
 ## v21.0.0 - American Express, and a pay band the parser was refusing (2026-09-03)
 
 Brian asked for American Express as a source. Their board is Oracle Recruiting

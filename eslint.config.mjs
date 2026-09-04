@@ -40,7 +40,8 @@ const globals = {
   fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly',
   TextEncoder: 'readonly', TextDecoder: 'readonly', crypto: 'readonly',
   AbortController: 'readonly', AbortSignal: 'readonly',
-  Blob: 'readonly', FormData: 'readonly', Event: 'readonly',
+  Blob: 'readonly',
+  File: 'readonly', FormData: 'readonly', Event: 'readonly',
   CustomEvent: 'readonly', btoa: 'readonly', atob: 'readonly',
   performance: 'readonly', queueMicrotask: 'readonly',
   /* Browser: web/, and every page.evaluate() callback in the suites */
