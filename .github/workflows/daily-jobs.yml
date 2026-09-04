@@ -107,6 +107,18 @@ jobs:
           CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
         run: node ingest/ensure-guards.mjs
 
+      - name: Repair columns holding the wrong kind of value
+        # posted held text on 25 rows ("Posted 2 Days Ago (startDate ...)"),
+        # which rendered a broken age, hid the row from the posted-within
+        # filter, and read as PRESENT to date-backfill so it was skipped every
+        # run. source carried case-variant duplicates, so each board appeared
+        # twice in any per-source count. jobs.mjs now stops both at the ingest
+        # boundary; this repairs what was already stored. Idempotent, so the
+        # steady state is a run that reports nothing to do.
+        env:
+          CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+        run: node ingest/repair-fields.mjs ${{ (inputs.dry == true) && '--dry' || '--write' }}
+
       - name: Find, filter, rank and write
         env:
           CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
