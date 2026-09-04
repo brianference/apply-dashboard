@@ -63,6 +63,19 @@ not daily.mjs. So the audit was failing the run on work that was never
 scheduled, and would have kept failing on every new dated-board row. It runs
 before both audits now.
 
+### Two things the reviewers caught
+
+I wrote a NEW reason word, `duplicate`, when index.html already had
+`duplicate-posting` in its RULED_OUT list and its label map. Five collapsed rows
+stayed on the list showing the raw slug, and `apply/test-counts.mjs` failed on
+exactly that. The reason a writer stores has to be one the reader knows, so a
+case now reads index.html and requires both.
+
+The dry-run switch on the new backfill step was written `dry && '' || '--write'`.
+An empty string is FALSY in a GitHub expression, so that yields `--write` on a
+DRY run: the step would have written to the database exactly when told not to.
+Every conditional in the workflow is non-empty on both branches now.
+
 53 suites pass, up from 51.
 
 ## v22.0.0 - The nine gaps, and a footer nobody could reach (2026-09-04)
