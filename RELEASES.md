@@ -2,6 +2,60 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v23.0.0 - Seven postings stored twice, and a board that was never 403 (2026-09-04)
+
+### The duplicates
+
+`decide()` in sync-to-d1.mjs stops NEW duplicates on three signals. Nothing
+ever cleaned up the rows that entered before those guards, so seven postings
+were sitting in the database twice, and one pair had reached SUBMITTED twice --
+the duplicate application the whole rule exists to prevent.
+
+Three of the shapes still get past `sameJob` today. A second board appends the
+employer to the title ("Staff Product Manager - Enterprise AI - Twilio"). A
+title picks up a double space. And one employer is written two ways, "Kin" and
+"Kin Insurance", which is named in sync-to-d1's own comment as the motivating
+case and is still not caught, because the company strings differ.
+
+Grouping is by NORMALISED URL, which is the one signal that stays unambiguous
+when the company name does not, and a tracking parameter does not make it a
+different job. The kept row is the submitted one, then the one carrying a band
+and a date, so collapsing never throws away the only copy of something.
+
+Where BOTH rows of a pair are submitted, it reports and changes nothing. Two
+real applications happened, and choosing which one to erase is not a decision
+code should make. Rows are marked, never deleted, so an outcome or an
+experiment arm pointing at one still resolves.
+
+`sameJob` also strips a trailing employer name now, so the appended shape is
+caught before a second row is ever written. It refuses to strip a title down to
+nothing, which would make every posting at one employer identical, and it
+leaves an employer name that sits in the MIDDLE of a title alone.
+
+### WeWorkRemotely was never unreadable
+
+Ten queued rows pointed at weworkremotely.com and not one had ever had a
+description read. The posting page answers 403 to anything that is not a
+browser, so the reader gave up. Its category RSS feeds answer 200 and carry the
+whole description, around 10KB an item. The text was always available; the
+reader was looking in the wrong place.
+
+Six of the ten are in the feeds, and recovering one of them turned up a
+published $165,000-$180,000 band that had been invisible. The other four have
+aged out, and a feed is a rolling window with no archive, so an aged-out
+posting comes back UNREADABLE rather than closed. Calling it closed would
+retire a job that is still open.
+
+### Himalayas is a real dead end
+
+Thirty rows, five approaches, none of them work. The page is 403. The feed's
+`company=` filter does not filter -- it returns a totalCount of 1757 for one
+employer and ignores `limit`, capping at 20. A keyword query returns a
+totalCount of 105124. The RSS feed is a 20-item rolling window holding none of
+them. Recorded as closed rather than left looking like a defect.
+
+53 suites pass, up from 51.
+
 ## v22.0.0 - The nine gaps, and a footer nobody could reach (2026-09-04)
 
 FEATURES.md carried nine rows marked **Gap**: verified by hand, verified by

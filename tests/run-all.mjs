@@ -49,6 +49,8 @@ const KIND = {
   'ingest/test-jd-read.mjs': 'node',
   'ingest/test-oracle.mjs': 'node',
   'ingest/test-repair-fields.mjs': 'node',
+  'ingest/test-dedupe-repair.mjs': 'node',
+  'ingest/test-wwr-feed.mjs': 'node',
   'ingest/test-salary-sweep.mjs': 'node',
   'functions/test-origin.mjs': 'node',
   'tests/search-and-chips.mjs': 'site',

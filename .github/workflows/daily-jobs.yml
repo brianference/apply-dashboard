@@ -119,6 +119,16 @@ jobs:
           CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
         run: node ingest/repair-fields.mjs ${{ (inputs.dry == true) && '--dry' || '--write' }}
 
+      - name: Collapse postings stored twice
+        # decide() stops NEW duplicates; nothing cleaned up the rows that
+        # entered before those guards, so seven postings sat in the database
+        # twice and one pair reached SUBMITTED twice. Grouped by normalised
+        # URL, because "Kin" and "Kin Insurance" are the same employer. A pair
+        # where both rows are submitted is reported and left alone. Idempotent.
+        env:
+          CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+        run: node ingest/dedupe-repair.mjs ${{ (inputs.dry == true) && '--dry' || '--write' }}
+
       - name: Find, filter, rank and write
         env:
           CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}

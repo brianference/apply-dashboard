@@ -148,7 +148,50 @@ export function normalizeForDedupe(v) {
  * @param {{company?: string, title?: string}} b
  * @returns {boolean}
  */
+/**
+ * A title with its own employer appended, which several boards do.
+ *
+ * Twilio's "Staff Product Manager - Enterprise AI" arrived from a second board
+ * as "Staff Product Manager - Enterprise AI - Twilio", and Mitratech's did the
+ * same. Both sat in the queue twice, and one Twilio pair reached SUBMITTED
+ * twice, which is the duplicate application this whole rule exists to prevent.
+ *
+ * Only a trailing occurrence is removed, and only when what is left still names
+ * a job. "Product Manager, Twilio Voice" keeps its Twilio because the word is
+ * not at the end.
+ *
+ * @param {string} title already normalised
+ * @param {string} company already normalised
+ * @returns {string}
+ */
+export function withoutTrailingCompany(title, company) {
+  const t = String(title || "");
+  const c = String(company || "");
+  if (!t || !c || !t.endsWith(c)) return t;
+  const cut = t.slice(0, t.length - c.length).trim();
+  /* Never strip down to nothing, or two unrelated postings at one employer
+     both normalise to the empty string and every job matches every other. */
+  return cut.length >= 4 ? cut : t;
+}
+
+/**
+ * Is `a` the same posting as `b`, judged on normalised company and title
+ * rather than an exact key or URL match?
+ *
+ * The title comparison also tries each side with the employer's name stripped
+ * off the end, because that suffix is added by the BOARD rather than by the
+ * employer and says nothing about which job it is.
+ *
+ * @param {{company?: string, title?: string}} a
+ * @param {{company?: string, title?: string}} b
+ * @returns {boolean}
+ */
 export function sameJob(a, b) {
-  return normalizeForDedupe(a && a.company) === normalizeForDedupe(b && b.company)
-    && normalizeForDedupe(a && a.title) === normalizeForDedupe(b && b.title);
+  const ca = normalizeForDedupe(a && a.company);
+  const cb = normalizeForDedupe(b && b.company);
+  if (ca !== cb) return false;
+  const ta = normalizeForDedupe(a && a.title);
+  const tb = normalizeForDedupe(b && b.title);
+  if (ta === tb) return true;
+  return withoutTrailingCompany(ta, ca) === withoutTrailingCompany(tb, cb);
 }
