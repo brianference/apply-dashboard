@@ -17,7 +17,14 @@
  *   appeared twice in any per-source count, one of them looking dead.
  *
  * Idempotent by construction: it selects only rows that still need changing,
- * so a second run reports nothing to do. Submitted rows are never touched.
+ * so a second run reports nothing to do.
+ *
+ * SUBMITTED rows are repaired too, and the first version of this skipped them.
+ * That left 16 applications in the history showing a broken age, to protect two
+ * columns that were never the thing at risk. What must survive is `status` and
+ * `submitted_at`, and these statements SET neither -- the database's own
+ * triggers still abort any write that tries to un-submit. Scoping by status
+ * defended the wrong noun.
  *
  *   node ingest/repair-fields.mjs --dry     # report, change nothing
  *   CF_D1_TOKEN=... node ingest/repair-fields.mjs --write
@@ -133,13 +140,16 @@ export async function repairFields(options = {}) {
 
   for (const fix of dates) {
     await query(
-      `UPDATE jobs SET ${fix.column} = ? WHERE dedupe_key = ? AND status != 'submitted'`,
+      /* Sets one date column and nothing else. status and submitted_at are
+         not mentioned, so an application cannot be un-submitted by a repair,
+         and protect_submitted_status would abort it if one tried. */
+      `UPDATE jobs SET ${fix.column} = ? WHERE dedupe_key = ?`,
       [fix.to, fix.dedupe_key]
     );
   }
   for (const fix of sources) {
     await query(
-      `UPDATE jobs SET source = ? WHERE dedupe_key = ? AND status != 'submitted'`,
+      `UPDATE jobs SET source = ? WHERE dedupe_key = ?`,
       [fix.to, fix.dedupe_key]
     );
   }
