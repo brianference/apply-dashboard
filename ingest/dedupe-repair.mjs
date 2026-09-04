@@ -31,6 +31,13 @@
 import { isCli, parseArgs } from './cli.mjs';
 import { normalizeUrl } from './sync-to-d1.mjs';
 
+/* The value index.html already rules out and already has a label for
+   ("same job listed elsewhere"). Writing a NEW word here -- "duplicate" --
+   matched neither its RULED_OUT list nor its label map, so five collapsed rows
+   stayed on the list showing the raw string. A reason the reader does not know
+   is not a reason. */
+export const DUPLICATE_REASON = 'duplicate-posting';
+
 const ACCOUNT = 'dd01b432f0329f87bb1cc1a3fad590ee';
 const DATABASE = '10e8a6c0-1fa7-4c33-a007-2044876ce6a7';
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
@@ -101,7 +108,7 @@ export function planDedupe(rows) {
        It keeps its URL after being marked, so leaving it in made every run
        re-mark it -- work that changes nothing and makes the count meaningless
        from the second run onward. */
-    if (row.blocked_reason === 'duplicate') continue;
+    if (row.blocked_reason === DUPLICATE_REASON) continue;
     const key = normalizeUrl(row.url);
     if (!key) continue;
     byUrl.set(key, (byUrl.get(key) || []).concat(row));
@@ -157,10 +164,10 @@ export async function repairDuplicates(options = {}) {
     /* Marked, not deleted. The row keeps its history and its key, and anything
        referring to it -- an outcome, an experiment arm -- still resolves. */
     await query(
-      `UPDATE jobs SET status = 'skipped', blocked_reason = 'duplicate', blocked_detail = ?,
+      `UPDATE jobs SET status = 'skipped', blocked_reason = ?, blocked_detail = ?,
         rank_pct = NULL, pay_tier = NULL
        WHERE dedupe_key = ? AND status != 'submitted'`,
-      [`the same posting is already stored as ${c.keep}`, c.drop]
+      [DUPLICATE_REASON, `the same posting is already stored as ${c.keep}`, c.drop]
     );
     collapsed += 1;
   }

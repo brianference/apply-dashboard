@@ -19,7 +19,8 @@
  *   node ingest/test-dedupe-repair.mjs
  */
 
-import { planDedupe, rankForKeeping, repairDuplicates } from './dedupe-repair.mjs';
+import { planDedupe, rankForKeeping, repairDuplicates, DUPLICATE_REASON } from './dedupe-repair.mjs';
+import { readFileSync } from 'node:fs';
 import { sameJob, withoutTrailingCompany, normalizeForDedupe } from './match.mjs';
 
 let bad = 0;
@@ -117,7 +118,7 @@ function fakeD1(rows) {
     query: async (sql, params) => {
       writes.push({ sql, params });
       const row = state.find((r) => r.dedupe_key === params[params.length - 1]);
-      if (row && row.status !== 'submitted') { row.status = 'skipped'; row.blocked_reason = 'duplicate'; }
+      if (row && row.status !== 'submitted') { row.status = 'skipped'; row.blocked_reason = DUPLICATE_REASON; }
       return { result: [{ meta: { changes: 1 } }] };
     }
   };
@@ -137,6 +138,17 @@ check('the reason says which row it duplicates, not just "duplicate"',
    no longer part of. */
 check('a collapsed row loses rank_pct and pay_tier',
   live.writes.every((w) => /rank_pct = NULL/.test(w.sql) && /pay_tier = NULL/.test(w.sql)));
+
+/* The writer has to use a reason the READER already rules out. A new word --
+   "duplicate" -- matched neither index.html's RULED_OUT list nor its label map,
+   so five collapsed rows stayed on the list showing the raw string. Binding the
+   two here is what stops them drifting apart again. */
+const page = readFileSync('index.html', 'utf8');
+const ruledOut = (page.match(/var RULED_OUT = \[(.*?)\]/) || [])[1] || '';
+check('the reason written is one index.html rules off the list',
+  ruledOut.includes(`"${DUPLICATE_REASON}"`), `RULED_OUT = [${ruledOut}]`);
+check('and one it has a human label for, not a raw slug',
+  page.includes(JSON.stringify(DUPLICATE_REASON) + ': "'), DUPLICATE_REASON);
 
 const second = await repairDuplicates({ write: true, rows: live.state, query: fakeD1(live.state).query });
 check('a second pass over the collapsed rows finds nothing to do',

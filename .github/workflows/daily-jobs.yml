@@ -142,7 +142,12 @@ jobs:
         # date with a refresh, because those answer different questions.
         env:
           CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
-        run: node ingest/date-backfill.mjs ${{ (inputs.dry == true) && '' || '--write' }}
+        # NOT `&& '' || '--write'`. An empty string is FALSY in a GitHub
+        # expression, so `dry && '' || '--write'` yields --write on a DRY
+        # run and the step would write to the database exactly when it was
+        # told not to. --dry is a non-empty value; date-backfill ignores it
+        # and writes only when it sees --write.
+        run: node ingest/date-backfill.mjs ${{ (inputs.dry == true) && '--dry' || '--write' }}
 
       - name: Fail if a published band was left unpriced
         # A posting that publishes a band must never end up on the list with
