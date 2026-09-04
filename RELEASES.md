@@ -54,6 +54,15 @@ employer and ignores `limit`, capping at 20. A keyword query returns a
 totalCount of 105124. The RSS feed is a 20-item rolling window holding none of
 them. Recorded as closed rather than left looking like a defect.
 
+### An audit with no repair behind it
+
+The refresh audit failed the run on a Kong posting with no `refreshed_at`,
+reporting it as "still on the board and fillable". `ingest/date-backfill.mjs`
+fills exactly that, existed as a CLI, and NOTHING ran it -- not the daily job,
+not daily.mjs. So the audit was failing the run on work that was never
+scheduled, and would have kept failing on every new dated-board row. It runs
+before both audits now.
+
 53 suites pass, up from 51.
 
 ## v22.0.0 - The nine gaps, and a footer nobody could reach (2026-09-04)

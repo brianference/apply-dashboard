@@ -134,6 +134,16 @@ jobs:
           CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
         run: node ingest/daily.mjs --quiet --max-rank 200 ${{ (inputs.dry == true) && '--dry' || '--write' }}
 
+      - name: Fill dates the board still publishes
+        # ingest/date-backfill.mjs existed as a CLI and NOTHING ran it, so the
+        # refresh audit two steps below reported rows that no step ever fixed --
+        # a check with no repair behind it, failing the run on work that was
+        # never scheduled. It fills only blanks and never overwrites a posted
+        # date with a refresh, because those answer different questions.
+        env:
+          CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+        run: node ingest/date-backfill.mjs ${{ (inputs.dry == true) && '' || '--write' }}
+
       - name: Fail if a published band was left unpriced
         # A posting that publishes a band must never end up on the list with
         # no band. Losing one is worse than showing nothing: the pay lane
