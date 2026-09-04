@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { isoFromUnknown } from './jobs.mjs';
 import { salaryFromText } from './salary-from-posting.mjs';
+import { descriptionFor as wwrDescriptionFor } from './wwr-feed.mjs';
 
 /** Where reads are cached when a caller does not say. Same directory the board
     tiers use, so one sweep clears everything. */
@@ -822,6 +823,38 @@ async function readJdUncached(url, options = {}) {
     } catch {
       /* fall through to JSON-LD / page text */
     }
+  }
+
+  /* 3. WeWorkRemotely category feeds.
+
+     The posting page answers 403 to anything that is not a browser, so ten
+     queued rows had never had a description read. The category RSS feeds
+     answer 200 and carry the whole description, which means the text was
+     always there and the reader was looking in the wrong place. */
+  if (hostnameOf(url) === 'weworkremotely.com') {
+    try {
+      const html = await wwrDescriptionFor(url, { fetch: get });
+      const text = html ? htmlToText(html) : '';
+      if (text.length > 100) {
+        const picked = pickSalary({ prose: salaryFromText(text) });
+        return {
+          text,
+          outcome: 'read',
+          salary: picked.min != null || picked.max != null ? { min: picked.min, max: picked.max } : null,
+          salarySource: picked.source,
+          posted: null,
+          validThrough: null,
+          closed: false,
+          via: 'wwr-feed'
+        };
+      }
+    } catch {
+      /* fall through; an unreachable feed is not a closed posting */
+    }
+    /* A feed is a rolling window with no archive, so a posting that has aged
+       out is unreadable rather than gone. Saying "closed" here would retire a
+       job that is still open. */
+    return emptyResult('unreadable-host', { via: 'wwr-feed' });
   }
 
   /* 3. Himalayas feed. The page is 403; never fetch it. */
