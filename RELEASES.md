@@ -5,7 +5,7 @@ Started at v14.0.0; earlier releases are in the git tags.
 ## v22.0.0 - The nine gaps, and a footer nobody could reach (2026-09-04)
 
 FEATURES.md carried nine rows marked **Gap**: verified by hand, verified by
-screenshot, or not verified at all. There are none left. 50 suites pass, up
+screenshot, or not verified at all. There are none left. 51 suites pass, up
 from 44.
 
 ### Two of them were hiding a defect
@@ -51,6 +51,15 @@ a chip that only recolours itself is the failure worth catching.
 
 The avatar test loads a `blob:` URL and requires it to still fail, so the reason
 the resize returns `data:` cannot quietly go away.
+
+### A test nobody ran
+
+`functions/test-origin.mjs` was named in FEATURES.md, passed the coverage check
+that every test is named, and never ran. Discovery walked ingest, apply and
+tests, and the daily lane filtered to `--only ingest/`, so a file in functions/
+was invisible to both. Discovery covers functions/ now, `--only` takes a list,
+and a filter matching NOTHING fails rather than reporting a clean run of zero
+tests. 51 suites pass.
 
 ### Two of my own checks could not fail
 

@@ -126,6 +126,7 @@ const value = (name, fallback) => {
   return i !== -1 && argv[i + 1] ? argv[i + 1] : fallback;
 };
 const only = value('--only', '');
+const onlyParts = only.split(',').map((p) => p.trim()).filter(Boolean);
 const siteArg = value('--site', '');
 const withToken = flag('--with-token');
 const withAccount = flag('--with-account');
@@ -136,7 +137,10 @@ const skipProd = flag('--no-prod');
 
 /* -------------------------------------------------------------- discover -- */
 const found = [];
-for (const dir of ['ingest', 'apply', 'tests', path.join('ingest', 'test')]) {
+/* functions/ is in the list because a test living outside these directories
+   is discovered by nothing: functions/test-origin.mjs was named in
+   FEATURES.md, passed the coverage check, and never actually ran. */
+for (const dir of ['ingest', 'apply', 'tests', 'functions', path.join('ingest', 'test')]) {
   const abs = path.join(ROOT, dir);
   if (!fs.existsSync(abs)) continue;
   for (const name of fs.readdirSync(abs)) {
@@ -168,12 +172,22 @@ for (const f of found) {
 for (const e of EXTRA) planned.push(e);
 
 const selected = planned.filter((t) => {
-  if (only && t.name.indexOf(only) === -1) return false;
+  /* Comma-separated, because the daily run needs ingest/ AND functions/.
+     With a single value, functions/test-origin.mjs was listed by the
+     coverage check and never actually run -- a test nobody runs. */
+  if (onlyParts.length && !onlyParts.some((part) => t.name.indexOf(part) !== -1)) return false;
   if (t.kind === 'token' && !withToken) return false;
   if (t.kind === 'account' && !withAccount) return false;
   if (t.kind === 'prod' && skipProd) return false;
   return true;
 });
+
+/* A filter that matches NOTHING is a typo, not a clean run. Reporting
+   "0 passed, 0 failed" as success is how a lane goes quietly empty. */
+if (onlyParts.length && selected.length === 0) {
+  console.error('FAIL  --only ' + only + ' matched no test. Nothing ran.');
+  process.exit(1);
+}
 
 if (listOnly) {
   for (const t of selected) console.log(`${t.kind.padEnd(10)} ${t.name}`);

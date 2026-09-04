@@ -89,7 +89,7 @@ jobs:
         # fails on any it does not classify, so a new test cannot be silently
         # skipped. Browser suites are excluded here because they need the
         # deployed site; they run after the write, below.
-        run: node tests/run-all.mjs --only ingest/ --no-prod
+        run: node tests/run-all.mjs --only ingest/,functions/ --no-prod
 
       - name: Check every test is named in FEATURES.md
         run: node tests/check-coverage.mjs
