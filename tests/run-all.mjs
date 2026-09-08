@@ -51,6 +51,7 @@ const KIND = {
   'ingest/test-repair-fields.mjs': 'node',
   'ingest/test-dedupe-repair.mjs': 'node',
   'ingest/test-wwr-feed.mjs': 'node',
+  'ingest/test-browser-boards.mjs': 'node',
   'ingest/test-salary-sweep.mjs': 'node',
   'functions/test-origin.mjs': 'node',
   'tests/search-and-chips.mjs': 'site',
