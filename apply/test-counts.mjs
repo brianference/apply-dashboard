@@ -102,6 +102,50 @@ const leaked = await page.evaluate(() => {
 });
 check('no ruled-out posting is on the list', leaked.length === 0, leaked.slice(0, 3).join(' | '));
 
+/* -------------------------------- a count still describes its own rows -- */
+
+/* Brian, 2026-09-08: apply direct shows 107 and full time shows 163.
+
+   Every chip count was computed over `live`, which applied neither the
+   posted-within window nor the search box, so setting the window to seven days
+   left "Apply direct 158" sitting above 23 rows. The code said this was
+   deliberate -- the tiles answer what is ON the list, not what is on screen --
+   and that was the wrong decision: a number on a button says how many that
+   button will show.
+
+   Checked WITH a second filter on, because with no filter the two agreed
+   already and every existing case passed. */
+const COUNTED = [
+  ['over', 'nover'], ['stale', 'nstale'], ['leadership', 'nlead'],
+  ['manual', 'nmanual'], ['direct', 'ndirect']
+];
+
+const chipNumber = (id) => page.evaluate((elementId) => {
+  const el = document.getElementById(elementId);
+  const m = (el && el.textContent || '').match(/(\d+)/);
+  return m ? Number(m[1]) : 0;
+}, id);
+
+const rowsUnder = async (kind) => {
+  await page.locator(`.chips .chip[data-kind="${kind}"]`).click();
+  await page.waitForTimeout(700);
+  return page.locator('.rows:not([hidden]) .row').count();
+};
+
+for (const [label, windowValue] of [['no window', null], ['posted within 7 days', '7']]) {
+  if (windowValue) {
+    await page.locator('#freshsel').selectOption(windowValue);
+    await page.waitForTimeout(900);
+  }
+  for (const [kind, id] of COUNTED) {
+    const shown = await chipNumber(id);
+    const rendered = await rowsUnder(kind);
+    check(`${kind} chip equals its own rows (${label})`, shown === rendered,
+      `chip ${shown}, rows ${rendered}`);
+  }
+}
+
+
 check('no page errors', errors.length === 0, errors.join('; '));
 
 await browser.close();

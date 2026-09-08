@@ -1934,6 +1934,43 @@
     if (q) q.focus();
   }
 
+  /* The search test, and the freshness window, as functions -- because the
+     chip counts have to run the SAME ones the rows run.
+
+     Brian, 2026-09-08: apply direct shows 107 and full time shows 163. Every
+     count was computed over `live`, which applies neither of these, so setting
+     the posted-within filter to seven days left "Apply direct 158" sitting
+     above 23 rows. The comment here used to say the tiles answer what is ON
+     the list rather than what is on screen. That was a decision, and it is the
+     wrong one: a number on a button says how many that button will show. */
+
+  /**
+   * Does this posting match the search box, matching at a WORD START.
+   *
+   * "cisco" is a substring of "san-francisco", so a plain indexOf returned 44
+   * rows of Stripe, Mercury, Circle and Adobe -- the city appears in the URL
+   * and again in work_type. Dropping those fields was not the fix, because the
+   * next term with an unlucky substring would do the same thing.
+   */
+  function matchesSearch(j, s) {
+    if (!s) return true;
+    var hay = [j.company, j.title, j.source, j.work_type, j.url].map(clean).join(" ").toLowerCase();
+    var idx = hay.indexOf(s);
+    while (idx !== -1) {
+      var prev = idx === 0 ? " " : hay.charAt(idx - 1);
+      if (!/[a-z0-9]/.test(prev)) return true;
+      idx = hay.indexOf(s, idx + 1);
+    }
+    return false;
+  }
+
+  /* An unknown posting date is not recent, so a window hides it. */
+  function withinWindow(j, windowDays) {
+    if (!windowDays) return true;
+    var d = ageDays(j);
+    return d !== null && d <= windowDays;
+  }
+
   function render() {
     var s = (document.getElementById("q").value || "").trim().toLowerCase();
     var vis = all.filter(function (j) {
@@ -1981,22 +2018,15 @@
          next term with an unlucky substring would do the same thing. A boundary
          before the term keeps every field searchable and still finds "cisco",
          "Cloud Platform" or "AI". */
-      var hay = [j.company, j.title, j.source, j.work_type, j.url].map(clean).join(" ").toLowerCase();
-      var idx = hay.indexOf(s);
-      while (idx !== -1) {
-        var prev = idx === 0 ? " " : hay.charAt(idx - 1);
-        if (!/[a-z0-9]/.test(prev)) return true;
-        idx = hay.indexOf(s, idx + 1);
-      }
-      return false;
+      return matchesSearch(j, s);
     });
 
     /* A freshness window that is not "any time" hides older rows, and rows
-       with no posted date -- unknown is not recent. The tiles below still
-       count the whole live list: they answer what is ON the list, not what
-       is on screen. The note is computed from this same vis array, never from
-       a second predicate -- a tile that read 510 over a list of 237 shipped
-       because those two numbers were counted separately. */
+       with no posted date -- unknown is not recent. The tiles below count the
+       same window, so a chip never advertises rows the window has hidden. The
+       note is computed from this same vis array, never from a second predicate
+       -- a tile that read 510 over a list of 237 shipped because those two
+       numbers were counted separately. */
     var windowDays = freshnessWindow();
     var hiddenOlder = 0, hiddenNoDate = 0;
     if (windowDays) {
@@ -2024,11 +2054,15 @@
       }
     }
 
-    /* Counted over the SAME set the rows come from. Stale jobs are off the
-       default list, so they must not inflate Full-time / PT / Direct either --
-       that is how a tile once read 510 over a list of 237. Applied still
-       counts every recorded application, stale or not. */
-    var live = all.filter(onTheList);
+    /* Counted over the SAME set the rows come from, window and search
+       included. Stale jobs are off the default list, so they must not inflate
+       Full-time / PT / Direct either -- that is how a tile once read 510 over a
+       list of 237. Applied still counts every recorded application. */
+    /* The SAME window and search the rows above went through. Without these
+       two the numbers describe a list nobody is looking at. */
+    var live = all.filter(function (j) {
+      return onTheList(j) && withinWindow(j, windowDays) && matchesSearch(j, s);
+    });
     var nSub = live.filter(isApplied).length;
     var nFt = live.filter(function (j) { return bucketOf(j) === "ft" && (isApplied(j) || (!isStale(j) && !isLeadership(j))); }).length;
     var nPt = live.filter(function (j) { return bucketOf(j) === "ptc2c" && (isApplied(j) || (!isStale(j) && !isLeadership(j))); }).length;
