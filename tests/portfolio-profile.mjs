@@ -442,6 +442,51 @@ const browser = await chromium.launch({ headless: true });
 check('stripContact still removes leak@example.com',
   stripContact('x leak@example.com y').indexOf('leak@example.com') === -1);
 
+/* ------------------------------------------- the work history uses its column -- */
+
+/* Brian, 2026-09-08: on desktop this text is not 100% width as it should be.
+   `.role p` carried `max-width: 62ch`, which resolved to 595px inside a 1384px
+   column -- 43 percent of the width it had, so the whole work history read as a
+   narrow ribbon beside a wide page.
+
+   Asserted on the PAINTED box against its own parent, not on the stylesheet. A
+   cap reintroduced in ANY unit -- ch, em, px, a clamp -- shows up here as a
+   paragraph narrower than its column, which grepping the CSS for "62ch" would
+   miss. */
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const page = await ctx.newPage();
+  await page.goto(SITE + '/portfolio/', { waitUntil: 'networkidle' });
+
+  const measured = await page.evaluate(() => {
+    const paras = [...document.querySelectorAll('.role p')];
+    return paras.map((p) => {
+      const box = p.getBoundingClientRect();
+      const column = p.closest('.role').getBoundingClientRect();
+      return { w: Math.round(box.width), column: Math.round(column.width) };
+    });
+  });
+
+  check('the portfolio renders work-history paragraphs to measure',
+    measured.length > 0, `${measured.length} paragraphs`);
+
+  const narrow = measured.filter((m) => m.w < m.column - 1);
+  check('every work-history paragraph fills its column on desktop',
+    measured.length > 0 && narrow.length === 0,
+    narrow.length
+      ? `${narrow.length} of ${measured.length} capped, first ${narrow[0].w}px of ${narrow[0].column}px`
+      : (measured[0] ? `${measured[0].w}px of ${measured[0].column}px` : 'nothing measured'));
+  /* Wider than its column would be an overflow, not a fix. */
+  check('and none of them overflows it',
+    measured.length > 0 && measured.every((m) => m.w <= m.column + 1));
+
+  const overflow = await page.evaluate(() =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  check('the page itself does not scroll sideways', overflow <= 0, `${overflow}px`);
+
+  await ctx.close();
+}
+
 await browser.close();
 if (server) await server.stop();
 
