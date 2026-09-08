@@ -359,7 +359,12 @@ a:hover { text-decoration: underline; }
   color: var(--muted);
   font: 500 13px/1.4 "IBM Plex Mono", ui-monospace, monospace;
 }
-.role p { margin: 0 0 10px; color: var(--muted); max-width: 62ch; }
+/* No measure cap. 62ch resolved to 595px inside a 1384px column, so every
+   achievement paragraph used 43 percent of the width it had and the section
+   read as a narrow ribbon on a wide screen. Brian asked for the full width.
+   The band's own 1440px max-width and its 28px padding are what keep the line
+   from running edge to edge on a very wide monitor. */
+.role p { margin: 0 0 10px; color: var(--muted); }
 .role p:last-child { margin-bottom: 0; }
 
 /* Print: the page IS the virtual resume. Navigation and a dark canvas burn
