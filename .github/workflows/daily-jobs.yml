@@ -170,6 +170,22 @@ jobs:
         if: ${{ inputs.dry != true }}
         run: node ingest/refresh-audit.mjs
 
+      - name: Read the careers sites that need a browser
+        # Cognizant answers 403 to a server-side fetch on its listing AND on
+        # every job page, even with a full set of browser headers; IBM answers
+        # 202 with an empty body, an Akamai challenge. Neither runs Greenhouse,
+        # Lever, Ashby or Workday, so nothing else in this pipeline can see
+        # them. This runs AFTER the Playwright install below is available, and
+        # is deliberately not fatal: an employer's site going down must not
+        # fail the whole daily run.
+        continue-on-error: true
+        env:
+          CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+          node ingest/browser-sweep.mjs ${{ (inputs.dry == true) && '--dry' || '--write' }}
+
       - name: Drive the deployed page
         # After the write, so it checks the numbers Brian will actually see.
         # The FULL-TIME tile once read 510 over a list of 237 because the rows

@@ -204,6 +204,47 @@ if (BLOCKS_RUN !== EXPECTED_BLOCKS) {
 FAIL only ${BLOCKS_RUN} of ${EXPECTED_BLOCKS} test blocks ran -- the rest never executed`);
   process.exit(1);
 }
+/* ---------------------------------------- every state, not most of them -- */
+
+/* US_ELSEWHERE is a hand-written list, and a hand-written list of fifty things
+   is wrong until something counts them. South Carolina, North Dakota and South
+   Dakota were missing, so an on-site posting in any of them fell through to the
+   US_WIDE branch and came back "US-wide, no city named" -- with a city and a
+   state named right there in the text. No existing case caught it, because
+   every one of them happened to name a state that was on the list. */
+const STATES = [
+  'Alabama', 'Alaska', 'Arkansas', 'California', 'Colorado', 'Connecticut',
+  'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana',
+  'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+  'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
+  'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico',
+  'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon',
+  'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee',
+  'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia',
+  'Wisconsin', 'Wyoming'
+];
+
+console.log('EVERY STATE');
+const leaked = STATES.filter((state) =>
+  locationEligible('Springfield, ' + state + ', United States', 'Product Manager').ok);
+if (leaked.length) {
+  bad += 1;
+  console.log('  FAIL on-site roles in these states are wrongly eligible: ' + leaked.join(', '));
+} else {
+  console.log('  ok   an on-site role in each of the 49 non-home states is refused (' + STATES.length + ' checked)');
+}
+
+/* The other direction, so the fix cannot become "refuse everything". */
+for (const [wt, ti, want, label] of [
+  ['Phoenix, Arizona, United States', 'Product Manager', true, 'Arizona still wins outright'],
+  ['United States', 'Product Manager', true, 'US-wide naming no city is still eligible'],
+  ['United States', 'Product Manager (Remote)', true, 'remote is still eligible']
+]) {
+  const got = locationEligible(wt, ti);
+  if (got.ok !== want) { bad += 1; console.log('  FAIL ' + label + ' -> ' + got.why); }
+  else console.log('  ok   ' + label);
+}
+
 console.log(`
 all ${EXPECTED_BLOCKS} blocks ran`);
 process.exit((bad || process.exitCode) ? 1 : 0);
