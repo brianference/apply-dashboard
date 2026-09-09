@@ -82,7 +82,20 @@ const stats = { collected: 0, newRows: 0, ranked: 0, ruledOut: 0, jdRead: 0, err
 /* ---- 1. collect ---------------------------------------------------- */
 let collected = [];
 try {
-  await runUpsert({ query: 'product manager', limit: 400 });
+  /* "product", not "product manager".
+
+     filterJobs requires EVERY word of the query as a whole word, and
+     "manager" is not a whole word inside "Product Management". So a single
+     "product manager" query made every Director/Head/Lead-of-Product title
+     invisible to the daily run: 69 roles that pass the role rule AND the
+     location rule were never collected, including Cyberhaven's Director,
+     Product Management and four Product Lead roles at Abridge.
+
+     The narrow query was doing filtering that roleEligible already does far
+     more precisely, and doing it wrong. The limit is raised with it because
+     greenhouse alone returns 1470 rows for "product" and 400 was silently
+     truncating the largest source. */
+  await runUpsert({ query: 'product', limit: 2000 });
   const out = JSON.parse(fs.readFileSync(path.join(ROOT, 'ingest', 'out', 'jobs.json'), 'utf8'));
   collected = out.jobs || [];
   stats.collected = collected.length;
