@@ -991,7 +991,11 @@
 
      \bvp\b matches "VP" and "VP," but not "vpn". "Chief of Staff Director"
      is director level and is meant to match. */
-  var LEADERSHIP_TITLE = /\bdirector\b|head of product|\bvp\b|vice president|chief product officer|\bcpo\b/i;
+  /* svp is here because the ingest gate admits "SVP, Product" and this lens
+     did not, so the row entered the queue and then sat on the MAIN list
+     instead of behind the pill built for it. A test reads this pattern out
+     of this file and holds the two to the same set. */
+  var LEADERSHIP_TITLE = /\bdirector\b|head of product|\bvp\b|\bsvp\b|vice president|chief product officer|\bcpo\b/i;
 
   /**
    * Cell text for the posted column: "today", "Nd ago", or an em-dash.

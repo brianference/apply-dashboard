@@ -143,7 +143,13 @@ const NOT_PRODUCT = /product marketing|product success|\bpmm\b|engineering manag
    operations are untouched, because none of them contain "product
    operations". */
 /** Titles that ARE product management, whatever else the string contains. */
-const IS_PRODUCT = /product manager|product management|product lead|product owner|head of product|director of product|\bdirector,? product\b|vp of product|\bvp,? product\b|chief product officer|\bcpo\b|group product manager|\bgpm\b|technical product manager|\btpm\b|product sr\.? manager|senior director of product|sr\.? director of product|product, .*(platform|ai)|\bproduct\b.{0,14}\b(manager|management|lead|owner|director)\b|product operations\b|\bproduct ops\b/i;
+/* "Senior Vice President, Product" was refused while "VP of Product" passed,
+   because IS_PRODUCT knew the abbreviation and not the spelled-out form. The
+   dashboard's own LEADERSHIP_TITLE matches "vice president", so the ingest gate
+   was refusing a title the leadership pill exists to display -- the row could
+   never reach the lens built for it. Product marketing stays out either way:
+   NOT_PRODUCT is tested first and already carries the phrase. */
+const IS_PRODUCT = /product manager|product management|product lead|product owner|head of product|director of product|\bdirector,? product\b|vp of product|vice president,? (of )?product|\bsvp,? (of )?product|\bvp,? product\b|chief product officer|\bcpo\b|group product manager|\bgpm\b|technical product manager|\btpm\b|product sr\.? manager|senior director of product|sr\.? director of product|product, .*(platform|ai)|\bproduct\b.{0,14}\b(manager|management|lead|owner|director)\b|product operations\b|\bproduct ops\b/i;
 
 /**
  * Is this a product-management role?
