@@ -28,7 +28,12 @@ const SITE = process.argv[2] || 'https://apply-dashboard.pages.dev';
 
 /* Written out independently of the page's own pattern on purpose. A test that
    imports the regex it is checking cannot notice that the regex is wrong. */
-const LEADERSHIP = /\bdirector\b|head of product|\bvp\b|vice president|chief product officer|\bcpo\b/i;
+/* svp added 2026-09-08. The page lens gained it after the ingest gate was
+   widened to admit "Senior Vice President, Product", and this pattern -- kept
+   written out independently so it can disagree with the page -- correctly
+   reported the two new Nymbus SVP rows as not director level. SVP is
+   director level and above, so the pattern is what was wrong here. */
+const LEADERSHIP = /\bdirector\b|head of product|\bvp\b|\bsvp\b|vice president|chief product officer|\bcpo\b/i;
 
 let bad = 0;
 const check = (name, ok, detail) => {

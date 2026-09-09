@@ -7,6 +7,7 @@
  * meant for product roles. A filter that only ever says yes would pass every
  * eligible case below and still ship both, so the REJECTIONS are the point.
  */
+import fs from 'node:fs';
 import { locationEligible, roleEligible } from './location-eligible.mjs';
 
 /** Counts blocks that actually executed, so a skipped one cannot pass silently. */
@@ -241,6 +242,69 @@ for (const [wt, ti, want, label] of [
   ['United States', 'Product Manager (Remote)', true, 'remote is still eligible']
 ]) {
   const got = locationEligible(wt, ti);
+  if (got.ok !== want) { bad += 1; console.log('  FAIL ' + label + ' -> ' + got.why); }
+  else console.log('  ok   ' + label);
+}
+
+/* ------------------------------- the gate must not refuse what the lens shows -- */
+
+/* Brian, 2026-09-08: an Indeed alert carried "Senior Vice President, Product"
+   at Doxim, remote in the United States. The ingest gate refused it with "title
+   does not say product management" while "VP of Product" passed, because
+   IS_PRODUCT knew the abbreviation and not the spelled-out form.
+
+   index.html has a LEADERSHIP_TITLE pattern and a pill built to display exactly
+   these titles. A row the gate refuses can never reach that pill, so the two
+   were contradicting each other with no test in between. This reads the real
+   pattern out of index.html rather than restating it, because a copy here would
+   agree with itself forever while the page changed. */
+const pageSrc = fs.readFileSync('index.html', 'utf8');
+const leadershipLine = (pageSrc.match(/var LEADERSHIP_TITLE = \/(.+?)\/i;/) || [])[1] || '';
+const LEADERSHIP = leadershipLine ? new RegExp(leadershipLine, 'i') : null;
+
+console.log('GATE AGAINST THE LEADERSHIP LENS');
+if (!LEADERSHIP) {
+  bad += 1;
+  console.log('  FAIL could not read LEADERSHIP_TITLE out of index.html');
+} else {
+  /* Titles the PILL is built to show. Each must survive the ingest gate, or the
+     pill is advertising rows that were thrown away before they reached it. */
+  const LEADERSHIP_TITLES = [
+    'Director of Product',
+    'Director, Product Management',
+    'Head of Product',
+    'VP of Product',
+    'VP, Product Management',
+    'Vice President of Product',
+    'Senior Vice President, Product',
+    'SVP, Product',
+    'Chief Product Officer'
+  ];
+  const notLens = LEADERSHIP_TITLES.filter((t) => !LEADERSHIP.test(t));
+  if (notLens.length) {
+    bad += 1;
+    console.log('  FAIL these are not matched by the page lens: ' + notLens.join('; '));
+  } else {
+    console.log('  ok   every sample title is one the leadership pill would show');
+  }
+  const refused = LEADERSHIP_TITLES.filter((t) => !roleEligible(t).ok);
+  if (refused.length) {
+    bad += 1;
+    console.log('  FAIL the ingest gate refuses titles the pill exists to show: ' + refused.join('; '));
+  } else {
+    console.log('  ok   the ingest gate admits all ' + LEADERSHIP_TITLES.length + ' of them');
+  }
+}
+
+/* The other direction, so widening the gate for leadership did not open it to
+   every senior title with the word product anywhere near it. */
+for (const [title, want, label] of [
+  ['Vice President, Product Marketing', false, 'product marketing stays out'],
+  ['Senior Vice President, Sales', false, 'a sales SVP stays out'],
+  ['Vice President, Engineering', false, 'an engineering VP stays out'],
+  ['SVP, Customer Success', false, 'customer success stays out']
+]) {
+  const got = roleEligible(title);
   if (got.ok !== want) { bad += 1; console.log('  FAIL ' + label + ' -> ' + got.why); }
   else console.log('  ok   ' + label);
 }

@@ -29,12 +29,22 @@ export const JSONLD_DESC_MIN = 400;
 /** Survey threshold: plain page text counted as a read above this. */
 export const PAGE_TEXT_MIN = 1200;
 
+/* Hosts that are never FETCHED. Being unreadable is not the test -- an
+   unreadable host is handled by the tiers below and comes back
+   unreadable-host. These are refused on POLICY.
+
+   wellfound.com was removed on 2026-09-08 after being re-checked rather than
+   re-assumed. A posting page answers 200 with 9,145 characters of readable
+   text and a JobPosting JSON-LD block, and robots.txt disallows only
+   /jobs/applications and /jobs/signup, so a posting path is explicitly
+   permitted. Four rows had sat unread behind a block that no longer described
+   the site. Re-check the rest of this list the same way rather than trusting
+   that it was right when it was written. */
 const BLOCKED_HOSTS = [
   'linkedin.com',
   'indeed.com',
   'dice.com',
   'monster.com',
-  'wellfound.com',
   'startup.jobs'
 ];
 

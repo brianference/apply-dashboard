@@ -186,7 +186,9 @@ const BLOCKED = [
   'https://www.indeed.com/viewjob?jk=abc',
   'https://www.dice.com/job-detail/x',
   'https://www.monster.com/job/x',
-  'https://wellfound.com/jobs/x',
+  /* wellfound.com was here until 2026-09-08. It is readable, its robots
+     permits a posting path, and the block was costing four rows. The
+     cases near the end of this file hold both directions. */
   'https://startup.jobs/x'
 ];
 
@@ -799,6 +801,42 @@ try { fs.rmSync(tmpBreak, { recursive: true, force: true }); } catch { /* temp d
   check('the default cache directory is the one the board tiers use',
     fs.existsSync(file), file);
   try { fs.rmSync(file, { force: true }); } catch { /* proof, not product */ }
+}
+
+/* ----------------------------- a block has to still describe the site -- */
+
+/* wellfound.com sat in BLOCKED_HOSTS and four queued rows were never read.
+   Re-checked on 2026-09-08 rather than re-assumed: a posting answers 200 with
+   9,145 characters of text and a JobPosting JSON-LD block, and robots.txt
+   disallows only /jobs/applications and /jobs/signup, so a posting path is
+   permitted. The block described the site as it was when it was written, not as
+   it is.
+
+   These cases hold BOTH directions, because the cheap fix in either direction
+   is wrong: unblocking everything loses the policy, and leaving the list alone
+   loses the rows. */
+check('a wellfound posting is no longer refused before it is tried',
+  hostPolicy('https://wellfound.com/jobs/4639806-senior-product-manager-referrals') === null,
+  String(hostPolicy('https://wellfound.com/jobs/4639806-senior-product-manager-referrals')));
+
+/* The ones that stay. LinkedIn and Indeed are refused on policy, not because
+   they are hard to read, so a future "it returns 200 now" must not reopen
+   them. */
+for (const host of ['linkedin.com', 'indeed.com', 'dice.com', 'monster.com', 'startup.jobs']) {
+  check(`${host} is still refused on policy`,
+    hostPolicy(`https://${host}/jobs/123`) === 'blocked-by-policy',
+    String(hostPolicy(`https://${host}/jobs/123`)));
+}
+
+/* A blocked host must be refused BEFORE any request, which is the whole point:
+   asserting on the result cannot tell a refusal from a failed fetch. */
+{
+  const calls = [];
+  const spy = async (url) => { calls.push(url); return { status: 200, text: async () => 'x' }; };
+  const out = await readJd('https://linkedin.com/jobs/view/123', { fetch: spy, refetch: true, cacheDir: fs.mkdtempSync(path.join(os.tmpdir(), 'jd-policy-')) });
+  check('a blocked host is never fetched, asserted on the call not the result',
+    calls.length === 0 && out.outcome === 'blocked-by-policy',
+    `${calls.length} request(s), outcome ${out.outcome}`);
 }
 
 console.log(bad
