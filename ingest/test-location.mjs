@@ -309,6 +309,59 @@ for (const [title, want, label] of [
   else console.log('  ok   ' + label);
 }
 
+/* ------------------------ the collection query must not out-filter the rule -- */
+
+/* The daily run asked for "product manager", and filterJobs requires EVERY word
+   of a query as a WHOLE word. "manager" is not a whole word inside "Product
+   Management", so every Director/Head/Lead-of-Product title was invisible to
+   collection: 69 roles that pass roleEligible AND locationEligible were never
+   fetched, including Cyberhaven's Director, Product Management and four Product
+   Lead roles at Abridge.
+
+   A query is a coarse net. roleEligible is the rule. When the net is finer than
+   the rule, the rule never gets to see what it would have kept, and nothing
+   reports the loss. */
+const COLLECTION_QUERY = (fs.readFileSync('ingest/daily.mjs', 'utf8')
+  .match(/runUpsert\(\{\s*query:\s*'([^']+)'/) || [])[1] || '';
+
+console.log('COLLECTION QUERY');
+if (!COLLECTION_QUERY) {
+  bad += 1;
+  console.log('  FAIL could not read the collection query out of ingest/daily.mjs');
+} else {
+  /* Real titles this queue must be able to collect. Each passes roleEligible,
+     so each must also survive the query the daily run actually uses. */
+  const MUST_COLLECT = [
+    'Director, Product Management - Ecosystem & Integrations',
+    'Director of Product',
+    'Head of Product',
+    'Product Lead, Core Product Experiences',
+    'Senior Director, Product',
+    'Group Product Manager',
+    'Senior Product Manager',
+    'Product Owner'
+  ];
+  const words = COLLECTION_QUERY.toLowerCase().split(/\s+/).filter(Boolean);
+  const missed = MUST_COLLECT.filter((title) => {
+    const hay = title.toLowerCase();
+    /* Doubled. A JS string '\b' is a BACKSPACE character, so the single form
+       built a regex matching a control code and every title looked uncollectable. */
+    return !words.every((w) => new RegExp('\\b' + w + '\\b').test(hay));
+  });
+  const refused = MUST_COLLECT.filter((t) => !roleEligible(t).ok);
+  if (refused.length) {
+    bad += 1;
+    console.log('  FAIL these samples do not even pass the role rule: ' + refused.join('; '));
+  }
+  if (missed.length) {
+    bad += 1;
+    console.log('  FAIL the query "' + COLLECTION_QUERY + '" cannot collect: ' + missed.join('; '));
+  } else {
+    console.log('  ok   the query "' + COLLECTION_QUERY + '" collects all '
+      + MUST_COLLECT.length + ' titles the role rule keeps');
+  }
+}
+
 console.log(`
 all ${EXPECTED_BLOCKS} blocks ran`);
 process.exit((bad || process.exitCode) ? 1 : 0);
