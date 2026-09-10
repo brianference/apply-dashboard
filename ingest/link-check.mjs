@@ -235,9 +235,8 @@ function printHelp() {
 Open posting URLs in headless Chromium and classify each as live, wall, or dead.
 Writes ingest/evidence/link-check.json. Concurrency 4, 25s timeout per page.
 
-Playwright is loaded from:
-  ${PLAYWRIGHT_PATH}
-Override with PLAYWRIGHT_PATH if needed.
+Playwright is loaded from ${PLAYWRIGHT_PATH}, then from a normal
+resolution if that path does not exist. Override with PLAYWRIGHT_PATH.
 
 Options:
   --help            Show this help
@@ -280,10 +279,22 @@ if (isCli(import.meta.url)) {
     } else {
       const require = createRequire(import.meta.url);
       let chromium;
-      try {
-        ({ chromium } = require(PLAYWRIGHT_PATH));
-      } catch (error) {
-        logError("playwright not found", { path: PLAYWRIGHT_PATH, error: String(error && error.message ? error.message : error) });
+      /* Brian's machine keeps Playwright in RedAnvil; a CI runner installs its
+         own. Try the configured path, then a normal resolution, so the same
+         file runs in both places. Hardcoding the first one meant this exited 1
+         on every scheduled run: the path does not exist on a runner, and a
+         check that only works on one machine is not a check. */
+      const tried = [];
+      for (const candidate of [PLAYWRIGHT_PATH, "playwright"]) {
+        try {
+          ({ chromium } = require(candidate));
+          break;
+        } catch (error) {
+          tried.push(`${candidate}: ${String(error && error.message ? error.message : error).slice(0, 60)}`);
+        }
+      }
+      if (!chromium) {
+        logError("playwright not found", { tried });
         process.exitCode = 1;
       }
       if (chromium) {
