@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-09-10T19:30:55.540Z",
+  "checkedAt": "2026-09-10T19:44:31.841Z",
   "engine": "playwright-chromium",
   "playwrightPath": "C:\\Users\\brian\\RedAnvil\\node_modules\\playwright",
   "results": [
@@ -32,7 +32,7 @@
       "dedupe_key": "group 1001|senior product manager, new products",
       "state": "wall",
       "httpStatus": 200,
-      "finalUrl": "https://startup.jobs/apply/86519b79-bb6c-45de-bde5-678f282ee3bc?__cf_chl_rt_tk=9PGVl.hU2la5rQg70lHDzPrmOh_k95mT3ph8T2M9e2c-1789068637-1.0.1.1-LSWSs8jbhqfhGdZGuqdSw7yG.9yFNLbZlg4JLX6OfaU",
+      "finalUrl": "https://startup.jobs/apply/86519b79-bb6c-45de-bde5-678f282ee3bc?__cf_chl_rt_tk=mnRQg9_YmtdD0td8CGoACRnEPK4gqTF2bnpeqRbwBes-1789069461-1.0.1.1-Xxm5p56K_gsOcDrBvyOoe.OFnYIIk2EJ4uPM6Wi1Yjg",
       "note": "apply flow is a security verification wall"
     },
     {

@@ -38,11 +38,19 @@ export const EXPECTED_CASES = [
   {
     url: "https://jobs.gusto.com/postings/get-gauge-inc-contract-product-manager-4c869291-9f5e-4e69-918a-ae50ba0a4739",
     dedupe_key: "get gauge inc. (gauge.ai)|contract product manager",
-    /* Was "wall" when measured 2026-08-22. Re-checked 2026-09-10: Gusto now
-       answers 410 for it, so the POSTING was pulled in between. The fixture was
-       stale, not the classifier -- a known-correct answer about a live web page
-       has a shelf life. */
+    /* Was "wall" when measured 2026-08-22. From Brian's machine on 2026-09-10
+       it answered 410, so the POSTING was pulled in between. From a GitHub
+       runner the same minute it answered 403 with a Cloudflare challenge token
+       in the URL, because a datacenter IP gets challenged before it is told
+       anything about the posting.
+
+       Both observations are true from where they were made. A fixture cannot
+       demand one verdict from a host whose answer depends on who is asking, so
+       a challenge is accepted here. A 200 with a live apply control would still
+       fail it, which is the line that matters. */
     expected: "dead",
+    alsoAccept: ["wall"],
+    acceptWhen: (got) => got.httpStatus === 403 || /__cf_chl/i.test(got.finalUrl || ""),
     host: "jobs.gusto.com"
   },
   {
