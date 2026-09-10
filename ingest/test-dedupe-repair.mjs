@@ -181,6 +181,50 @@ check('an employer name in the MIDDLE of a title is not stripped',
 check('a title that is only the employer name is not stripped to nothing',
   withoutTrailingCompany('twilio', 'twilio') === 'twilio');
 
+/* ------------------------- the same job at two different URLs -------------- */
+
+/* Grouping by URL cannot see a posting that reached the queue twice from two
+   places. Hopper's Principal Product Manager came in from Ashby and from
+   Jobspresso; Stripe's Staff Product Manager, Payments from stripe.com and from
+   Working Nomads. The titles differ only by a comma against a hyphen, which
+   normalizeForDedupe flattens, so decide() refuses these at ingest today --
+   both pairs predate that guard, and URL grouping left them sitting in the
+   queue as two rows of one job. */
+const CROSS_SOURCE = [
+  { dedupe_key: 'hopper|principal product manager- conversational ai',
+    company: 'Hopper', title: 'Principal Product Manager- Conversational AI',
+    url: 'https://jobs.ashbyhq.com/hopper/241f7145', status: 'queued',
+    salary_min: 200000, posted: '2026-09-01T00:00:00.000Z', match_pct: 70 },
+  { dedupe_key: 'hopper|principal product manager, conversational ai',
+    company: 'Hopper', title: 'Principal Product Manager, Conversational AI',
+    url: 'https://jobspresso.co/job/principal-product-manager', status: 'queued',
+    salary_min: null, posted: null, match_pct: null },
+  { dedupe_key: 'lone|product manager', company: 'Lone', title: 'Product Manager',
+    url: 'https://example.com/jobs/1', status: 'queued',
+    salary_min: null, posted: null, match_pct: 50 }
+];
+
+const cross = planDedupe(CROSS_SOURCE);
+check('the same job at two different urls is one group',
+  cross.collapse.length === 1, `${cross.collapse.length} collapses`);
+check('and the row carrying the band, the date and the score is the one kept',
+  cross.collapse[0] && cross.collapse[0].keep === 'hopper|principal product manager- conversational ai',
+  cross.collapse[0] && cross.collapse[0].keep);
+/* A different job at the same employer must not be swept in with it. */
+check('an unrelated posting is still left alone',
+  !cross.collapse.some((c) => c.drop.startsWith('lone')));
+
+/* A row already claimed by URL grouping must not be collapsed twice. */
+const alreadyClaimed = planDedupe([
+  { dedupe_key: 'a|x', company: 'A', title: 'X', url: 'https://e.com/1', status: 'queued', salary_min: 200000 },
+  { dedupe_key: 'a|x two', company: 'A', title: 'X', url: 'https://e.com/1', status: 'queued' },
+  { dedupe_key: 'a|x three', company: 'A', title: 'X', url: 'https://e.com/2', status: 'queued' }
+]);
+check('a row grouped by url is not also grouped by sameJob',
+  alreadyClaimed.collapse.length === 2
+  && new Set(alreadyClaimed.collapse.map((c) => c.drop)).size === 2,
+  alreadyClaimed.collapse.map((c) => c.drop).join(' | '));
+
 console.log(bad
   ? `\n${bad} FAILED`
   : '\nduplicates collapse to the richest row, two real applications are left alone, and the appended-employer shape is caught at ingest');
