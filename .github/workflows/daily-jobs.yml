@@ -186,6 +186,25 @@ jobs:
           npx playwright install --with-deps chromium
           node ingest/browser-sweep.mjs ${{ (inputs.dry == true) && '--dry' || '--write' }}
 
+      - name: Check destination links and retire the dead ones
+        # Brian, 2026-09-10: check for links no longer working, particularly
+        # older jobs or ones without pay -- he had found and removed three by
+        # hand. link-check drives real Chromium and classifies live | wall |
+        # dead | unknown; closed-check --links retires ONLY the dead. Its
+        # classifier gained the fourth state because of this run: of twelve rows
+        # it had called dead, five were dead, three were live and four were
+        # unknowable from the page. Its seven known-correct cases run every time
+        # and fail the step if the classifier drifts.
+        continue-on-error: true
+        env:
+          CF_D1_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+          node .github/scripts/link-cohort.mjs > /tmp/cohort.json
+          node ingest/link-check.mjs --input /tmp/cohort.json --limit 80
+          node ingest/closed-check.mjs --links ${{ (inputs.dry == true) && '' || '--write' }}
+
       - name: Drive the deployed page
         # After the write, so it checks the numbers Brian will actually see.
         # The FULL-TIME tile once read 510 over a list of 237 because the rows

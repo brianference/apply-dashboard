@@ -30,6 +30,7 @@
 
 import { isCli, parseArgs } from './cli.mjs';
 import { normalizeUrl } from './sync-to-d1.mjs';
+import { sameJob } from './match.mjs';
 
 /* The value index.html already rules out and already has a label for
    ("same job listed elsewhere"). Writing a NEW word here -- "duplicate" --
@@ -114,10 +115,53 @@ export function planDedupe(rows) {
     byUrl.set(key, (byUrl.get(key) || []).concat(row));
   }
 
+  /* A SECOND grouping, on sameJob rather than on the URL.
+
+     The same posting reaches the queue from the employer's own board and from
+     an aggregator, at two different URLs. Hopper's Principal Product Manager
+     came in from Ashby and from Jobspresso; Stripe's Staff Product Manager,
+     Payments from stripe.com and from Working Nomads. The titles differ only by
+     a comma against a hyphen, which normalizeForDedupe already flattens, so
+     `decide()` refuses these at ingest today -- both pairs predate that guard,
+     and URL grouping cannot see them.
+
+     Each URL group contributes its KEEPER to this pass, not just the rows that
+     had a URL to themselves. Without that, "the same job three times from three
+     places" left the third row behind: it was a single, the other two were
+     inside a URL group, and nothing ever compared them. */
+  const urlGroups = [...byUrl.values()];
+  const representatives = urlGroups.map((group) => rankForKeeping(group)[0]);
+  const absorbed = new Set();
+  const families = [];
+  for (let i = 0; i < representatives.length; i++) {
+    const a = representatives[i];
+    if (absorbed.has(a.dedupe_key)) continue;
+    const family = [];
+    for (let j = i + 1; j < representatives.length; j++) {
+      const b = representatives[j];
+      if (absorbed.has(b.dedupe_key)) continue;
+      if (sameJob(a, b)) {
+        /* The whole URL group behind b joins a's family, so a three-way
+           duplicate collapses onto one row rather than two. */
+        family.push(...urlGroups[j]);
+        for (const row of urlGroups[j]) absorbed.add(row.dedupe_key);
+      }
+    }
+    if (family.length) families.push([...urlGroups[i], ...family]);
+  }
+
+  /* A URL group already absorbed into a family must not also be planned on its
+     own, or the same row is dropped twice. */
+  const groups = urlGroups.filter((group, idx) =>
+    !absorbed.has(representatives[idx].dedupe_key)
+    && !families.some((f) => f.includes(group[0]))
+  ).concat(families);
+
   const collapse = [];
   const conflicted = [];
-  for (const [url, group] of byUrl) {
+  for (const group of groups) {
     if (group.length < 2) continue;
+    const url = normalizeUrl(group[0].url);
     const ordered = rankForKeeping(group);
     const keep = ordered[0];
     const rest = ordered.slice(1);

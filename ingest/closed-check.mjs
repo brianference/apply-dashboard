@@ -23,6 +23,14 @@
  *   node ingest/closed-check.mjs                 report only
  *   CF_D1_TOKEN=... node ingest/closed-check.mjs --write
  *   node ingest/closed-check.mjs --unread        the never-read rows instead
+ *   node ingest/closed-check.mjs --links         act on link-check's evidence
+
+ * --links reads ingest/evidence/link-check.json and retires only the rows that
+ * file classified `dead`. It exists so there is ONE write path rather than two:
+ * link-check drives a real browser and produces evidence, this file decides and
+ * writes. Its classifier gained a fourth state on 2026-09-10 for exactly this
+ * reason -- of twelve rows it had called dead, five were dead, three were live
+ * and four were unknowable from the page. Only `dead` reaches this mode.
  *
  * --unread exists because the tiered reader already knows. It returns
  * outcome board-404 when the board itself no longer has the posting, and 24
@@ -172,6 +180,53 @@ if (isCli(import.meta.url)) {
   /* --unread asks the READER, not a page fetch. The reader is the thing that
      knows a board id has been dropped, and asking it keeps one answer rather
      than two that can disagree. */
+  /* --links: retire what link-check PROVED dead, and nothing else.
+
+     The evidence file carries live, wall, dead and unknown. Only dead is acted
+     on, and each row's own note travels into blocked_detail so the reason is
+     readable later without re-running anything. */
+  if (args.links) {
+    const { readFile } = await import('node:fs/promises');
+    const { dirname, join } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const here = dirname(fileURLToPath(import.meta.url));
+    const path = typeof args.links === 'string' && args.links !== 'true'
+      ? String(args.links)
+      : join(here, 'evidence', 'link-check.json');
+    let evidence;
+    try {
+      evidence = JSON.parse(await readFile(path, 'utf8'));
+    } catch (error) {
+      logWarn('could not read link-check evidence', { path, error: String(error.message).slice(0, 120) });
+      process.exit(1);
+    }
+    const results = Array.isArray(evidence.results) ? evidence.results : [];
+    const byKey = new Map((live.jobs || []).map((r) => [r.dedupe_key, r]));
+    const counts = {};
+    for (const r of results) counts[r.state] = (counts[r.state] || 0) + 1;
+    logInfo('closed-check --links', { evidence: path, results: results.length, ...counts, write: doWrite });
+
+    let retired = 0;
+    for (const r of results) {
+      if (r.state !== 'dead') continue;
+      const row = byKey.get(r.dedupe_key);
+      /* Not on the current list, or no longer queued: nothing to do. Its
+         expected-case fixtures live in this file too and have no queue row. */
+      if (!row || row.status !== 'queued') continue;
+      logInfo('dead link', {
+        company: row.company, title: String(row.title).slice(0, 40),
+        http: r.httpStatus, note: r.note
+      });
+      if (!doWrite) continue;
+      const w = closedWrite(row, `${r.note} (HTTP ${r.httpStatus})`);
+      const res = await d1(w.sql, w.params);
+      if (res && res.meta && res.meta.changes > 0) retired += 1;
+    }
+    logInfo('link sweep complete', { retired });
+    if (!doWrite) logWarn('nothing written', { hint: 'pass --write to apply' });
+    process.exit(0);
+  }
+
   if (args.unread) {
     const { readJd } = await import('./jd-read.mjs');
     await import('./fit-score.mjs');

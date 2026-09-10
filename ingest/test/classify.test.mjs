@@ -142,3 +142,57 @@ test("Ashby apply control is live", () => {
     "live"
   );
 });
+
+/* --- absence of evidence is not death (2026-09-10) ------------------------ */
+
+/* Of twelve rows link-check called dead, FIVE were dead, three were live and
+   four were unknowable from the page alone. Two paths returned "dead" without
+   any evidence of death, and a wrongly-retired row is one he never sees again. */
+
+test("a navigation that threw is unknown, not dead", () => {
+  /* httpStatus 0 means goto() raised. QuinStreet and Pinterest both timed out
+     and were called dead; their board API and page text then returned 6,265 and
+     7,086 characters of live posting. */
+  assert.equal(classifyPage({
+    url: "https://x/j", finalUrl: "https://x/j", httpStatus: 0, hasApplyControl: false
+  }), "unknown");
+});
+
+test("a 200 with no apply control the detector could find is unknown", () => {
+  /* Adobe, Capital One and Cisco serve a 148-character Workday shell that
+     renders its apply button in JS. */
+  assert.equal(classifyPage({
+    url: "https://adobe.wd5.myworkdayjobs.com/en-US/x/job/y",
+    finalUrl: "https://adobe.wd5.myworkdayjobs.com/en-US/x/job/y",
+    httpStatus: 200, title: "Careers", bodyText: "Careers", hasApplyControl: false
+  }), "unknown");
+});
+
+test("a page that SAYS it is closed is still dead", () => {
+  assert.equal(classifyPage({
+    url: "https://x/j", finalUrl: "https://x/j", httpStatus: 200,
+    bodyText: "This position has been filled", hasApplyControl: false
+  }), "dead");
+});
+
+test("a 404 and a 410 are still dead", () => {
+  for (const httpStatus of [404, 410]) {
+    assert.equal(classifyPage({
+      url: "https://x/j", finalUrl: "https://x/j", httpStatus, hasApplyControl: false
+    }), "dead");
+  }
+});
+
+test("a parked domain is still dead", () => {
+  assert.equal(classifyPage({
+    url: "https://flexgen.zya.me/job/x",
+    finalUrl: "https://suspended-domain.net/index.php?host=flexgen.zya.me",
+    httpStatus: 200, hasApplyControl: false
+  }), "dead");
+});
+
+test("an apply control is still live, so unknown did not swallow the live case", () => {
+  assert.equal(classifyPage({
+    url: "https://x/j", finalUrl: "https://x/j", httpStatus: 200, hasApplyControl: true
+  }), "live");
+});

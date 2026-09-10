@@ -38,13 +38,30 @@ export const EXPECTED_CASES = [
   {
     url: "https://jobs.gusto.com/postings/get-gauge-inc-contract-product-manager-4c869291-9f5e-4e69-918a-ae50ba0a4739",
     dedupe_key: "get gauge inc. (gauge.ai)|contract product manager",
-    expected: "wall",
+    /* Was "wall" when measured 2026-08-22. Re-checked 2026-09-10: Gusto now
+       answers 410 for it, so the POSTING was pulled in between. The fixture was
+       stale, not the classifier -- a known-correct answer about a live web page
+       has a shelf life. */
+    expected: "dead",
     host: "jobs.gusto.com"
   },
   {
     url: "https://startup.jobs/senior-product-manager-new-products-group-1001-resources-llc-8916312",
     dedupe_key: "group 1001|senior product manager, new products",
     expected: "wall",
+    /* This host flaps. Measured 2026-08-22 it served a Cloudflare challenge at
+       HTTP 200, which is a wall. Measured 2026-09-10 it served 502 twice in one
+       session, which is unknown and correctly so. Demanding a single verdict
+       from a host that answers differently minute to minute makes this case
+       fail on the weather rather than on the code.
+
+       Three runs in one session gave three answers: 200 with a challenge, 502,
+       then no response at all. All three mean the host did not answer usefully,
+       so `unknown` is accepted when the status is 5xx or 0. A 404 or a 410
+       would still fail this case, which is the line that matters -- the point
+       is to tolerate an unreachable host, not to stop noticing a dead posting. */
+    alsoAccept: ["unknown"],
+    acceptWhen: (got) => got.httpStatus >= 500 || got.httpStatus === 0,
     host: "startup.jobs"
   },
   {
@@ -132,7 +149,7 @@ async function applyOpensWall(context, page) {
  *
  * @param {import("playwright").Browser} browser
  * @param {{ url: string, dedupe_key?: string }} job
- * @returns {Promise<{ url: string, dedupe_key: string, state: "live"|"wall"|"dead", httpStatus: number|null, finalUrl: string, note: string }>}
+ * @returns {Promise<{ url: string, dedupe_key: string, state: "live"|"wall"|"dead"|"unknown", httpStatus: number|null, finalUrl: string, note: string }>}
  */
 export async function checkUrl(browser, job) {
   const context = await browser.newContext({
@@ -189,10 +206,17 @@ export async function checkUrl(browser, job) {
   if (!note) {
     if (state === "dead" && /suspended-domain/i.test(finalUrl)) note = "redirects to suspended-domain.net";
     else if (state === "dead" && (httpStatus === 404 || httpStatus === 410)) note = `HTTP ${httpStatus}`;
+    /* A page that SAYS it is closed reports that, rather than falling through
+       to "no apply control" -- which described the detector, not the posting. */
+    else if (state === "dead") note = "the page says the posting is closed";
     else if (state === "wall" && applyWall) note = "apply flow is a security verification wall";
     else if (state === "wall" && /security verification/i.test(`${title} ${bodyText}`)) note = "Performing security verification";
     else if (state === "wall") note = "sign-in or bot-protection interstitial";
     else if (state === "live") note = hasApplyControl ? "apply control present" : "apply copy present";
+    /* Say which kind of nothing it was. "no apply control" read as a verdict
+       when it was the absence of one. */
+    else if (state === "unknown" && httpStatus === 0) note = "navigation threw, no evidence either way";
+    else if (state === "unknown") note = `HTTP ${httpStatus}, no apply control found and no closed notice`;
     else note = "no apply control";
   }
   return {
@@ -284,7 +308,14 @@ if (isCli(import.meta.url)) {
           for (const expected of EXPECTED_CASES) {
             const got = expectedResults.find((row) => row.url === expected.url);
             const state = got ? got.state : "missing";
-            const ok = state === expected.expected;
+            /* A host allowed to flap passes on its alternate verdict only when
+               its own condition holds -- a 5xx for startup.jobs. Everything
+               else is still an exact match. */
+            const tolerated = got
+              && Array.isArray(expected.alsoAccept)
+              && expected.alsoAccept.includes(state)
+              && (!expected.acceptWhen || expected.acceptWhen(got));
+            const ok = state === expected.expected || Boolean(tolerated);
             if (!ok) failed += 1;
             process.stdout.write(
               `${ok ? "PASS" : "FAIL"} ${expected.host} expected=${expected.expected} got=${state} http=${got ? got.httpStatus : "n/a"} final=${got ? got.finalUrl : ""}\n`
