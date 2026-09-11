@@ -1,0 +1,233 @@
+/* Outreach: one card per posting, four numbered searches, three message shapes.
+ *
+ * The tokens are copied from portfolio.css rather than imported, for the reason
+ * that file records: /shared/site-nav.css deliberately does NOT define them, and
+ * four pages own their own palette. Leaving them out once produced a body that
+ * computed to rgba(0, 0, 0, 0), a page with no background at all.
+ *
+ * LIGHT IS THE DEFAULT whatever the operating system prefers. No
+ * prefers-color-scheme block: the theme toggle treats an unset data-theme as
+ * light, and honouring the OS made the two disagree.
+ */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --text: #1a232b;
+  --muted: #44525c;
+  --border: #d0d7de;
+  --primary: #2c5266;
+  --primary-contrast: #ffffff;
+  --primary-soft: rgba(44, 82, 102, 0.10);
+  --shadow: 0 1px 2px rgba(26, 35, 43, .06), 0 8px 24px rgba(26, 35, 43, .08);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #131a20;
+  --surface: #1c242b;
+  --text: #e8eef2;
+  --muted: #a3b2bc;
+  --border: #33404a;
+  --primary: #8fb4c8;
+  --primary-contrast: #131a20;
+  --primary-soft: rgba(143, 180, 200, 0.16);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 28px rgba(0, 0, 0, .4);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 16px/1.6 "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+}
+
+a { color: var(--primary); }
+a:hover { text-decoration: underline; }
+
+.wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+}
+
+/* ------------------------------------------------------------------ lede -- */
+
+.lede h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  letter-spacing: -0.03em;
+}
+
+.lede p { margin: 0 0 12px; color: var(--muted); }
+
+.lede .src { font-size: 14px; }
+
+/* The one thing on this page a reader must not misread: these are searches,
+   not names. It gets a border rather than bold text so it survives a skim. */
+.lede .warn {
+  border-left: 3px solid var(--primary);
+  background: var(--primary-soft);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  color: var(--text);
+}
+
+.lede .count {
+  font: 500 14px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--muted);
+}
+
+/* ----------------------------------------------------------------- cards -- */
+
+.targets { display: flex; flex-direction: column; gap: 18px; }
+
+.target {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 16px 18px;
+}
+
+.target > header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 14px;
+}
+
+.target .rank {
+  font: 600 20px/1 "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--primary);
+  background: var(--primary-soft);
+  padding: 8px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.target h3 {
+  margin: 0 0 2px;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.target .co { margin: 0; color: var(--muted); font-size: 14px; }
+
+.target .meta {
+  font: 500 12px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+  margin-left: 10px;
+}
+
+.target .posting {
+  font-size: 14px;
+  white-space: nowrap;
+  align-self: center;
+}
+
+/* ---------------------------------------------------------------- steps -- */
+
+/* The method is ordered, so the list is ordered. Its own numbers are shown
+   rather than the marker, because each step's number is part of the method
+   rather than a position in a list. */
+.steps {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  /* The columns live on the LIST, not on each row. Sized per row, every
+     why-text started at a different x -- "Who has posted about the team" is
+     wider than "Company page", so four rows read as four ragged indents. */
+  grid-template-columns: minmax(190px, max-content) 1fr;
+  gap: 8px 12px;
+}
+
+.steps li {
+  display: grid;
+  /* Borrow the list's two tracks so all four rows share one gutter. */
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: baseline;
+}
+
+.steps .step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.steps .step:hover { text-decoration: underline; }
+
+.steps .n {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  font: 600 12px/1 "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.steps .why { color: var(--muted); font-size: 14px; }
+
+/* --------------------------------------------------------------- shapes -- */
+
+.shapes { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+
+.shapes-lede { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+
+.shapes details { margin: 0 0 6px; }
+
+.shapes summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.shapes .msg {
+  margin: 6px 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.shapes .note { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+
+.copy {
+  font: 500 13px/1 "IBM Plex Sans", system-ui, sans-serif;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  /* 36px tall including the border, so it clears the touch-target floor. */
+  min-height: 36px;
+}
+
+.copy:hover { border-color: var(--primary); color: var(--primary); }
+
+.empty { color: var(--muted); }
+
+/* ----------------------------------------------------------------- small -- */
+
+@media (max-width: 720px) {
+  /* The rank chip and the posting link both leave the header row: a
+     three-column grid at 375px squeezed the title to a few characters a line. */
+  .target > header { grid-template-columns: auto 1fr; }
+  .target .posting { grid-column: 1 / -1; align-self: start; }
+  /* And the why-text goes under its link rather than beside it. */
+  .steps { grid-template-columns: 1fr; }
+  .steps li { grid-template-columns: 1fr; gap: 2px; }
+}
+
+@media print {
+  .copy, #sitenav { display: none !important; }
+  .target { break-inside: avoid; box-shadow: none; }
+}
