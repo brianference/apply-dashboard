@@ -17,13 +17,20 @@
  * is really there.
  */
 
-import { searchesFor, messageShapes, cleanCompany } from './search-urls.js';
+import { searchesFor, messageShapes, cleanCompany, namedSearch } from './search-urls.js';
 
 const API = '/api/jobs';
 /** Enough to work through in a sitting. The method costs five minutes each. */
 const SHOW = 25;
-/** "New" for this page. He asked for top rated NEW jobs. */
-const FRESH_DAYS = 14;
+/**
+ * "New" for this page. Brian, 2026-09-11: "nothing posted more than a week ago".
+ *
+ * A row with NO posted date is not old, it is unmeasured, so it cannot be
+ * dropped by a rule about age. 68 of 110 rows in this window have no date the
+ * board ever published. They go in their own group instead of being silently
+ * mixed into the fresh list or silently discarded.
+ */
+const FRESH_DAYS = 7;
 
 /**
  * @param {string} id
@@ -101,11 +108,94 @@ function payLabel(row) {
  * @returns {Array<Record<string, any>>}
  */
 export function pickTargets(rows) {
-  return (rows || [])
-    .filter((r) => r && r.status === 'queued' && r.url && r.rank_pct != null)
-    .filter((r) => { const a = ageDays(r); return a === null || a <= FRESH_DAYS; })
-    .sort((a, b) => (b.rank_pct || 0) - (a.rank_pct || 0))
+  const usable = (rows || []).filter((r) => r && r.url && r.rank_pct != null);
+  const byRank = (a, b) => (b.rank_pct || 0) - (a.rank_pct || 0);
+
+  /* Three groups, one predicate each, and no row in two of them.
+     - applied: he asked for these by name. A submitted application is a reason
+       to message someone, not a reason to stop, and it must not depend on
+       surviving a rank slice against 25 unapplied rows.
+     - fresh: his window, on rows that actually carry a date.
+     - undated: no date was ever published, so the age rule cannot reach them.
+       Separate rather than hidden: dropping them would be losing rows for
+       missing data and calling it freshness. */
+  /* "those high ranked ones which i marked i applied for" -- 80 submitted rows
+     would make a 130-card page, so this takes the same top slice as the others. */
+  const applied = usable.filter((r) => r.status === 'submitted').sort(byRank).slice(0, SHOW);
+  const queued = usable.filter((r) => r.status === 'queued');
+  const fresh = queued
+    .filter((r) => { const a = ageDays(r); return a !== null && a <= FRESH_DAYS; })
+    .sort(byRank)
     .slice(0, SHOW);
+  const undated = queued
+    .filter((r) => ageDays(r) === null)
+    .sort(byRank)
+    .slice(0, SHOW);
+
+  return { fresh, applied, undated };
+}
+
+/** Researched people, keyed by employer. Empty until the file loads. */
+let CONTACTS = {};
+
+/**
+ * Look up researched people for an employer.
+ *
+ * Matched on the cleaned name, case-insensitively, because the board writes
+ * "Jerry.ai" where the company calls itself "Jerry" and the research is filed
+ * under one of them.
+ *
+ * @param {string} raw
+ * @returns {{ sources: string[], people: Array<Record<string, any>> }|null}
+ */
+export function contactsFor(raw) {
+  const want = cleanCompany(raw).toLowerCase();
+  if (!want) return null;
+  for (const [key, value] of Object.entries(CONTACTS)) {
+    const have = cleanCompany(key).toLowerCase();
+    if (have === want || have.startsWith(want) || want.startsWith(have)) return value;
+  }
+  return null;
+}
+
+/**
+ * The named-people block for one card, or an empty string.
+ *
+ * Every person carries the source the name was read on, because a name with no
+ * source is indistinguishable from one I made up. Where the person published
+ * their own profile URL somewhere public, that link is used and labelled;
+ * otherwise the link is a search scoped to their name and employer. A slug is
+ * never guessed.
+ *
+ * @param {Record<string, any>} row
+ * @returns {string}
+ */
+function contactsHtml(row) {
+  const found = contactsFor(row.company);
+  if (!found || !Array.isArray(found.people) || !found.people.length) return '';
+  const items = found.people.map((p) => {
+    const published = p.profile ? safeHref(p.profile) : '';
+    const href = published && published !== '#' ? published : safeHref(namedSearch(p.name, row.company));
+    const kind = published && published !== '#'
+      ? '<span class="tag pub">profile they published</span>'
+      : '<span class="tag">name search</span>';
+    const why = p.why ? `<span class="tag why">${esc(p.why)}</span>` : '';
+    const src = p.source
+      ? `<a class="src" href="${esc(safeHref(p.source))}" target="_blank" rel="noopener noreferrer">source</a>`
+      : '<span class="src none">no source</span>';
+    return `
+        <li>
+          <a class="person" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(p.name)}</a>
+          <span class="role">${esc(p.title || 'title not stated')}</span>
+          ${kind}${why}${src}
+          ${p.note ? `<span class="pnote">${esc(p.note)}</span>` : ''}
+        </li>`;
+  }).join('');
+  return `
+      <div class="contacts">
+        <p class="contacts-lede">Named people at this employer, each with the source the name was read on.</p>
+        <ul class="people">${items}</ul>
+      </div>`;
 }
 
 /**
@@ -143,11 +233,13 @@ function cardHtml(row, index) {
           <p class="co">${esc(company)}
             <span class="meta">${esc(payLabel(row))}</span>
             <span class="meta">${age === null ? 'no posted date' : age + 'd ago'}</span>
+            ${row.status === 'submitted' ? '<span class="meta applied">applied</span>' : ''}
           </p>
         </div>
         <a class="posting" href="${esc(safeHref(row.url))}" target="_blank" rel="noopener noreferrer">The posting</a>
       </header>
       <ol class="steps">${steps}</ol>
+      ${contactsHtml(row)}
       <div class="shapes">
         <p class="shapes-lede">Message before you apply. Each one ends in a question answerable in a sentence.</p>
         ${shapes}
@@ -176,6 +268,13 @@ async function main() {
   const { mountSiteNav } = await import('/shared/site-nav.js');
   await mountSiteNav('#sitenav');
 
+  /* Researched names are optional: the page is still useful without them, so a
+     missing or broken file must not take the whole list down. */
+  try {
+    const res = await fetch('./data/contacts.json', { headers: { 'cache-control': 'no-cache' } });
+    if (res.ok) CONTACTS = (await res.json()).companies || {};
+  } catch { CONTACTS = {}; }
+
   let rows = [];
   try {
     const res = await fetch(API, { headers: { 'cache-control': 'no-cache' } });
@@ -186,14 +285,28 @@ async function main() {
     return;
   }
 
-  const targets = pickTargets(rows);
-  at('#count').textContent = targets.length
-    ? `${targets.length} of the highest-ranked open postings from the last ${FRESH_DAYS} days.`
-    : 'Nothing ranked and open in that window right now.';
+  const { fresh, applied, undated } = pickTargets(rows);
+  const total = fresh.length + applied.length + undated.length;
+  at('#count').textContent = total
+    ? `${fresh.length} posted in the last ${FRESH_DAYS} days, ${applied.length} already applied for, `
+      + `${undated.length} the board never dated.`
+    : 'Nothing ranked and open right now.';
 
-  at('#targets').innerHTML = targets.length
-    ? targets.map(cardHtml).join('')
-    : '<p class="empty">No ranked postings inside the window. The list refills twice a day.</p>';
+  const section = (heading, note, list) => list.length
+    ? `<h2 class="group">${esc(heading)}</h2><p class="group-note">${esc(note)}</p>`
+      + list.map(cardHtml).join('')
+    : '';
+
+  at('#targets').innerHTML = total
+    ? section(`Posted in the last ${FRESH_DAYS} days`,
+        'Open, ranked, and dated by the board inside your window.', fresh)
+      + section('Already applied for',
+          'A sent application is not a finished one. These are the rows to follow up on, '
+          + 'and the people below each are who to follow up with.', applied)
+      + section('No posted date',
+          'The board published no date for these, so their age is unknown rather than old. '
+          + 'Kept separate so nothing here is presented as fresh.', undated)
+    : '<p class="empty">No ranked postings. The list refills twice a day.</p>';
   wireCopy();
 }
 

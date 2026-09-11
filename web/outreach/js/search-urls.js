@@ -111,6 +111,30 @@ export function searchesFor(row) {
 }
 
 /**
+ * A search that lands on ONE named person's profile.
+ *
+ * The name comes from a primary source the researcher read, never from a
+ * guess. The URL is still a SEARCH rather than a /in/<slug> link, because a
+ * slug cannot be derived from a name: LinkedIn mangles collisions with digits
+ * and people set custom ones. Guessing produces either a 404 or, worse, a
+ * stranger's profile presented as the hiring manager.
+ *
+ * Both terms are quoted so the name is one phrase and the employer scopes it,
+ * which is what separates the real person from everyone with the same name.
+ *
+ * @param {string} name
+ * @param {string} company
+ * @returns {string}
+ */
+export function namedSearch(name, company) {
+  const person = String(name || '').trim();
+  if (!person) return '';
+  const co = cleanCompany(company);
+  const terms = co ? [phrase(person), phrase(co)] : [phrase(person)];
+  return PEOPLE + encodeURIComponent(terms.join(' '));
+}
+
+/**
  * The three message shapes the post says get replies, with his own material
  * filled in where the shape allows it.
  *

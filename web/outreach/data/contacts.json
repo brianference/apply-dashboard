@@ -1,0 +1,89 @@
+{
+  "rules": [
+    "Every person here was read on a PRIMARY source: the employer's own site, their own press release, their own blog byline, or the person's own GitHub profile.",
+    "Aggregator and scraper sites (RocketReach, ZoomInfo, Comparably, Apollo, Lusha) are not accepted as evidence of current employment. Names found only there are left out.",
+    "A 'profile' field is only ever a URL the person published themselves somewhere public. A LinkedIn slug is NEVER guessed from a name: a wrong guess is either a 404 or, far worse, a stranger presented as the hiring manager.",
+    "With no published profile, the page links a LinkedIn search scoped to the person's name and employer instead. That resolves to the real profile in one click and invents nothing.",
+    "'why' says what the person is to this req. It is a judgement, not a fact, and it is worded as one."
+  ],
+  "checked": "2026-09-11",
+  "companies": {
+    "Docker": {
+      "sources": [
+        "https://www.docker.com/company/",
+        "https://www.docker.com/press-release/docker-strengthens-leadership-team-with-appointments-of-mat-velloso-as-cpo-and-vinh-le-as-cfo/",
+        "https://github.com/orgs/docker/people"
+      ],
+      "people": [
+        {
+          "name": "Mat Velloso",
+          "title": "Chief Product Officer, Docker",
+          "source": "https://www.docker.com/press-release/docker-strengthens-leadership-team-with-appointments-of-mat-velloso-as-cpo-and-vinh-le-as-cfo/",
+          "profile": null,
+          "why": "most likely owns this req",
+          "note": "Appointed 2026-08-18, three weeks before this Senior Director, Product Management req was published on 2026-09-09. A new CPO building his own org is the person a product leadership hire reports to. Background per Docker's release: 15 years at Microsoft including advisor to the CTO then the CEO, then developer growth for Google AI Studio, then API strategy for Meta's AI models."
+        },
+        {
+          "name": "Mark Cavage",
+          "title": "President & Chief Operating Officer, Docker",
+          "source": "https://www.docker.com/company/",
+          "profile": null,
+          "why": "writes publicly",
+          "note": "Listed as an author on Docker's blog index, read 2026-09-11, so there is material of his to reference rather than a generic compliment. Read the post before citing it."
+        },
+        {
+          "name": "Don Johnson",
+          "title": "CEO, Docker",
+          "source": "https://www.docker.com/company/",
+          "profile": null,
+          "why": "set the agentic-AI strategy this role sells",
+          "note": "His quote in the CPO announcement frames the whole product bet: security, governance and control for AI agents. The job description repeats that framing almost word for word."
+        },
+        {
+          "name": "Allyson Walters",
+          "title": "Chief People Officer, Docker",
+          "source": "https://www.docker.com/company/",
+          "profile": null,
+          "why": "owns recruiting"
+        },
+        {
+          "name": "Jean-Laurent de Morlhon",
+          "title": "Sr Vice President, GenAI Acceleration, Docker",
+          "source": "https://www.docker.com/company/",
+          "profile": null,
+          "why": "peer org to this role",
+          "note": "Confirmed twice: on Docker's leadership page and as a public member of the docker GitHub org under the login jeanlaurent."
+        },
+        {
+          "name": "Kevin Wittek",
+          "title": "Testcontainers and Docker, per his own GitHub profile",
+          "source": "https://github.com/kiview",
+          "profile": "https://www.linkedin.com/in/kevin-wittek/",
+          "why": "engineer, ask what the team actually ships",
+          "note": "Public member of the docker GitHub org, and carried as an author on Docker's blog index read 2026-09-11. The per-author archive page does not exist, so the date of his most recent post is not established here. An engineer rather than product, so useful for learning what the team ships."
+        },
+        {
+          "name": "Laurent Goderre",
+          "title": "Open Source Developer, @docker per his own GitHub profile",
+          "source": "https://github.com/LaurentGoderre",
+          "profile": "https://www.linkedin.com/in/laurent-goderre",
+          "why": "engineer, open source side"
+        },
+        {
+          "name": "Manuel de la Peña",
+          "title": "@docker per his own GitHub profile",
+          "source": "https://github.com/mdelapenya",
+          "profile": "https://www.linkedin.com/in/mdelapenya",
+          "why": "engineer, Testcontainers side"
+        },
+        {
+          "name": "Harrison Crosse",
+          "title": "Software Engineer, currently @docker per his own GitHub profile",
+          "source": "https://github.com/hcrosse",
+          "profile": "https://linkedin.com/in/hcrosse",
+          "why": "engineer, data and distributed systems"
+        }
+      ]
+    }
+  }
+}
