@@ -18,6 +18,7 @@
  */
 
 import { searchesFor, messageShapes, cleanCompany, namedSearch } from './search-urls.js';
+import { addressFor } from './email-pattern.js';
 
 const API = '/api/jobs';
 /** Enough to work through in a sitting. The method costs five minutes each. */
@@ -170,6 +171,37 @@ export function contactsFor(raw) {
 }
 
 /**
+ * The address this employer's convention implies for one person.
+ *
+ * DERIVED, NOT VERIFIED, and the page says so. The shape came from unique
+ * addresses in the employer's own public commit metadata, the count is shown,
+ * and the address itself is built here in the browser so that no individual
+ * address is ever written into this public repository.
+ *
+ * A name with a particle or a middle token is flagged, because which token is
+ * the family name is then a convention rather than a fact.
+ *
+ * @param {{ email?: Record<string, any> }} company
+ * @param {{ name: string }} person
+ * @returns {string}
+ */
+function addressHtml(company, person) {
+  const rule = company && company.email;
+  if (!rule || !rule.shape) return '';
+  const built = addressFor(rule.shape, person.name, rule.domain);
+  if (!built) return '';
+  const caveat = built.ambiguous
+    ? ' The surname was taken as the last word of the name, which a particle makes a guess.'
+    : '';
+  return `
+            <span class="mail">
+              <code>${esc(built.address)}</code>
+              <button type="button" class="copy mail-copy" data-msg="${esc(built.address)}">Take the address</button>
+              <span class="mail-why" title="${esc(rule.evidence + caveat)}">derived from ${esc(rule.shape)}, ${esc(String(rule.pct))}% of ${esc(String(rule.unique))}</span>
+            </span>`;
+}
+
+/**
  * The named-people block for one card, or an empty string.
  *
  * Every person carries the source the name was read on, because a name with no
@@ -199,12 +231,15 @@ function contactsHtml(row) {
           <a class="person" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(p.name)}</a>
           <span class="role">${esc(p.title || 'title not stated')}</span>
           ${kind}${why}${src}
+          ${addressHtml(found, p)}
           ${p.note ? `<span class="pnote">${esc(p.note)}</span>` : ''}
         </li>`;
   }).join('');
   return `
       <div class="contacts">
-        <p class="contacts-lede">Named people at this employer, each with the source the name was read on.</p>
+        <p class="contacts-lede">Named people at this employer, each with the source the name was read on.${found.email && found.email.shape
+          ? ` Addresses are built from this employer's own convention and are <strong>not verified</strong>: ${esc(found.email.evidence)}.`
+          : ' No address convention could be established for this employer from public evidence, so none is shown.'}</p>
         <ul class="people">${items}</ul>
       </div>`;
 }

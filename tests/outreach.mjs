@@ -119,6 +119,67 @@ const spread = Math.max(...whyLefts) - Math.min(...whyLefts);
 check('the four why-texts share one left edge',
   whyLefts.length === 4 && spread === 0, `spread ${spread}px of ${whyLefts.join(' ')}`);
 
+/* ----------------------------------------------------------- the addresses -- */
+
+/* An address on this page is DERIVED from an employer's convention, never
+ * looked up. Two things must therefore hold, and the second is the one that
+ * would quietly do damage: an address must belong to the employer whose card it
+ * is on, and no address may appear at all for an employer whose convention the
+ * evidence could not establish. Showing a plausible address for a company
+ * nobody measured is the email version of a guessed profile slug. */
+const mails = await page.locator('.target').evaluateAll((cards) => cards.map((card) => ({
+  company: (card.querySelector('.co')?.textContent || '').trim().split(String.fromCharCode(10))[0].trim(),
+  addresses: [...card.querySelectorAll('.people .mail code')].map((c) => c.textContent.trim()),
+  labels: [...card.querySelectorAll('.people .mail-why')].map((c) => c.textContent.trim())
+})));
+
+/* Map every declared convention by its cleaned employer name. */
+const conventions = new Map();
+for (const [key, co] of Object.entries(data.companies || {})) {
+  const name = key.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  conventions.set(name, co.email || null);
+}
+const conventionFor = (company) => {
+  const want = String(company || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  for (const [name, rule] of conventions) {
+    if (name === want || name.startsWith(want) || want.startsWith(name)) return rule;
+  }
+  return null;
+};
+
+const wrongDomain = [];
+const noConvention = [];
+for (const card of mails) {
+  if (!card.addresses.length) continue;
+  const rule = conventionFor(card.company);
+  if (!rule || !rule.shape) { noConvention.push(`${card.company} (${card.addresses[0]})`); continue; }
+  for (const address of card.addresses) {
+    if (!address.toLowerCase().endsWith(`@${String(rule.domain).toLowerCase()}`)) {
+      wrongDomain.push(`${card.company}: ${address}`);
+    }
+  }
+}
+const shown = mails.reduce((n, c) => n + c.addresses.length, 0);
+check('no address is shown for an employer whose convention was never established',
+  noConvention.length === 0, noConvention.slice(0, 2).join(' | ') || `${shown} addresses shown`);
+check('every address sits on the domain its own employer declared',
+  wrongDomain.length === 0, wrongDomain.slice(0, 2).join(' | ') || 'all on their own domain');
+
+/* The label is the only thing stopping a derived address reading as a verified
+   one, so it has to carry the evidence rather than a reassuring word. */
+const badLabels = mails.flatMap((c) => c.labels)
+  .filter((l) => !/derived from \S+, \d+% of \d+/.test(l));
+check('every address is labelled derived, with the share and the sample size',
+  badLabels.length === 0, badLabels.slice(0, 2).join(' | ')
+    || `${mails.flatMap((c) => c.labels).length} labelled`);
+
+/* And an employer with no convention must SAY so rather than stay silent, or a
+   reader cannot tell "no evidence" from "not looked at". */
+const ledes = await page.locator('.contacts-lede').allTextContents();
+const silent = ledes.filter((t) => !/not verified|No address convention/i.test(t));
+check('each contacts block states whether a convention exists',
+  silent.length === 0, silent.slice(0, 1).join('') || `${ledes.length} blocks`);
+
 /* ------------------------------------------------------------ the postings -- */
 
 const ranks = await page.locator('.target .rank').allTextContents();
@@ -185,18 +246,18 @@ check('every card links to its own posting over http(s)',
 /* --------------------------------------------------------- the three shapes -- */
 
 const shapes = await page.locator('.target').first().locator('.shapes details summary').allTextContents();
-check('all three message shapes are offered',
-  shapes.length === 3, shapes.join(' / '));
+check('all four openers are offered',
+  shapes.length === 4, shapes.join(' / '));
 
 /* The post's own constraint: a question answerable in one sentence. A template
    without a question is the part most easily lost when it gets personalised. */
 const bodies = await page.locator('.target').first().locator('.shapes .msg').allTextContents();
-check('every message ends in a question',
-  bodies.length === 3 && bodies.every((b) => b.trim().endsWith('?')),
+check('every opener ends in a question',
+  bodies.length === 4 && bodies.every((b) => b.trim().endsWith('?')),
   bodies.map((b) => b.trim().slice(-28)).join(' | '));
 
 check('and each one is copyable',
-  await page.locator('.target').first().locator('button.copy').count() === 3);
+  await page.locator('.target').first().locator('.shapes button.copy').count() === 4);
 
 /* --------------------------------------------------------------- the frame -- */
 

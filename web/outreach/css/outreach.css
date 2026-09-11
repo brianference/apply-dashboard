@@ -219,6 +219,34 @@ a:hover { text-decoration: underline; }
 
 .people .pnote { flex: 1 1 100%; color: var(--muted); font-size: 13px; }
 
+/* A derived address. It reads as provisional on purpose: the shape is evidenced
+   but the address is not, and nothing here should look like a verified contact. */
+.people .mail {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.people .mail code {
+  font: 500 13px/1.6 "IBM Plex Mono", ui-monospace, monospace;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.people .mail-copy { padding: 4px 10px; min-height: 30px; font-size: 12px; }
+
+.people .mail-why {
+  font: 500 11px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--muted);
+  cursor: help;
+  border-bottom: 1px dotted var(--border);
+}
+
 /* ---------------------------------------------------------------- groups -- */
 
 .group {
