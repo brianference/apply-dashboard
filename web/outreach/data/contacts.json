@@ -84,6 +84,28 @@
           "why": "engineer, data and distributed systems"
         }
       ]
+    },
+    "Arity": {
+      "sources": [
+        "https://arity.com/company/"
+      ],
+      "people": [
+        {
+          "name": "Peter Levinson",
+          "title": "Product",
+          "source": "https://arity.com/company/",
+          "profile": null,
+          "why": "most likely owns this req",
+          "note": "Arity's leadership grid labels him with the single word Product, which is the whole title the page gives; it publishes no fuller title and no date. He is the only product name on Arity's own leadership page, so a Product Manager Senior Expert req sits under him. Arity is Allstate's mobility-data business, so the req may also involve an Allstate product leader the Arity page does not list."
+        },
+        {
+          "name": "Gary Hallgren",
+          "title": "President",
+          "source": "https://arity.com/company/",
+          "profile": null,
+          "why": "runs the business"
+        }
+      ]
     }
   }
 }
