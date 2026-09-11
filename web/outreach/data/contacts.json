@@ -83,29 +83,431 @@
           "profile": "https://linkedin.com/in/hcrosse",
           "why": "engineer, data and distributed systems"
         }
-      ]
+      ],
+      "email": {
+        "domain": "docker.com",
+        "shape": "first.last",
+        "unique": 19,
+        "agree": 17,
+        "pct": 89,
+        "evidence": "17 of 19 unique docker.com addresses in public commit metadata (homebrew-tap, sbx-releases, docker-agent, scout-cli, desktop-action, buildx) use first.last",
+        "checked": "2026-09-11"
+      }
     },
     "Arity": {
       "sources": [
-        "https://arity.com/company/"
+        "https://www.arity.com/company/",
+        "https://events.arity.com/arityinsightsagenda2025"
       ],
+      "note": "Arity is Allstate's mobility-data business. Their leadership grid prints one-word labels, but their own 2025 conference agenda prints full titles, which is where these come from. No public Arity GitHub org exists. Worth knowing: the req itself now returns 404 at allstate.jobs, so confirm it is still open before spending the outreach.",
       "people": [
         {
           "name": "Peter Levinson",
-          "title": "Product",
-          "source": "https://arity.com/company/",
+          "title": "VP, Product, Arity",
+          "source": "https://events.arity.com/arityinsightsagenda2025",
           "profile": null,
           "why": "most likely owns this req",
-          "note": "Arity's leadership grid labels him with the single word Product, which is the whole title the page gives; it publishes no fuller title and no date. He is the only product name on Arity's own leadership page, so a Product Manager Senior Expert req sits under him. Arity is Allstate's mobility-data business, so the req may also involve an Allstate product leader the Arity page does not list."
+          "note": "The only product executive on Arity's leadership page, where the grid labels him with the single word Product; their own conference agenda gives the full title. The direct hiring manager is likely one of his directors."
+        },
+        {
+          "name": "Henry Kowal",
+          "title": "Director of Insurance Product Management at Arity",
+          "source": "https://arity.com/article/quincy-mutual-geosight/",
+          "profile": "https://www.linkedin.com/in/henry-kowal-6313262",
+          "why": "the most actionable contact",
+          "note": "The only Arity person whose profile URL is published on a primary source: it is a real link in the body of that Arity article. A director under Levinson, so plausibly the hiring manager."
+        },
+        {
+          "name": "Fred Dimesa",
+          "title": "Head of Product, Marketing Solutions at Arity",
+          "source": "https://arity.com/article/mobility-data-retail-marketing-customer-experience/",
+          "profile": null,
+          "why": "runs the Marketing Solutions product line"
+        },
+        {
+          "name": "Kamron Clifford",
+          "title": "Director of Product for Mobility Intelligence",
+          "source": "https://arity.com/article/mobility-intelligence-idaho-transportation-department/",
+          "profile": null,
+          "why": "director under Levinson"
         },
         {
           "name": "Gary Hallgren",
-          "title": "President",
-          "source": "https://arity.com/company/",
+          "title": "President, Arity",
+          "source": "https://events.arity.com/arityinsightsagenda2025",
           "profile": null,
           "why": "runs the business"
         }
-      ]
+      ],
+      "email": {
+        "domain": "arity.com",
+        "shape": null,
+        "unique": 0,
+        "reason": "no addresses",
+        "evidence": "no public repository exposes an address on this domain",
+        "checked": "2026-09-11"
+      }
+    },
+    "Jerry.ai": {
+      "sources": [
+        "https://jerry.ai/about/",
+        "https://github.com/musawirali"
+      ],
+      "note": "Jerry publishes NO product executive. Their own team page has twelve people and the word product appears nowhere among the titles. Both Growth PM reqs state their reporting line in their own text: 'This role reports to the VP of Growth.' Every profile URL below was read out of the team page's own HTML, bound to its person by that link's title attribute.",
+      "people": [
+        {
+          "name": "MengHan Li",
+          "title": "VP of Growth",
+          "source": "https://jerry.ai/about/",
+          "profile": "https://www.linkedin.com/in/menghan-li",
+          "why": "owns the Growth PM reqs outright",
+          "note": "Both Growth reqs say so in their own text, twice. Ex-McKinsey, product strategy and growth."
+        },
+        {
+          "name": "John Spottiswood",
+          "title": "Chief Operating Officer",
+          "source": "https://jerry.ai/about/",
+          "profile": "https://www.linkedin.com/in/jspottiswood",
+          "why": "likely owns the AI and 0-to-1 reqs",
+          "note": "His bio says he leads teams 'including marketing, product development, partnerships, administration and customer experience'. With no product exec above him, the Senior PM AI Agents and Emerging Products reqs sit here. Neither req states a reporting line."
+        },
+        {
+          "name": "Art Agrawal",
+          "title": "Co-Founder and Chief Executive Officer",
+          "source": "https://jerry.ai/about/",
+          "profile": "https://www.linkedin.com/in/artagrawal",
+          "why": "in the loop on Emerging Products"
+        },
+        {
+          "name": "Musawir Shah",
+          "title": "Co-Founder and Chief Technology Officer",
+          "source": "https://jerry.ai/about/",
+          "profile": "https://www.linkedin.com/in/musawirshah",
+          "why": "confirmed twice",
+          "note": "Also a public member of the getjerry GitHub org, where his own profile reads CTO @getjerry."
+        },
+        {
+          "name": "Neima Shahidy",
+          "title": "VP of Partnerships",
+          "source": "https://jerry.ai/about/",
+          "profile": "https://www.linkedin.com/in/neimashahidy",
+          "why": "owns Director, Product Partnerships",
+          "note": "That req says verbatim it 'reports directly to the Vice President of Partnerships'."
+        },
+        {
+          "name": "Haley Park",
+          "title": "VP of People Operations",
+          "source": "https://jerry.ai/about/",
+          "profile": "https://www.linkedin.com/in/haleypark",
+          "why": "owns recruiting",
+          "note": "No recruiter is named on any primary source and no recruiting req is open."
+        },
+        {
+          "name": "Lina Zhang",
+          "title": "Co-Founder and VP of Operations",
+          "source": "https://jerry.ai/about/",
+          "profile": "https://www.linkedin.com/in/lina-zhang-47324721",
+          "why": "founder"
+        }
+      ],
+      "email": {
+        "domain": "getjerry.com",
+        "shape": null,
+        "unique": 5,
+        "reason": "top shape only 60% of 5, floor is 70%",
+        "evidence": "read github-asana-action, setup-git-credentials, actions-s3-cache, marksy-lite; not enough agreement to state a convention",
+        "checked": "2026-09-11"
+      }
+    },
+    "MoneyGram": {
+      "sources": [
+        "https://corporate.moneygram.com/leadership/"
+      ],
+      "note": "Every title and every profile URL here was read on MoneyGram's own leadership bio pages. Sara Vassar, formerly Chief Product Officer, is NOT here on purpose: her bio path now redirects to the leadership index and she is off the roster.",
+      "people": [
+        {
+          "name": "Luke Tuttle",
+          "title": "Chief Product and Technology Officer",
+          "source": "https://corporate.moneygram.com/leadership/luke-tuttle",
+          "profile": "https://www.linkedin.com/in/luketuttle/",
+          "why": "most likely owns this req",
+          "note": "Product and technology both report to him and no other product title exists anywhere on MoneyGram's site, so a Sr Director, Product Management sits in his org. Quoted as Chief Product and Technology Officer in their next-generation app release, 2025-09-17."
+        },
+        {
+          "name": "Josh Gordon-Blake",
+          "title": "Executive Vice President and General Manager, MoneyGram Online",
+          "source": "https://corporate.moneygram.com/leadership/josh-gordon-blake",
+          "profile": "https://www.linkedin.com/in/jgordonblake/",
+          "why": "likelier day-to-day stakeholder",
+          "note": "If the req is consumer-digital, he owns the business it serves."
+        },
+        {
+          "name": "Anthony Soohoo",
+          "title": "Chairman and Chief Executive Officer",
+          "source": "https://corporate.moneygram.com/leadership/anthony-soohoo",
+          "profile": "https://www.linkedin.com/in/anthonysoohoo/",
+          "why": "only voice on the 2026-09-10 card launch"
+        },
+        {
+          "name": "Jillian Slagter",
+          "title": "Chief People Officer",
+          "source": "https://corporate.moneygram.com/leadership/jillian-slagter",
+          "profile": "https://www.linkedin.com/in/jillian-slagter-00a597/",
+          "why": "owns recruiting",
+          "note": "No recruiter is named on any MoneyGram primary source, so this is the honest substitute."
+        }
+      ],
+      "email": {
+        "domain": "moneygram.com",
+        "shape": null,
+        "unique": 0,
+        "reason": "no addresses",
+        "evidence": "no public repository exposes an address on this domain",
+        "checked": "2026-09-11"
+      }
+    },
+    "ZipRecruiter": {
+      "sources": [
+        "https://www.ziprecruiter.com/about"
+      ],
+      "note": "ziprecruiter.com blocks HTTP clients behind a Cloudflare challenge, so these were read in a real browser. Only two profile URLs were published anywhere, so most of these links are name searches.",
+      "people": [
+        {
+          "name": "Megan Allen",
+          "title": "EVP, Chief Product Officer",
+          "source": "https://www.ziprecruiter.com/about",
+          "profile": null,
+          "why": "most likely owns this req",
+          "note": "The only product executive on the roster and the named voice on both 2026 launches, including the June employer-side one. Scott Steinberg owning the job-seeker side implies an unnamed employer or SMB product VP between her and this req."
+        },
+        {
+          "name": "Scott Steinberg",
+          "title": "VP of Job Seeker Product at ZipRecruiter",
+          "source": "https://www.ziprecruiter.com/blog/be-seen-first/",
+          "profile": null,
+          "why": "the other half of the product org",
+          "note": "Read on their own 2026-01-22 release."
+        },
+        {
+          "name": "Jen Ringel",
+          "title": "SVP of Product Management",
+          "source": "https://www.ziprecruiter.com/blog/scheduling-simplified/",
+          "profile": null,
+          "why": "possibly stale, check before writing",
+          "note": "Title comes from a 2025-03-11 release, about 18 months old, and she is not on the current about roster while Megan Allen is. No evidence either way, so treat the title as unconfirmed rather than current."
+        },
+        {
+          "name": "Elliot Wilson",
+          "title": "EVP, Inside Sales & Support",
+          "source": "https://www.ziprecruiter.com/about",
+          "profile": null,
+          "why": "the SMB business this role serves"
+        },
+        {
+          "name": "Boris Shimanovsky",
+          "title": "EVP, Chief Technology Officer",
+          "source": "https://www.ziprecruiter.com/about",
+          "profile": null,
+          "why": "title current, profile link retracted",
+          "note": "Title is confirmed on their about page and in the proxy filed 2026-04-24. A profile URL was reported for him, sourced to a 2023 conference speaker page, and that page does not contain it when fetched. The link was dropped rather than published unsourced, so this is a name search like the rest."
+        },
+        {
+          "name": "Amy Garefis",
+          "title": "EVP, Chief People Officer",
+          "source": "https://www.ziprecruiter.com/about",
+          "profile": null,
+          "why": "owns recruiting",
+          "note": "No recruiter is named on their careers page, about page or any release."
+        },
+        {
+          "name": "Matt Buchovecky",
+          "title": "ML Engineer / Data Scientist, @ZipRecruiter per his own GitHub profile",
+          "source": "https://github.com/MattGPT-ai",
+          "profile": "https://www.linkedin.com/in/matthew-buchovecky",
+          "why": "engineer, ask what the team ships",
+          "note": "The only published profile out of 13 ZipRecruiter GitHub contributors checked. Engineer rather than product."
+        }
+      ],
+      "email": {
+        "domain": "ziprecruiter.com",
+        "shape": "first",
+        "unique": 14,
+        "agree": 12,
+        "pct": 86,
+        "evidence": "12 of 14 unique ziprecruiter.com addresses in public commit metadata (h3-go, zr_murmur2, flair, grafana-tools-sdk, poetry2uv, k8s-prometheus-adapter, cloudwatching, chromedriver-proxy) use first",
+        "checked": "2026-09-11"
+      }
+    },
+    "LawnStarter": {
+      "sources": [
+        "https://www.lawnstarter.com/about-us",
+        "https://www.lawnstarter.com/blog/press-release/media-kit/"
+      ],
+      "note": "A VP of Product provably exists: their own Director of Product Management req calls the role 'the leader between the VP of Product and a team of three PMs'. No primary source names that person. TWO product reqs are open, not one: Principal Product Manager published 2026-09-04 and Director of Product Management published 2026-07-20, both on their own Workable board.",
+      "people": [
+        {
+          "name": "Steve Corcoran",
+          "title": "CEO & Co-Founder",
+          "source": "https://www.lawnstarter.com/about-us",
+          "profile": null,
+          "why": "the reachable decision-maker",
+          "note": "The VP of Product who owns this req is unnamed on every primary source, so the CEO is the real target. The Principal PM seat is framed as a thought partner to leadership, which makes a direct approach legitimate."
+        },
+        {
+          "name": "Gary Kliegman",
+          "title": "Chief Operating Officer",
+          "source": "https://www.lawnstarter.com/blog/press-release/lawnstarter-hires-first-chief-operating-officer/",
+          "profile": null,
+          "why": "newest exec, hired 2026-04-20"
+        },
+        {
+          "name": "Alberto Silveira",
+          "title": "Vice President of Engineering",
+          "source": "https://www.lawnstarter.com/blog/press-release/lawnstarter-vp-engineering/",
+          "profile": null,
+          "why": "peer to the unnamed VP of Product"
+        },
+        {
+          "name": "Avinash Sharma",
+          "title": "Vice President of Product",
+          "source": "https://www.lawnstarter.com/blog/press-release/lawnstarter-hires-vp-product/",
+          "profile": null,
+          "why": "UNCONFIRMED, may have left",
+          "note": "Named in the seat in a press release dated 2021-08-25 and absent from the current media kit, which does list the COO hired in April 2026, so the kit is current and the omission is real. Either it is incomplete or he is gone. Check before writing to him as the VP of Product."
+        }
+      ],
+      "email": {
+        "domain": "lawnstarter.com",
+        "shape": "first.last",
+        "unique": 7,
+        "agree": 7,
+        "pct": 100,
+        "evidence": "7 of 7 unique lawnstarter.com addresses in public commit metadata (react-native-picker-select, Bettermode-Project, engineer-assessment, testing-helpers, customer-feedback-trust-safety-fee, The-Knot-Scraping-Tool) use first.last",
+        "checked": "2026-09-11"
+      }
+    },
+    "Clarium": {
+      "sources": [
+        "https://www.clariumhealth.com/newsroom/author/steve-liou"
+      ],
+      "note": "clarium.ai redirects to clariumhealth.com, same company, healthcare supply-chain AI. Not Clarium Capital. There is no product leader to find, and their own req says so: 'Clarium is building out its product organization... we haven't yet built the product infrastructure to match our ambition.' A search result advertising a VP of Product opening is absent from their live board and was discarded.",
+      "people": [
+        {
+          "name": "Steve Liou",
+          "title": "Founder & CEO of Clarium",
+          "source": "https://www.clariumhealth.com/newsroom/author/steve-liou",
+          "profile": null,
+          "why": "owns this req, with no product layer above it",
+          "note": "Still writing on their newsroom through 2026-08-13."
+        },
+        {
+          "name": "Mary Beth Lang",
+          "title": "Strategic Advisor and Chief Supply Chain Officer",
+          "source": "https://www.clariumhealth.com/newsroom/clarium-expands-leadership-team-to-drive-ai-powered-transformation-of-250b-healthcare-supply-chain-market",
+          "profile": null,
+          "why": "advisor, named 2025-10-21"
+        },
+        {
+          "name": "Eric O'Daffer",
+          "title": "Strategic Advisor and Chief Customer Officer",
+          "source": "https://www.clariumhealth.com/newsroom/clarium-expands-leadership-team-to-drive-ai-powered-transformation-of-250b-healthcare-supply-chain-market",
+          "profile": null,
+          "why": "advisor, named 2025-10-21"
+        }
+      ],
+      "email": {
+        "domain": "clariumhealth.com",
+        "shape": null,
+        "unique": 0,
+        "reason": "no addresses",
+        "evidence": "no public repository exposes an address on this domain",
+        "checked": "2026-09-11"
+      }
+    },
+    "Lexipol": {
+      "sources": [
+        "https://www.lexipol.com/about-us/"
+      ],
+      "note": "The thinnest of these. Lexipol publishes no leadership page and names no product person anywhere on its own properties. The req states its own reporting line without a name: 'This role reports to the VP of Product Management, who will be your champion and offer mentorship.' An aggregator claims Michelle Champagne holds that title; her only primary-source title is VP of Solution Management, so the claim is not recorded here. Their own FAQ names the recruiting team as Annie, Karuna and Rick, first names only, reachable at careers@lexipol.com.",
+      "people": [
+        {
+          "name": "Jack Blaha",
+          "title": "Chief Executive Officer",
+          "source": "https://www.lexipol.com/about-us/",
+          "profile": null,
+          "why": "current CEO",
+          "note": "A 2024 post quotes Bill Nunan as CEO; the about page now names Blaha, so Nunan is out."
+        },
+        {
+          "name": "Michelle Champagne",
+          "title": "Vice President of Solution Management",
+          "source": "https://www.lexipol.com/resources/blog/new-lexipol-leaders-bring-experience-vision-to-executive-team/",
+          "profile": null,
+          "why": "closest to the req's unnamed VP of Product Management",
+          "note": "This title is from 2024-01-12 and is the only one a Lexipol source gives her. An aggregator lists her as VP of Product Management, which would match the req exactly, but nothing on Lexipol's own site supports it. Worth a look, not worth an assumption."
+        },
+        {
+          "name": "Jason Blais",
+          "title": "Chief Revenue Officer",
+          "source": "https://www.lexipol.com/resources/blog/new-lexipol-leaders-bring-experience-vision-to-executive-team/",
+          "profile": null,
+          "why": "named in the same 2024 announcement"
+        }
+      ],
+      "email": {
+        "domain": "lexipol.com",
+        "shape": null,
+        "unique": 0,
+        "reason": "no addresses",
+        "evidence": "no public repository exposes an address on this domain",
+        "checked": "2026-09-11"
+      }
+    },
+    "BillingPlatform": {
+      "sources": [
+        "https://billingplatform.com/company"
+      ],
+      "note": "The richest of these. Their revenue-recognition product line launched in April 2026 and the CPO started on 2026-08-05, which is the context this req sits in.",
+      "people": [
+        {
+          "name": "Rob Zwiebach",
+          "title": "Chief Product Officer",
+          "source": "https://billingplatform.com/company",
+          "profile": "https://www.linkedin.com/in/rob-zwiebach-57b555/",
+          "why": "most likely owns this req",
+          "note": "Started 2026-08-05 and is building his team. The profile URL was read in his own bylined author bio on an article dated 2026-08-17, where he writes as CPO of BillingPlatform, so it is published rather than constructed."
+        },
+        {
+          "name": "Morgan Stanton",
+          "title": "CPA, Principal Product Manager",
+          "source": "https://billingplatform.com/company/careers",
+          "profile": null,
+          "why": "the closest peer to this req",
+          "note": "Co-presented their revenue-recognition automation webinar and is a CPA, which is directly the subject of this opening."
+        },
+        {
+          "name": "Chris Bishop",
+          "title": "Chief Executive Officer",
+          "source": "https://billingplatform.com/company",
+          "profile": null,
+          "why": "named 2026-01-08"
+        },
+        {
+          "name": "Nathan Shinn",
+          "title": "Founder and Chief Strategy Officer",
+          "source": "https://billingplatform.com/company",
+          "profile": null,
+          "why": "founder"
+        }
+      ],
+      "email": {
+        "domain": "billingplatform.com",
+        "shape": null,
+        "unique": 0,
+        "reason": "no addresses",
+        "evidence": "no public repository exposes an address on this domain",
+        "checked": "2026-09-11"
+      }
     }
   }
 }

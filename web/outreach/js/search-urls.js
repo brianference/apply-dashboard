@@ -165,6 +165,21 @@ export function messageShapes(row) {
       note: 'Only works if the common ground is real. An invented one reads worse than no message at all.'
     },
     {
+      name: 'Before the opening',
+      body: `I have been following ${company}'s work on [the specific thing], and I am a product `
+        + `manager who has built [the closest real thing you have built]. Reaching out before `
+        + `there is a posting rather than after. `
+        + `Is the team likely to add product headcount in the next quarter or two?`,
+      note: 'For an employer with no open role, or to get in before a posting goes public. '
+        + 'Adapted from jobcopilot.com/how-to-find-hidden-jobs, whose version ends "I have attached '
+        + 'my resume for reference" with no question in it. A resume attached to a cold first '
+        + 'message asks the reader to do the work and gives them nothing to answer, so this version '
+        + 'names one specific thing of theirs and asks one thing answerable in a word. '
+        + 'Their sequencing is worth keeping though: connect on LinkedIn with NO note, then send '
+        + 'this once the connection is accepted. An invitation with a note gets read as a pitch and '
+        + 'declined; a bare one is usually accepted, and the message then arrives from a connection.'
+    },
+    {
       name: 'Free offering',
       body: `I have been building AI product tooling and would happily spend 20 minutes `
         + `walking your team through what has worked. No strings. Would that be useful to you this month?`,
