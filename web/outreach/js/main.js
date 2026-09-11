@@ -121,16 +121,27 @@ export function pickTargets(rows) {
        missing data and calling it freshness. */
   /* "those high ranked ones which i marked i applied for" -- 80 submitted rows
      would make a 130-card page, so this takes the same top slice as the others. */
-  const applied = usable.filter((r) => r.status === 'submitted').sort(byRank).slice(0, SHOW);
+  /* The top slice by rank, PLUS any row with researched named people.
+     A researched card is the actionable one: it is the difference between four
+     searches and a person to write to. Arity at 45% was being cut while every
+     row above 54% showed only searches. The union is re-sorted, so each group
+     still reads highest first. */
+  const withContacts = (r) => !!contactsFor(r.company);
+  const slice = (list) => {
+    const ranked = list.sort(byRank);
+    const top = ranked.slice(0, SHOW);
+    const kept = new Set(top);
+    const promoted = ranked.filter((r) => !kept.has(r) && withContacts(r));
+    return top.concat(promoted).sort(byRank);
+  };
+
+  const applied = slice(usable.filter((r) => r.status === 'submitted'));
   const queued = usable.filter((r) => r.status === 'queued');
-  const fresh = queued
-    .filter((r) => { const a = ageDays(r); return a !== null && a <= FRESH_DAYS; })
-    .sort(byRank)
-    .slice(0, SHOW);
-  const undated = queued
-    .filter((r) => ageDays(r) === null)
-    .sort(byRank)
-    .slice(0, SHOW);
+  const fresh = slice(queued.filter((r) => {
+    const a = ageDays(r);
+    return a !== null && a <= FRESH_DAYS;
+  }));
+  const undated = slice(queued.filter((r) => ageDays(r) === null));
 
   return { fresh, applied, undated };
 }
