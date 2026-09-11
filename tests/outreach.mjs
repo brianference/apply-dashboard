@@ -45,13 +45,53 @@ check('the page renders postings to work through', cards > 0, `${cards} cards`);
 
 /* ------------------------------------------------------- no invented people -- */
 
-/* Every outbound link is a linkedin SEARCH or the posting itself. A
-   /in/<person> URL would mean a name had been printed. */
 const hrefs = await page.locator('.target a').evaluateAll((els) =>
   els.map((a) => a.getAttribute('href') || ''));
-const profiles = hrefs.filter((h) => /linkedin\.com\/in\//i.test(h));
-check('no link points at an individual LinkedIn profile',
-  profiles.length === 0, profiles.slice(0, 2).join(' | ') || `${hrefs.length} links checked`);
+
+/* THE RULE THIS PAGE EXISTS UNDER.
+ *
+ * A profile link is allowed ONLY when the person published that exact URL
+ * somewhere public and it was recorded, with its source, in contacts.json.
+ * Anything else means a slug was guessed from a name, and a guessed slug is
+ * either a 404 or a stranger's profile presented as the hiring manager.
+ *
+ * So the test does not ban /in/ links any more, which would have banned the
+ * real ones too. It reads the data file and requires every rendered profile
+ * link to appear in it verbatim. That is the difference between a link with a
+ * provenance and a link that looks the same and has none. */
+const dataRes = await fetch(`${SITE}/outreach/data/contacts.json`);
+const data = dataRes.ok ? await dataRes.json() : { companies: {} };
+const declared = new Set();
+for (const co of Object.values(data.companies || {})) {
+  for (const person of co.people || []) if (person.profile) declared.add(person.profile);
+}
+const rendered = hrefs.filter((h) => /linkedin\.com\/in\//i.test(h));
+const undeclared = rendered.filter((h) => !declared.has(h));
+check('every profile link traces to a recorded source, none is a guessed slug',
+  undeclared.length === 0,
+  undeclared.slice(0, 2).join(' | ') || `${rendered.length} profile links, all declared`);
+
+/* And a name with no source is indistinguishable from an invented one. */
+const unsourced = await page.locator('.people .src.none').count();
+check('every named person carries the source the name was read on',
+  unsourced === 0, `${unsourced} without a source`);
+
+/* Each named person's link must be about THAT person: either the profile URL
+   they published, or a search with their own name quoted in it. A link that is
+   neither is a link to somebody else under their name. */
+const peopleLinks = await page.locator('.people li').evaluateAll((els) => els.map((li) => ({
+  name: (li.querySelector('.person')?.textContent || '').trim(),
+  href: li.querySelector('.person')?.getAttribute('href') || ''
+})));
+const mismatched = peopleLinks.filter(({ name, href }) => {
+  if (!name) return true;
+  const decoded = decodeURIComponent(href);
+  if (declared.has(href)) return false;
+  return !decoded.includes('"' + name + '"');
+});
+check('each link is that person\'s published profile or a search for their name',
+  mismatched.length === 0,
+  mismatched.slice(0, 2).map((m) => m.name).join(' | ') || peopleLinks.length + ' people checked');
 
 const searches = hrefs.filter((h) => /linkedin\.com\/search\/results\//i.test(h));
 check('every card contributes linkedin searches',
@@ -85,10 +125,51 @@ const ranks = await page.locator('.target .rank').allTextContents();
 const numbers = ranks.map((r) => Number(String(r).replace('%', '')));
 check('every card shows a rank',
   numbers.length === cards && numbers.every((n) => Number.isFinite(n)), ranks.slice(0, 3).join(' '));
-/* He asked for top rated. Descending is the whole point of the ordering. */
-check('cards are ordered by rank, highest first',
-  numbers.every((n, i) => i === 0 || numbers[i - 1] >= n),
-  `${numbers[0]}% down to ${numbers[numbers.length - 1]}%`);
+
+/* Ordering is per GROUP now, not across the page: three groups each sorted by
+   rank means the global sequence legitimately jumps back up at each heading.
+   Asserting the old global rule here would fail a correct page. */
+const groups = await page.locator('h2.group').allTextContents();
+check('the three groups are present and named',
+  groups.length === 3 && /last 7 days/i.test(groups[0]) && /applied/i.test(groups[1])
+    && /no posted date/i.test(groups[2]),
+  groups.join(' | '));
+
+const perGroup = await page.evaluate(() => {
+  const out = [];
+  let current = null;
+  for (const el of document.querySelectorAll('#targets > *')) {
+    if (el.matches('h2.group')) { current = { name: el.textContent.trim(), ranks: [] }; out.push(current); }
+    else if (el.matches('.target') && current) {
+      current.ranks.push(Number((el.querySelector('.rank')?.textContent || '').replace('%', '')));
+    }
+  }
+  return out;
+});
+const badOrder = perGroup.filter((g) => !g.ranks.every((n, i) => i === 0 || g.ranks[i - 1] >= n));
+check('each group is ordered by rank, highest first',
+  perGroup.length === 3 && badOrder.length === 0,
+  perGroup.map((g) => `${g.ranks[0]}>${g.ranks[g.ranks.length - 1]}`).join(' / '));
+
+/* Each group has exactly one predicate, so a row must not sit in the wrong one. */
+const appliedGroup = perGroup.findIndex((g) => /applied/i.test(g.name));
+const misplaced = await page.evaluate(() => {
+  const out = { appliedOutside: 0, datedInUndated: 0 };
+  let name = '';
+  for (const el of document.querySelectorAll('#targets > *')) {
+    if (el.matches('h2.group')) { name = el.textContent.trim(); continue; }
+    if (!el.matches('.target')) continue;
+    const isApplied = !!el.querySelector('.meta.applied');
+    const text = el.querySelector('.who')?.textContent || '';
+    if (isApplied && !/applied/i.test(name)) out.appliedOutside++;
+    if (/no posted date/i.test(name) && !/no posted date/.test(text)) out.datedInUndated++;
+  }
+  return out;
+});
+check('applied rows sit only in the applied group',
+  misplaced.appliedOutside === 0 && appliedGroup === 1, JSON.stringify(misplaced));
+check('every card in the undated group really has no date',
+  misplaced.datedInUndated === 0, `${misplaced.datedInUndated} dated rows in it`);
 
 /* An unpublished band says so. "Competitive" would be inventing one. */
 const metas = (await page.locator('.target .meta').allTextContents()).join(' ');
