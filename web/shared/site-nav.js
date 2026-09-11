@@ -17,6 +17,7 @@
 export const SECTIONS = [
   { href: "/", label: "Jobs" },
   { href: "/experiments/", label: "Experiments", needsAuth: true },
+  { href: "/outreach/", label: "Outreach", needsAuth: true },
   { href: "/portfolio/", label: "Portfolio" },
   { href: "/profile/", label: "Profile", needsAuth: true }
 ];
@@ -410,7 +411,7 @@ export function buildHeader(who) {
 export function mountFooter() {
   if (document.querySelector("footer.site-foot")) return;
   const cols = [
-    ["The list", [["Jobs", "/"], ["Portfolio", "/portfolio/"], ["Experiments", "/experiments/"]]],
+    ["The list", [["Jobs", "/"], ["Outreach", "/outreach/"], ["Portfolio", "/portfolio/"], ["Experiments", "/experiments/"]]],
     ["Your account", [["Profile", "/profile/"], ["Sign in", "/login/"]]],
     ["About this site", [["About", "/legal/about/"], ["Contact", "/legal/contact/"]]],
     ["Legal", [["Terms of Use", "/legal/terms/"], ["Privacy", "/legal/privacy/"]]]

@@ -57,6 +57,7 @@ const KIND = {
   'tests/search-and-chips.mjs': 'site',
   'tests/pages-and-theme.mjs': 'site',
   'tests/advanced-and-avatar.mjs': 'site',
+  'tests/outreach.mjs': 'site',
   'tests/test-headers-file.mjs': 'node',
   'tests/headers-file.mjs': 'helper',
   'ingest/test-location.mjs': 'node',
