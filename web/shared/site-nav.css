@@ -113,7 +113,9 @@ header.site .who .mail {
   }
 header.site nav.tabs {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* Driven by the markup, which knows how many sections exist. The literal
+       4 that used to be here held five tabs on two rows. */
+    grid-template-columns: repeat(var(--tab-count, 4), minmax(0, 1fr));
     max-width: 1120px;
     margin: 0 auto;
     padding: 0 12px;
