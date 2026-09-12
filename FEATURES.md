@@ -137,13 +137,49 @@ projects.
 
 ## Known gaps, gathered
 
-The rows marked **Gap** above, in one place, so they can be worked through:
+Measured against the live queue and the live outreach page on 2026-09-11, not
+recalled. Re-measure before trusting this list: the four items that used to sit
+here were all closed and the list said otherwise for weeks. What was here and is
+now done, with where it went: the pay floor (`ingest/test-pay-tier.mjs`, which
+asserts 180000 and the comma and dollar-sign variants that once fell through),
+the advanced-search switches and photo upload (`tests/advanced-and-avatar.mjs`),
+header search, chips, theme and the legal pages (`tests/search-and-chips.mjs`,
+`tests/pages-and-theme.mjs`), and origin-checked writes
+(`functions/test-origin.mjs`).
 
-1. The pay floor has no test, and it is the rule that decides what is shown.
-2. The advanced-search switches are verified by a browser run and a screenshot, but that check is not yet a file in `tests/`.
-3. Header search, filter chips, theme toggle and the legal pages are verified by
-   screenshot only.
-4. Origin-checked writes and photo upload are verified by hand.
+**Host-limited, not fixable from here.** These are gaps in what employers
+publish, so no amount of reading closes them:
+
+1. 180 of 369 queued rows (49%) carry no published pay band. The board published
+   nothing, and a guessed band is worse than a blank one, so the row reads "no
+   band published".
+2. 43 of 369 (12%) carry no posted date. Their age is unknown rather than old,
+   which is why the outreach page groups them separately instead of dropping
+   them under the seven-day rule.
+3. Six of the nine researched employers have no address convention, because no
+   public repository of theirs exposes an address on their domain. The card says
+   so rather than staying silent.
+
+**Open work, fixable.**
+
+4. 53 distinct employers on the outreach page have no named people yet. The
+   named layer covers 9 employers and 46 people. The highest-ranked uncovered
+   ones are applications already sent: Tremendous and Filevine at 82%, Samsara
+   at 80%, MeridianLink at 79%.
+5. Two employers describe a product leader in their own posting without naming
+   them anywhere: LawnStarter's VP of Product (their Director req calls the role
+   "the leader between the VP of Product and a team of three PMs") and Lexipol's
+   VP of Product Management (their req says it reports to that person). Neither
+   is named on any primary source, so neither is on the page.
+6. The Arity req now returns 404 at allstate.jobs while the row is still queued.
+   The link check has not caught it because the row's stored URL is the LinkedIn
+   one, which is in the blocked-host list and cannot be read.
+
+**Outside this repo.**
+
+7. The brian-voice skill at `~/.claude/skills/brian-voice` has no version
+   control. `~/.claude` is not a git repository and this repo does not mirror
+   skills, so the `.skill` zip is the only copy of 6.3.0.
 
 ## Running them
 
