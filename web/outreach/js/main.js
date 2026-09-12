@@ -194,11 +194,11 @@ function addressHtml(company, person) {
     ? ' The surname was taken as the last word of the name, which a particle makes a guess.'
     : '';
   return `
-            <span class="mail">
-              <code>${esc(built.address)}</code>
-              <button type="button" class="copy mail-copy" data-msg="${esc(built.address)}">Take the address</button>
-              <span class="mail-why" title="${esc(rule.evidence + caveat)}">derived from ${esc(rule.shape)}, ${esc(String(rule.pct))}% of ${esc(String(rule.unique))}</span>
-            </span>`;
+              <span class="mail">
+                <code>${esc(built.address)}</code>
+                <button type="button" class="copy mail-copy" data-msg="${esc(built.address)}">Copy address</button>
+                <span class="mail-why" title="${esc(`derived from ${rule.shape}, ${rule.pct}% of ${rule.unique}. ${rule.evidence}${caveat}`)}">derived</span>
+              </span>`;
 }
 
 /**
@@ -216,31 +216,50 @@ function addressHtml(company, person) {
 function contactsHtml(row) {
   const found = contactsFor(row.company);
   if (!found || !Array.isArray(found.people) || !found.people.length) return '';
-  const items = found.people.map((p) => {
+
+  const rows = found.people.map((p) => {
     const published = p.profile ? safeHref(p.profile) : '';
     const href = published && published !== '#' ? published : safeHref(namedSearch(p.name, row.company));
     const kind = published && published !== '#'
       ? '<span class="tag pub">profile they published</span>'
       : '<span class="tag">name search</span>';
-    const why = p.why ? `<span class="tag why">${esc(p.why)}</span>` : '';
+    /* The source is a column, not a hover. A name whose provenance needs a
+       mouse to see is a name most readers will take on trust. */
     const src = p.source
       ? `<a class="src" href="${esc(safeHref(p.source))}" target="_blank" rel="noopener noreferrer">source</a>`
       : '<span class="src none">no source</span>';
     return `
-        <li>
-          <a class="person" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(p.name)}</a>
-          <span class="role">${esc(p.title || 'title not stated')}</span>
-          ${kind}${why}${src}
-          ${addressHtml(found, p)}
-          ${p.note ? `<span class="pnote">${esc(p.note)}</span>` : ''}
-        </li>`;
+              <tr data-person>
+                <th scope="row">
+                  <a class="person" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(p.name)}</a>
+                  ${kind}
+                  ${p.note ? `<details class="pnote"><summary>why this person</summary><p>${esc(p.note)}</p></details>` : ''}
+                </th>
+                <td class="role">${esc(p.title || 'title not stated')}</td>
+                <td class="tagcell">${p.why ? `<span class="tag why">${esc(p.why)}</span>` : ''}</td>
+                <td class="srccell">${src}</td>
+                <td class="mailcell">${addressHtml(found, p)}</td>
+              </tr>`;
   }).join('');
+
+  const convention = found.email && found.email.shape
+    ? `Addresses are built from this employer's own convention and are <strong>not verified</strong>: ${esc(found.email.evidence)}.`
+    : 'No address convention could be established for this employer from public evidence, so none is shown.';
+
   return `
       <div class="contacts">
-        <p class="contacts-lede">Named people at this employer, each with the source the name was read on.${found.email && found.email.shape
-          ? ` Addresses are built from this employer's own convention and are <strong>not verified</strong>: ${esc(found.email.evidence)}.`
-          : ' No address convention could be established for this employer from public evidence, so none is shown.'}</p>
-        <ul class="people">${items}</ul>
+        <p class="contacts-lede">${found.people.length} named, each with the source the name was read on. ${convention}</p>
+        <div class="rosterwrap">
+          <table class="people roster">
+            <colgroup>
+              <col class="c-name"/><col class="c-title"/><col class="c-why"/><col class="c-src"/><col class="c-mail"/>
+            </colgroup>
+            <thead>
+              <tr><th scope="col">Name</th><th scope="col">Title</th><th scope="col">Why</th><th scope="col">Source</th><th scope="col">Address</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       </div>`;
 }
 
@@ -254,13 +273,19 @@ function contactsHtml(row) {
 function cardHtml(row, index) {
   const company = cleanCompany(row.company) || row.company;
   const age = ageDays(row);
-  const steps = searchesFor(row).map((s) => `
+  const found = searchesFor(row);
+  /* Chips, in the method's order. The reason for each one is real but it is the
+     same four reasons on every card, so it moves into one expander below rather
+     than repeating beside all four. Kept in the DOM, not hover-only: a tooltip
+     is unreachable from a keyboard. */
+  const steps = found.map((s) => `
       <li>
         <a class="step" href="${esc(safeHref(s.url))}" target="_blank" rel="noopener noreferrer">
           <span class="n">${s.step}</span>${esc(s.label)}
         </a>
-        <span class="why">${esc(s.why)}</span>
       </li>`).join('');
+  const reasons = found.map((s) => `
+        <li><span class="rn">${s.step}</span><span class="why">${esc(s.why)}</span></li>`).join('');
 
   const shapes = messageShapes(row).map((m) => `
       <details>
@@ -285,6 +310,10 @@ function cardHtml(row, index) {
         <a class="posting" href="${esc(safeHref(row.url))}" target="_blank" rel="noopener noreferrer">The posting</a>
       </header>
       <ol class="steps">${steps}</ol>
+      <details class="reasons">
+        <summary>What these four searches are for</summary>
+        <ol class="reasonlist">${reasons}</ol>
+      </details>
       ${contactsHtml(row)}
       <div class="shapes">
         <p class="shapes-lede">Message before you apply. Each one ends in a question answerable in a sentence.</p>

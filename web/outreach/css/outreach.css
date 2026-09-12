@@ -126,54 +126,6 @@ a:hover { text-decoration: underline; }
   align-self: center;
 }
 
-/* ---------------------------------------------------------------- steps -- */
-
-/* The method is ordered, so the list is ordered. Its own numbers are shown
-   rather than the marker, because each step's number is part of the method
-   rather than a position in a list. */
-.steps {
-  list-style: none;
-  margin: 14px 0 0;
-  padding: 0;
-  display: grid;
-  /* The columns live on the LIST, not on each row. Sized per row, every
-     why-text started at a different x -- "Who has posted about the team" is
-     wider than "Company page", so four rows read as four ragged indents. */
-  grid-template-columns: minmax(190px, max-content) 1fr;
-  gap: 8px 12px;
-}
-
-.steps li {
-  display: grid;
-  /* Borrow the list's two tracks so all four rows share one gutter. */
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
-  align-items: baseline;
-}
-
-.steps .step {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.steps .step:hover { text-decoration: underline; }
-
-.steps .n {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: var(--primary-contrast);
-  font: 600 12px/1 "IBM Plex Mono", ui-monospace, monospace;
-}
-
-.steps .why { color: var(--muted); font-size: 14px; }
-
 /* ------------------------------------------------------------- contacts -- */
 
 /* Named people. The visual weight sits on the name, and the source link is
@@ -187,65 +139,204 @@ a:hover { text-decoration: underline; }
 
 .contacts-lede { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
 
-.people { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+/* The roster. Nine people were a 1000px vertical stack; as rows they are one
+   look. The source is a COLUMN rather than a hover, because a name whose
+   provenance needs a mouse is a name most readers take on trust. */
+.rosterwrap { overflow-x: auto; }
 
-.people li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 10px;
+table.roster {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
 }
 
-.people .person { font-weight: 600; text-decoration: none; }
-.people .person:hover { text-decoration: underline; }
+table.roster thead th {
+  text-align: left;
+  font: 600 11px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 10px 6px 0;
+  white-space: nowrap;
+}
 
-.people .role { color: var(--muted); font-size: 14px; }
+table.roster tbody th,
+table.roster tbody td {
+  text-align: left;
+  font-weight: 400;
+  vertical-align: top;
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
 
-.people .tag {
+/* Explicit widths. Left to itself the browser gave Title the room and squeezed
+   the Why tag into three wrapped lines, which set the height of every row. */
+table.roster { table-layout: fixed; }
+table.roster col.c-name { width: 23%; }
+table.roster col.c-title { width: 19%; }
+table.roster col.c-why { width: 19%; }
+table.roster col.c-src { width: 7%; }
+/* Wide enough that the longest real address on the page,
+   jeanlaurent.morlhon@docker.com, does not wrap. */
+table.roster col.c-mail { width: 32%; }
+
+table.roster tbody tr:last-child th,
+table.roster tbody tr:last-child td { border-bottom: 0; }
+
+table.roster tbody tr:hover { background: var(--primary-soft); }
+
+table.roster tbody th { display: table-cell; }
+table.roster .person { font-weight: 600; text-decoration: none; margin-right: 6px; }
+table.roster .person:hover { text-decoration: underline; }
+
+table.roster .role { color: var(--muted); }
+
+table.roster .tag {
+  display: inline-block;
   font: 500 11px/1.4 "IBM Plex Mono", ui-monospace, monospace;
   color: var(--muted);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 2px 8px;
+  padding: 1px 8px;
+  white-space: nowrap;
 }
 
-/* A profile the person published themselves beats a search, so it reads
-   differently. */
-.people .tag.pub { border-color: var(--primary); color: var(--primary); }
-.people .tag.why { background: var(--primary-soft); border-color: transparent; color: var(--text); }
+/* A profile the person published beats a search, so it reads differently. */
+table.roster .tag.pub { border-color: var(--primary); color: var(--primary); }
+table.roster .tag.why {
+  background: var(--primary-soft);
+  border-color: transparent;
+  color: var(--text);
+  white-space: normal;
+}
 
-.people .src { font-size: 12px; }
-.people .src.none { color: var(--muted); }
+table.roster .src { font-size: 13px; }
+table.roster .src.none { color: var(--muted); }
 
-.people .pnote { flex: 1 1 100%; color: var(--muted); font-size: 13px; }
+/* The note is per-person and long, so it collapses. */
+/* Inline with the name rather than on its own line: nine rows each spending
+   20px on a summary is 180px of nothing. */
+table.roster .pnote { display: inline; }
+table.roster .pnote summary {
+  cursor: pointer;
+  font: 500 12px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--muted);
+}
+table.roster .pnote p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 52ch;
+}
 
-/* A derived address. It reads as provisional on purpose: the shape is evidenced
-   but the address is not, and nothing here should look like a verified contact. */
-.people .mail {
-  flex: 1 1 100%;
+/* Two lines, not three. The address is wide enough to own line one; the button
+   and the evidence label share line two. Stacked as a grid this cell alone was
+   70px on every one of nine rows. */
+table.roster .mail {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-top: 2px;
+  gap: 3px 6px;
 }
 
-.people .mail code {
+/* The address owns line one; the button and the derived marker share line two. */
+table.roster .mail code { flex: 1 1 100%; }
+table.roster .mail-why { white-space: nowrap; }
+
+table.roster .mail code {
   font: 500 13px/1.6 "IBM Plex Mono", ui-monospace, monospace;
   background: var(--bg);
   border: 1px dashed var(--border);
   border-radius: 6px;
-  padding: 2px 8px;
+  padding: 1px 7px;
+  word-break: break-all;
 }
 
-.people .mail-copy { padding: 4px 10px; min-height: 30px; font-size: 12px; }
+table.roster .mail-copy { padding: 4px 10px; min-height: 30px; font-size: 12px; }
 
-.people .mail-why {
+table.roster .mail-why {
   font: 500 11px/1.4 "IBM Plex Mono", ui-monospace, monospace;
   color: var(--muted);
   cursor: help;
   border-bottom: 1px dotted var(--border);
 }
+
+/* ---------------------------------------------------------------- chips -- */
+
+/* The four searches, in the method's order. Their reasons are the same four on
+   every card, so they live in one expander instead of beside all four. */
+.steps {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.steps .step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px 6px 8px;
+  /* 34px tall including the border, so it clears the touch-target floor. */
+  min-height: 34px;
+  /* A pill is one line. Without this, "Who has posted about the team" wrapped
+     inside its own border into six lines and crushed the number badge. The ROW
+     wraps instead, which is what flex-wrap on .steps is for. */
+  white-space: nowrap;
+}
+
+.steps .step:hover { border-color: var(--primary); text-decoration: none; }
+
+.steps .n {
+  display: inline-grid;
+  place-items: center;
+  /* Never squeezed by a long label beside it. */
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  font: 600 12px/1 "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.reasons { margin-top: 10px; }
+
+.reasons summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.reasonlist {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.reasonlist li {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.reasonlist .rn {
+  font: 600 12px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--primary);
+}
+
+.reasonlist .why { color: var(--muted); font-size: 13px; }
 
 /* ---------------------------------------------------------------- groups -- */
 
@@ -317,9 +408,10 @@ a:hover { text-decoration: underline; }
      three-column grid at 375px squeezed the title to a few characters a line. */
   .target > header { grid-template-columns: auto 1fr; }
   .target .posting { grid-column: 1 / -1; align-self: start; }
-  /* And the why-text goes under its link rather than beside it. */
-  .steps { grid-template-columns: 1fr; }
-  .steps li { grid-template-columns: 1fr; gap: 2px; }
+  /* Chips already wrap, so nothing to unstack. The roster is the thing that
+     cannot fit 375px, and it scrolls inside its own box rather than pushing
+     the page sideways. */
+  table.roster { min-width: 560px; }
 }
 
 @media print {
