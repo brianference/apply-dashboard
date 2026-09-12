@@ -1,0 +1,1436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Outreach card variations</title>
+<meta name="robots" content="noindex"/>
+<link rel="icon" href="/01-light-32.png" type="image/png" media="(prefers-color-scheme: light)"/>
+<link rel="icon" href="/01-dark-32.png" type="image/png" media="(prefers-color-scheme: dark)"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="./css/outreach.css"/>
+<script>
+  try {
+    var saved = localStorage.getItem("apply-theme");
+    if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+  } catch (e) { /* private mode */ }
+</script>
+<style>
+  /* Comparison chrome only. Colour comes from outreach.css tokens. */
+  html, body { height: 100%; }
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    overflow-x: clip;
+  }
+  a { color: var(--primary); }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .cmp-top {
+    flex: 0 0 auto;
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px 10px;
+  }
+  .cmp-top-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .cmp-top h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -0.03em;
+  }
+  .cmp-top .lede {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 62ch;
+  }
+  .cmp-top .count {
+    margin: 6px 0 0;
+    font: 500 13px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted);
+  }
+  .cmp-top-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    flex: 0 0 auto;
+  }
+  .cmp-top-actions a,
+  .cmp-theme {
+    font: 500 13px/1 "IBM Plex Sans", system-ui, sans-serif;
+    padding: 8px 12px;
+    min-height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  .cmp-theme[aria-pressed="true"] {
+    background: var(--primary);
+    color: var(--primary-contrast);
+    border-color: var(--primary);
+  }
+  .cmp-jump {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .cmp-jump a {
+    font: 600 13px/1 "IBM Plex Sans", system-ui, sans-serif;
+    padding: 8px 10px;
+    min-height: 36px;
+    border-radius: 7px;
+    background: var(--primary-soft);
+    color: var(--text);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .cmp-board {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 12px 16px 24px;
+    min-height: 0;
+  }
+  .cmp-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .cmp-col-head {
+    flex: 0 0 auto;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .cmp-col-head .letter {
+    font: 600 12px/1 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--primary);
+    letter-spacing: 0.06em;
+  }
+  .cmp-col-head h2 {
+    margin: 4px 0 4px;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+  .cmp-col-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .cmp-col-body {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 12px 12px 16px;
+    min-height: 0;
+    max-height: 80vh;
+  }
+  .empty { color: var(--muted); padding: 8px; }
+
+  .rank {
+    font: 600 16px/1 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--primary);
+    background: var(--primary-soft);
+    padding: 6px 8px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .applied {
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    border-radius: 999px;
+    padding: 1px 8px;
+    font: 500 12px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+  }
+  .tag {
+    font: 500 11px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+  }
+  .tag.pub { border-color: var(--primary); color: var(--primary); }
+  .tag.why { background: var(--primary-soft); border-color: transparent; color: var(--text); white-space: normal; }
+  .mail code {
+    font: 500 12px/1.5 "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 2px 6px;
+    word-break: break-all;
+  }
+  .mail-why {
+    font: 500 11px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted);
+  }
+  .conv {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  .co-note {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--primary-soft);
+    border-left: 3px solid var(--primary);
+    padding: 8px 10px;
+    border-radius: 0 6px 6px 0;
+  }
+  .n {
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--primary-contrast);
+    font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+    flex: 0 0 auto;
+  }
+  .src { font-size: 12px; }
+  .posting { font-size: 13px; white-space: nowrap; }
+
+  /* ---- A: roster table. Employer is a compact row-group, people are the table. */
+  .va-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px 12px;
+    margin-bottom: 10px;
+  }
+  .va-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+    margin-bottom: 8px;
+  }
+  .va-head h3 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+  }
+  .va-head .co { font-weight: 600; }
+  .va-head .role { color: var(--muted); font-size: 13px; }
+  .va-meta {
+    font: 500 12px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted);
+  }
+  .va-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 8px;
+  }
+  .va-chips a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 10px 6px 6px;
+    min-height: 36px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .va-chips a:hover { border-color: var(--primary); color: var(--primary); }
+  .va-people {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    table-layout: fixed;
+  }
+  .va-people th {
+    text-align: left;
+    font: 500 11px/1.3 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 8px 6px 0;
+    font-weight: 500;
+  }
+  .va-people td {
+    padding: 8px 8px 8px 0;
+    vertical-align: top;
+    border-bottom: 1px solid var(--border);
+    word-break: break-word;
+  }
+  .va-people tr:last-child td { border-bottom: 0; }
+  .va-people .person { font-weight: 600; text-decoration: none; }
+  .va-people .person:hover { text-decoration: underline; }
+  .va-people .va-name { width: 22%; }
+  .va-people .va-title { width: 24%; color: var(--muted); }
+  .va-people .va-why { width: 20%; }
+  .va-people .va-src { width: 10%; }
+  .va-people .va-addr { width: 24%; }
+  .va-people .pnote {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .va-people details { margin-top: 4px; }
+  .va-people summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .va-none { margin: 0; color: var(--muted); font-size: 13px; }
+  .va-openers { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
+  .va-openers details { margin: 0 0 4px; }
+  .va-openers summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 6px 0;
+  }
+  .va-openers .msg {
+    margin: 4px 0;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .va-openers .note { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
+
+  /* ---- B: one thing at a time. A queue, not a list of cards. */
+  .vb-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 100%;
+  }
+  .vb-progress {
+    font: 500 12px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted);
+  }
+  .vb-steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .vb-steps li {
+    font: 500 12px/1.3 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted);
+    border-bottom: 2px solid var(--border);
+    padding: 0 0 6px;
+  }
+  .vb-steps li[aria-current="step"] {
+    color: var(--text);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+  }
+  .vb-steps li.done { color: var(--primary); }
+  .vb-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: var(--shadow);
+  }
+  .vb-card header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 10px;
+  }
+  .vb-card h3 { margin: 0; font-size: 18px; letter-spacing: -0.02em; }
+  .vb-card .co { margin: 0; color: var(--muted); font-size: 14px; }
+  .vb-pane h4 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .vb-person .name {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .vb-person .role { margin: 2px 0 8px; color: var(--muted); }
+  .vb-person .pnote { margin: 8px 0; color: var(--muted); font-size: 14px; }
+  .vb-person .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 6px 0;
+  }
+  .vb-find {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .vb-find a {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text);
+    min-height: 44px;
+  }
+  .vb-find a:hover { border-color: var(--primary); }
+  .vb-find a.primary {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    font-weight: 600;
+  }
+  .vb-find .why { color: var(--muted); font-size: 13px; font-weight: 400; }
+  .vb-openers .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .vb-openers .tabs button {
+    font: 500 13px/1 "IBM Plex Sans", system-ui, sans-serif;
+    padding: 8px 10px;
+    min-height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .vb-openers .tabs button[aria-selected="true"] {
+    background: var(--primary);
+    color: var(--primary-contrast);
+    border-color: var(--primary);
+  }
+  .vb-openers .msg {
+    margin: 0 0 6px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 15px;
+  }
+  .vb-openers .note { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+  .vb-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+    background: linear-gradient(to bottom, transparent, var(--surface) 12px);
+  }
+  .vb-actions .copy,
+  .vb-actions button {
+    min-height: 44px;
+  }
+  .vb-actions .primary {
+    background: var(--primary);
+    color: var(--primary-contrast);
+    border: 1px solid var(--primary);
+    border-radius: 7px;
+    font: 600 14px/1 "IBM Plex Sans", system-ui, sans-serif;
+    padding: 10px 14px;
+    cursor: pointer;
+  }
+  .vb-next {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .vb-next button {
+    background: none;
+    border: 0;
+    color: var(--primary);
+    cursor: pointer;
+    font: inherit;
+    padding: 4px 2px;
+    min-height: 36px;
+  }
+  .vb-done-list { color: var(--muted); font-size: 13px; }
+
+  /* ---- C: split detail. Master list selects, detail is the only deep view. */
+  .vc-shell {
+    display: grid;
+    grid-template-rows: minmax(132px, 34%) 1fr;
+    gap: 8px;
+    min-height: 560px;
+    height: 100%;
+    container-type: size;
+  }
+  .vc-list {
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    min-height: 0;
+  }
+  .vc-list button {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    padding: 8px 10px;
+    min-height: 44px;
+    cursor: pointer;
+    font: inherit;
+  }
+  .vc-list button:last-child { border-bottom: 0; }
+  .vc-list button[aria-current="true"] {
+    background: var(--primary-soft);
+  }
+  .vc-list .co { font-weight: 600; font-size: 13px; }
+  .vc-list .role {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .vc-list .npeople {
+    font: 500 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted);
+    align-self: center;
+  }
+  .vc-list .g {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: 0;
+    padding: 6px 10px;
+    font: 600 11px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .vc-detail {
+    overflow: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 0;
+  }
+  .vc-detail header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 10px;
+    margin-bottom: 8px;
+  }
+  .vc-detail h3 { margin: 0; font-size: 18px; }
+  .vc-detail .co { margin: 0; color: var(--muted); font-size: 14px; }
+  .vc-searches {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .vc-searches a {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 8px 10px;
+    align-items: start;
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .vc-searches .why { grid-column: 2; color: var(--muted); font-weight: 400; font-size: 12px; }
+  .vc-hero {
+    border: 1px solid var(--primary);
+    background: var(--primary-soft);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .vc-hero .kicker {
+    font: 600 11px/1 "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 4px;
+  }
+  .vc-hero .person { font-size: 18px; font-weight: 600; text-decoration: none; }
+  .vc-hero .role { margin: 2px 0 8px; color: var(--muted); }
+  .vc-hero .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+  .vc-hero .pnote { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+  .vc-rest .pnote { flex: 1 1 100%; color: var(--muted); font-size: 13px; }
+  .vc-rest { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .vc-rest li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .vc-rest .person { font-weight: 600; text-decoration: none; }
+  .vc-rest .role { color: var(--muted); font-size: 13px; }
+  .vc-openers { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .vc-openers details { margin: 0 0 4px; }
+  .vc-openers summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+  .vc-openers .msg {
+    margin: 4px 0;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .vc-openers .note { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
+
+  @container (min-width: 420px) and (min-height: 420px) {
+    .vc-shell {
+      grid-template-columns: minmax(148px, 38%) 1fr;
+      grid-template-rows: 1fr;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .cmp-jump { display: none; }
+    .cmp-board {
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: stretch;
+      height: calc(100dvh - 118px);
+      padding-bottom: 12px;
+    }
+    .cmp-col-body { max-height: none; }
+  }
+
+  @media (max-width: 720px) {
+    .va-people, .va-people thead { display: block; }
+    .va-people thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .va-people tr {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2px 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .va-people td {
+      border: 0;
+      padding: 0;
+      width: auto;
+    }
+    .va-people .va-name { grid-column: 1; }
+    .va-people .va-src { grid-column: 2; justify-self: end; }
+    .va-people .va-title, .va-people .va-why, .va-people .va-addr { grid-column: 1 / -1; }
+    .posting { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<header class="cmp-top">
+  <div class="cmp-top-row">
+    <div>
+      <h1>Who to message — three layouts</h1>
+      <p class="lede">
+        Same jobs, same people, same searches. Three information architectures.
+        Light is the default. Pick one, or mix: layout of B, density of A.
+      </p>
+      <p id="count" class="count">Reading the queue…</p>
+    </div>
+    <div class="cmp-top-actions">
+      <a href="./">The live page</a>
+      <button type="button" class="cmp-theme" id="theme" aria-pressed="false">Dark theme</button>
+    </div>
+  </div>
+  <nav class="cmp-jump" aria-label="Jump to a variation">
+    <a href="#var-a">A Roster</a>
+    <a href="#var-b">B Stepper</a>
+    <a href="#var-c">C Split</a>
+  </nav>
+</header>
+
+<div class="cmp-board" id="board">
+  <section class="cmp-col" id="var-a">
+    <div class="cmp-col-head">
+      <div class="letter">A · Roster table</div>
+      <h2>Scan ten employers fast</h2>
+      <p>People become a table. Searches collapse to chips. Gives up: sitting with one person and a message without opening a row.</p>
+    </div>
+    <div class="cmp-col-body" id="a-body"><p class="empty">Loading…</p></div>
+  </section>
+  <section class="cmp-col" id="var-b">
+    <div class="cmp-col-head">
+      <div class="letter">B · One thing at a time</div>
+      <h2>Stop deciding, work the list</h2>
+      <p>A queue. One employer, one person, one step. Gives up: comparing two employers, and seeing the roster at once.</p>
+    </div>
+    <div class="cmp-col-body" id="b-body"><p class="empty">Loading…</p></div>
+  </section>
+  <section class="cmp-col" id="var-c">
+    <div class="cmp-col-head">
+      <div class="letter">C · Split detail</div>
+      <h2>Compare and go deep</h2>
+      <p>Employers on one side, that employer's people and openers on the other. Gives up: seeing more than one employer's people at once.</p>
+    </div>
+    <div class="cmp-col-body" id="c-body"><p class="empty">Loading…</p></div>
+  </section>
+</div>
+
+<script type="module">
+import { searchesFor, messageShapes, cleanCompany, namedSearch } from './js/search-urls.js';
+import { addressFor } from './js/email-pattern.js';
+
+const API = '/api/jobs';
+const SHOW = 25;
+const FRESH_DAYS = 7;
+
+/** Researched people, keyed by employer. Empty until the file loads. */
+let CONTACTS = {};
+/** Grouped rows after pickTargets. */
+let GROUPS = [];
+/** Flat working order: fresh, then applied, then undated. */
+let QUEUE = [];
+
+const bState = {
+  index: 0,
+  person: 0,
+  step: 'who',
+  opener: 0,
+  done: new Set()
+};
+let cSelected = '';
+
+/**
+ * @param {string} id
+ * @returns {HTMLElement}
+ */
+const at = (id) => document.querySelector(id);
+
+/**
+ * Days since publication, or null when the board publishes no date.
+ * @param {{ posted: string|null }} row
+ * @returns {number|null}
+ */
+function ageDays(row) {
+  if (!row || !row.posted) return null;
+  const then = new Date(row.posted).getTime();
+  if (Number.isNaN(then)) return null;
+  return Math.floor((Date.now() - then) / 86400000);
+}
+
+/**
+ * Escape for interpolation into HTML.
+ * @param {unknown} value
+ * @returns {string}
+ */
+function esc(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * An href safe to put in the document, or "#".
+ * @param {unknown} raw
+ * @returns {string}
+ */
+function safeHref(raw) {
+  const value = String(raw == null ? '' : raw).trim();
+  try {
+    const parsed = new URL(value, location.origin);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : '#';
+  } catch {
+    return '#';
+  }
+}
+
+/**
+ * Published band, or an honest blank.
+ * @param {{ salary_min: number|null, salary_max: number|null }} row
+ * @returns {string}
+ */
+function payLabel(row) {
+  const k = (n) => '$' + Math.round(n / 1000) + 'k';
+  if (row.salary_min && row.salary_max) return `${k(row.salary_min)}-${k(row.salary_max)}`;
+  if (row.salary_min) return `${k(row.salary_min)}+`;
+  return 'no band published';
+}
+
+/**
+ * Look up researched people for an employer.
+ * @param {string} raw
+ * @returns {{ sources: string[], people: Array<Record<string, any>>, email?: Record<string, any>, note?: string }|null}
+ */
+function contactsFor(raw) {
+  const want = cleanCompany(raw).toLowerCase();
+  if (!want) return null;
+  for (const [key, value] of Object.entries(CONTACTS)) {
+    const have = cleanCompany(key).toLowerCase();
+    if (have === want || have.startsWith(want) || want.startsWith(have)) return value;
+  }
+  return null;
+}
+
+/**
+ * The rows worth the five minutes: open, ranked, and recently posted.
+ * Copied from main.js so this page cannot drift from who gets promoted.
+ * @param {Array<Record<string, any>>} rows
+ * @returns {{ fresh: Array, applied: Array, undated: Array }}
+ */
+function pickTargets(rows) {
+  const usable = (rows || []).filter((r) => r && r.url && r.rank_pct != null);
+  const byRank = (a, b) => (b.rank_pct || 0) - (a.rank_pct || 0);
+  const withContacts = (r) => !!contactsFor(r.company);
+  const slice = (list) => {
+    const ranked = list.sort(byRank);
+    const top = ranked.slice(0, SHOW);
+    const kept = new Set(top);
+    const promoted = ranked.filter((r) => !kept.has(r) && withContacts(r));
+    return top.concat(promoted).sort(byRank);
+  };
+  const applied = slice(usable.filter((r) => r.status === 'submitted'));
+  const queued = usable.filter((r) => r.status === 'queued');
+  const fresh = slice(queued.filter((r) => {
+    const a = ageDays(r);
+    return a !== null && a <= FRESH_DAYS;
+  }));
+  const undated = slice(queued.filter((r) => ageDays(r) === null));
+  return { fresh, applied, undated };
+}
+
+/**
+ * Stable identity for a posting.
+ * @param {Record<string, any>} row
+ * @returns {string}
+ */
+function rowKey(row) {
+  return String(row.dedupe_key || row.url || `${row.company}|${row.title}`);
+}
+
+/**
+ * Company display name, decorations stripped.
+ * @param {Record<string, any>} row
+ * @returns {string}
+ */
+function companyName(row) {
+  return cleanCompany(row.company) || row.company;
+}
+
+/**
+ * Href for a named person: a recorded profile, or a name search. Never a guessed slug.
+ * @param {{ name: string, profile?: string|null }} person
+ * @param {string} company
+ * @returns {{ href: string, published: boolean }}
+ */
+function personLink(person, company) {
+  const published = person.profile ? safeHref(person.profile) : '';
+  if (published && published !== '#') return { href: published, published: true };
+  return { href: safeHref(namedSearch(person.name, company)), published: false };
+}
+
+/**
+ * Derived address markup, labelled as derived, or empty when no convention exists.
+ * @param {{ email?: Record<string, any> }|null} company
+ * @param {{ name: string }} person
+ * @returns {string}
+ */
+function addressHtml(company, person) {
+  const rule = company && company.email;
+  if (!rule || !rule.shape) return '';
+  const built = addressFor(rule.shape, person.name, rule.domain);
+  if (!built) return '';
+  const caveat = built.ambiguous
+    ? ' The surname was taken as the last word of the name, which a particle makes a guess.'
+    : '';
+  return `<span class="mail">
+    <code>${esc(built.address)}</code>
+    <button type="button" class="copy mail-copy" data-msg="${esc(built.address)}">Take the address</button>
+    <span class="mail-why" title="${esc(rule.evidence + caveat)}">derived from ${esc(rule.shape)}, ${esc(String(rule.pct))}% of ${esc(String(rule.unique))}</span>
+  </span>`;
+}
+
+/**
+ * Whether a convention exists, stated in words. Only for researched employers:
+ * silence on an unresearched card is correct, silence on a researched one is not.
+ * @param {{ email?: Record<string, any>, note?: string }|null} found
+ * @returns {string}
+ */
+function conventionLede(found) {
+  if (!found) return '';
+  if (found.email && found.email.shape) {
+    return `<p class="conv">Addresses are built from this employer's own convention and are <strong>not verified</strong>: ${esc(found.email.evidence)}.</p>`;
+  }
+  return '<p class="conv">No address convention could be established for this employer from public evidence, so none is shown.</p>';
+}
+
+/**
+ * Age + pay + applied chips.
+ * @param {Record<string, any>} row
+ * @returns {string}
+ */
+function metaBits(row) {
+  const age = ageDays(row);
+  return `<span class="va-meta">${esc(payLabel(row))}</span>
+    <span class="va-meta">${age === null ? 'no posted date' : age + 'd ago'}</span>
+    ${row.status === 'submitted' ? '<span class="applied">applied</span>' : ''}
+    <a class="posting" href="${esc(safeHref(row.url))}" target="_blank" rel="noopener noreferrer">The posting</a>`;
+}
+
+/**
+ * Four method searches as chips (A) — labels only; why lives on the title.
+ * @param {Record<string, any>} row
+ * @returns {string}
+ */
+function searchChips(row) {
+  return `<div class="va-chips">${searchesFor(row).map((s) =>
+    `<a href="${esc(safeHref(s.url))}" target="_blank" rel="noopener noreferrer" title="${esc(s.why)}"><span class="n">${s.step}</span>${esc(s.label)}</a>`
+  ).join('')}</div>`;
+}
+
+/**
+ * Four openers, each ending in a question, each copyable.
+ * @param {Record<string, any>} row
+ * @param {string} wrapClass
+ * @returns {string}
+ */
+function openersHtml(row, wrapClass) {
+  const items = messageShapes(row).map((m) => `
+    <details>
+      <summary>${esc(m.name)}</summary>
+      <p class="msg" data-copy>${esc(m.body)}</p>
+      <p class="note">${esc(m.note)}</p>
+      <button type="button" class="copy" data-msg="${esc(m.body)}">Copy</button>
+    </details>`).join('');
+  return `<div class="${wrapClass}">${items}</div>`;
+}
+
+/**
+ * One person as table cells (A).
+ * @param {Record<string, any>} person
+ * @param {Record<string, any>} row
+ * @param {object|null} found
+ * @returns {string}
+ */
+function personRowA(person, row, found) {
+  const link = personLink(person, row.company);
+  const kind = link.published
+    ? '<span class="tag pub">profile they published</span>'
+    : '<span class="tag">name search</span>';
+  const note = person.note
+    ? `<details><summary>Note</summary><p class="pnote">${esc(person.note)}</p></details>`
+    : '';
+  const src = person.source
+    ? `<a class="src" href="${esc(safeHref(person.source))}" target="_blank" rel="noopener noreferrer">source</a>`
+    : '<span class="src none">no source</span>';
+  return `<tr>
+    <td class="va-name">
+      <a class="person" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">${esc(person.name)}</a>
+      ${kind}${note}
+    </td>
+    <td class="va-title">${esc(person.title || 'title not stated')}</td>
+    <td class="va-why">${person.why ? `<span class="tag why">${esc(person.why)}</span>` : ''}</td>
+    <td class="va-src">${src}</td>
+    <td class="va-addr">${addressHtml(found, person) || '—'}</td>
+  </tr>`;
+}
+
+/**
+ * Variation A: one compact employer block with a people table.
+ * @param {Record<string, any>} row
+ * @returns {string}
+ */
+function cardA(row) {
+  const found = contactsFor(row.company);
+  const people = found && Array.isArray(found.people) ? found.people : [];
+  const nPeople = people.length;
+  const table = nPeople
+    ? `<table class="va-people">
+        <thead><tr>
+          <th class="va-name">Name</th>
+          <th class="va-title">Title</th>
+          <th class="va-why">Why</th>
+          <th class="va-src">Source</th>
+          <th class="va-addr">Address</th>
+        </tr></thead>
+        <tbody>${people.map((p) => personRowA(p, row, found)).join('')}</tbody>
+      </table>`
+    : `<p class="va-none">No named people researched. The four searches are the path.</p>`;
+  return `<article class="va-card">
+    <div class="va-head">
+      <span class="rank">${esc(row.rank_pct)}%</span>
+      <span class="co">${esc(companyName(row))}</span>
+      <span class="role">${esc(row.title)}</span>
+      <span class="va-meta">${nPeople ? nPeople + ' people' : 'searches only'}</span>
+      ${metaBits(row)}
+    </div>
+    ${searchChips(row)}
+    ${conventionLede(found)}
+    ${found && found.note ? `<p class="co-note">${esc(found.note)}</p>` : ''}
+    ${table}
+    ${openersHtml(row, 'va-openers')}
+  </article>`;
+}
+
+/**
+ * Render A into its column.
+ */
+function renderA() {
+  const html = GROUPS.map((g) =>
+    `<h2 class="group">${esc(g.heading)}</h2><p class="group-note">${esc(g.note)}</p>`
+    + g.rows.map(cardA).join('')
+  ).join('');
+  at('#a-body').innerHTML = html || '<p class="empty">No ranked postings.</p>';
+}
+
+/**
+ * Remaining employers in B's sitting.
+ * @returns {Array<Record<string, any>>}
+ */
+function bRemaining() {
+  return QUEUE.filter((r) => !bState.done.has(rowKey(r)));
+}
+
+/**
+ * Current B row, or null when the sitting is finished.
+ * @returns {Record<string, any>|null}
+ */
+function bCurrent() {
+  const left = bRemaining();
+  if (!left.length) return null;
+  if (bState.index >= left.length) bState.index = 0;
+  return left[bState.index];
+}
+
+/**
+ * Variation B: one employer, one step.
+ */
+function renderB() {
+  const left = bRemaining();
+  const row = bCurrent();
+  const total = QUEUE.length;
+  const doneN = bState.done.size;
+  if (!row) {
+    at('#b-body').innerHTML = `<div class="vb-shell">
+      <p class="vb-progress">Sitting finished · ${doneN} of ${total} worked.</p>
+      <div class="vb-card">
+        <p>Every employer in this slice has been skipped or marked done in this sitting.</p>
+        <div class="vb-actions">
+          <button type="button" class="primary" data-b="reset">Start the list again</button>
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const found = contactsFor(row.company);
+  const people = found && Array.isArray(found.people) ? found.people : [];
+  const hasPeople = people.length > 0;
+  if (hasPeople && bState.step === 'who' && bState.person >= people.length) {
+    bState.person = 0;
+    bState.step = 'find';
+  }
+  if (!hasPeople && bState.step === 'who') bState.step = 'find';
+
+  const step = bState.step;
+  const steps = ['who', 'find', 'say']
+    .filter((s) => s !== 'who' || hasPeople)
+    .map((s) => {
+      const labels = { who: '1 Who', find: '2 Find', say: '3 Say' };
+      const current = s === step ? ' aria-current="step"' : '';
+      const done = (s === 'who' && step !== 'who') || (s === 'find' && step === 'say') ? ' class="done"' : '';
+      return `<li${current}${done}>${labels[s]}</li>`;
+    }).join('');
+
+  let pane = '';
+  if (step === 'who' && hasPeople) {
+    const person = people[bState.person];
+    const link = personLink(person, row.company);
+    const kind = link.published
+      ? '<span class="tag pub">profile they published</span>'
+      : '<span class="tag">name search</span>';
+    const src = person.source
+      ? `<a class="src" href="${esc(safeHref(person.source))}" target="_blank" rel="noopener noreferrer">source</a>`
+      : '<span class="src none">no source</span>';
+    pane = `<div class="vb-pane vb-person">
+      <h4>Write this one first · ${bState.person + 1} of ${people.length}</h4>
+      <a class="name" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">${esc(person.name)}</a>
+      <p class="role">${esc(person.title || 'title not stated')}</p>
+      <div class="row">${kind}${person.why ? `<span class="tag why">${esc(person.why)}</span>` : ''}${src}</div>
+      ${addressHtml(found, person)}
+      ${person.note ? `<p class="pnote">${esc(person.note)}</p>` : ''}
+    </div>`;
+  } else if (step === 'find') {
+    const person = hasPeople && bState.person >= 0 && bState.person < people.length ? people[bState.person] : null;
+    const primary = person
+      ? (() => {
+        const link = personLink(person, row.company);
+        const label = link.published
+          ? `Open the profile ${esc(person.name)} published`
+          : `Search for ${esc(person.name)} at ${esc(companyName(row))}`;
+        return `<a class="primary" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer"><span>${label}<div class="why">${link.published ? 'A URL they published themselves, not a guessed slug.' : 'A name search. LinkedIn answers with whoever is actually there.'}</div></span></a>`;
+      })()
+      : '';
+    const searches = searchesFor(row).map((s) =>
+      `<a href="${esc(safeHref(s.url))}" target="_blank" rel="noopener noreferrer"><span class="n">${s.step}</span><span>${esc(s.label)}<div class="why">${esc(s.why)}</div></span></a>`
+    ).join('');
+    pane = `<div class="vb-pane"><h4>${person ? 'Find them' : 'No named people — run the searches'}</h4>
+      <div class="vb-find">${primary}${searches}</div></div>`;
+  } else {
+    const shapes = messageShapes(row);
+    if (bState.opener >= shapes.length) bState.opener = 0;
+    const m = shapes[bState.opener];
+    const tabs = shapes.map((s, i) =>
+      `<button type="button" data-b="opener" data-i="${i}" aria-selected="${i === bState.opener ? 'true' : 'false'}">${esc(s.name)}</button>`
+    ).join('');
+    pane = `<div class="vb-pane vb-openers">
+      <h4>Say something · ends in a question</h4>
+      <div class="tabs" role="tablist">${tabs}</div>
+      <p class="msg" data-copy>${esc(m.body)}</p>
+      <p class="note">${esc(m.note)}</p>
+    </div>`;
+  }
+
+  const actions = [];
+  if (step === 'who') {
+    actions.push(`<button type="button" class="primary" data-b="write-person">Write this one</button>`);
+    actions.push(`<button type="button" class="copy" data-b="skip-person">Skip this person</button>`);
+    actions.push(`<button type="button" class="copy" data-b="to-find">Nobody here, search instead</button>`);
+  } else if (step === 'find') {
+    actions.push(`<button type="button" class="primary" data-b="to-say">I have someone · write</button>`);
+    if (hasPeople) actions.push(`<button type="button" class="copy" data-b="to-who">Back to who</button>`);
+  } else {
+    const m = messageShapes(row)[bState.opener];
+    actions.push(`<button type="button" class="copy" data-msg="${esc(m.body)}">Copy</button>`);
+    actions.push(`<button type="button" class="primary" data-b="next-employer">This one's done</button>`);
+  }
+  actions.push(`<button type="button" class="copy" data-b="skip-employer">Skip this employer</button>`);
+
+  const nextNames = left.slice(bState.index + 1, bState.index + 4).map((r, i) =>
+    `<button type="button" data-b="goto" data-i="${bState.index + 1 + i}">${esc(companyName(r))}</button>`
+  ).join(' · ');
+
+  const groupLabel = GROUPS.find((g) => g.rows.includes(row))?.heading || '';
+
+  at('#b-body').innerHTML = `<div class="vb-shell">
+    <p class="vb-progress">${doneN + 1} of ${total} · ${esc(groupLabel)} · ${left.length} left in this sitting</p>
+    <ol class="vb-steps">${steps}</ol>
+    <article class="vb-card">
+      <header>
+        <span class="rank">${esc(row.rank_pct)}%</span>
+        <div>
+          <h3>${esc(row.title)}</h3>
+          <p class="co">${esc(companyName(row))}</p>
+        </div>
+        ${metaBits(row)}
+      </header>
+      ${conventionLede(found)}
+      ${found && found.note ? `<p class="co-note">${esc(found.note)}</p>` : ''}
+      ${pane}
+      <div class="vb-actions">${actions.join('')}</div>
+    </article>
+    <p class="vb-next">Up next: ${nextNames || 'end of the list'}
+      ${doneN ? ` · <button type="button" data-b="reset">Reset sitting</button>` : ''}
+    </p>
+  </div>`;
+}
+
+/**
+ * One person in C's detail (compact, after the featured one).
+ * @param {Record<string, any>} person
+ * @param {Record<string, any>} row
+ * @param {object|null} found
+ * @returns {string}
+ */
+function personC(person, row, found) {
+  const link = personLink(person, row.company);
+  const kind = link.published
+    ? '<span class="tag pub">profile they published</span>'
+    : '<span class="tag">name search</span>';
+  const src = person.source
+    ? `<a class="src" href="${esc(safeHref(person.source))}" target="_blank" rel="noopener noreferrer">source</a>`
+    : '<span class="src none">no source</span>';
+  return `<li>
+    <a class="person" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">${esc(person.name)}</a>
+    <span class="role">${esc(person.title || 'title not stated')}</span>
+    ${kind}${person.why ? `<span class="tag why">${esc(person.why)}</span>` : ''}${src}
+    ${addressHtml(found, person)}
+    ${person.note ? `<span class="pnote">${esc(person.note)}</span>` : ''}
+  </li>`;
+}
+
+/**
+ * Variation C: master list + selected detail.
+ */
+function renderC() {
+  if (!QUEUE.length) {
+    at('#c-body').innerHTML = '<p class="empty">No ranked postings.</p>';
+    return;
+  }
+  if (!cSelected || !QUEUE.some((r) => rowKey(r) === cSelected)) {
+    cSelected = rowKey(QUEUE[0]);
+  }
+  const row = QUEUE.find((r) => rowKey(r) === cSelected) || QUEUE[0];
+  const found = contactsFor(row.company);
+  const people = found && Array.isArray(found.people) ? found.people : [];
+
+  const list = GROUPS.map((g) => {
+    const buttons = g.rows.map((r) => {
+      const n = (contactsFor(r.company)?.people || []).length;
+      const current = rowKey(r) === cSelected ? ' aria-current="true"' : '';
+      return `<button type="button" data-c-key="${esc(rowKey(r))}"${current}>
+        <span class="rank">${esc(r.rank_pct)}%</span>
+        <span><span class="co">${esc(companyName(r))}</span><span class="role">${esc(r.title)}</span></span>
+        <span class="npeople">${n ? n + ' ppl' : '—'}${r.status === 'submitted' ? ' · applied' : ''}</span>
+      </button>`;
+    }).join('');
+    return `<p class="g">${esc(g.heading)}</p>${buttons}`;
+  }).join('');
+
+  const hero = people.length
+    ? (() => {
+      const p = people[0];
+      const link = personLink(p, row.company);
+      const kind = link.published
+        ? '<span class="tag pub">profile they published</span>'
+        : '<span class="tag">name search</span>';
+      const src = p.source
+        ? `<a class="src" href="${esc(safeHref(p.source))}" target="_blank" rel="noopener noreferrer">source</a>`
+        : '<span class="src none">no source</span>';
+      return `<div class="vc-hero">
+        <p class="kicker">Write this one first</p>
+        <a class="person" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">${esc(p.name)}</a>
+        <p class="role">${esc(p.title || 'title not stated')}</p>
+        <div class="row">${kind}${p.why ? `<span class="tag why">${esc(p.why)}</span>` : ''}${src}</div>
+        ${addressHtml(found, p)}
+        ${p.note ? `<p class="pnote">${esc(p.note)}</p>` : ''}
+      </div>`;
+    })()
+    : `<p class="va-none">No named people researched. The searches on the left of this pane are the path.</p>`;
+
+  const rest = people.slice(1).map((p) => personC(p, row, found)).join('');
+  const searches = searchesFor(row).map((s) =>
+    `<li><a href="${esc(safeHref(s.url))}" target="_blank" rel="noopener noreferrer"><span class="n">${s.step}</span><span>${esc(s.label)}</span><span class="why">${esc(s.why)}</span></a></li>`
+  ).join('');
+
+  at('#c-body').innerHTML = `<div class="vc-shell">
+    <div class="vc-list" role="listbox" aria-label="Employers">${list}</div>
+    <div class="vc-detail">
+      <header>
+        <span class="rank">${esc(row.rank_pct)}%</span>
+        <div>
+          <h3>${esc(row.title)}</h3>
+          <p class="co">${esc(companyName(row))}</p>
+        </div>
+        ${metaBits(row)}
+      </header>
+      ${conventionLede(found)}
+      ${found && found.note ? `<p class="co-note">${esc(found.note)}</p>` : ''}
+      <ol class="vc-searches">${searches}</ol>
+      ${hero}
+      ${rest ? `<ul class="vc-rest">${rest}</ul>` : ''}
+      ${openersHtml(row, 'vc-openers')}
+    </div>
+  </div>`;
+}
+
+/**
+ * Copy handler. Restores the original label, including "Take the address".
+ * @param {HTMLButtonElement} button
+ */
+async function copyFrom(button) {
+  const original = button.textContent;
+  try {
+    await navigator.clipboard.writeText(button.getAttribute('data-msg') || '');
+    button.textContent = 'Copied';
+    setTimeout(() => { button.textContent = original; }, 1600);
+  } catch {
+    button.textContent = 'Select it and copy';
+    setTimeout(() => { button.textContent = original; }, 2200);
+  }
+}
+
+/**
+ * B sitting actions.
+ * @param {string} action
+ * @param {string|null} rawI
+ */
+function handleB(action, rawI) {
+  const row = bCurrent();
+  const found = row ? contactsFor(row.company) : null;
+  const people = found && Array.isArray(found.people) ? found.people : [];
+  if (action === 'reset') {
+    bState.done.clear();
+    bState.index = 0;
+    bState.person = 0;
+    bState.step = 'who';
+    bState.opener = 0;
+  } else if (action === 'skip-employer' || action === 'next-employer') {
+    if (row) bState.done.add(rowKey(row));
+    bState.person = 0;
+    bState.step = 'who';
+    bState.opener = 0;
+  } else if (action === 'write-person') {
+    bState.step = 'find';
+  } else if (action === 'skip-person') {
+    bState.person += 1;
+    if (bState.person >= people.length) {
+      bState.person = -1;
+      bState.step = 'find';
+    }
+  } else if (action === 'to-find') {
+    bState.person = -1;
+    bState.step = 'find';
+  } else if (action === 'to-say') {
+    bState.step = 'say';
+  } else if (action === 'to-who') {
+    if (bState.person < 0) bState.person = 0;
+    bState.step = 'who';
+  } else if (action === 'opener') {
+    bState.opener = Number(rawI) || 0;
+  } else if (action === 'goto') {
+    bState.index = Number(rawI) || 0;
+    bState.person = 0;
+    bState.step = 'who';
+    bState.opener = 0;
+  }
+  renderB();
+}
+
+/**
+ * Light is the default. The button names the theme it will switch TO.
+ */
+function syncThemeButton() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const button = at('#theme');
+  button.setAttribute('aria-pressed', dark ? 'true' : 'false');
+  button.textContent = dark ? 'Light theme' : 'Dark theme';
+}
+
+async function main() {
+  syncThemeButton();
+  at('#theme').addEventListener('click', () => {
+    const root = document.documentElement;
+    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    if (next === 'light') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', 'dark');
+    try { localStorage.setItem('apply-theme', next); } catch { /* private mode */ }
+    syncThemeButton();
+  });
+
+  try {
+    const res = await fetch('./data/contacts.json', { headers: { 'cache-control': 'no-cache' } });
+    if (res.ok) CONTACTS = (await res.json()).companies || {};
+  } catch { CONTACTS = {}; }
+
+  let rows = [];
+  try {
+    const res = await fetch(API, { headers: { 'cache-control': 'no-cache' } });
+    const body = await res.json();
+    rows = body.jobs || [];
+  } catch (error) {
+    const msg = `<p class="empty">The queue could not be read: ${esc(error.message)}</p>`;
+    at('#a-body').innerHTML = msg;
+    at('#b-body').innerHTML = msg;
+    at('#c-body').innerHTML = msg;
+    at('#count').textContent = 'The queue could not be read.';
+    return;
+  }
+
+  const picked = pickTargets(rows);
+  GROUPS = [
+    {
+      id: 'fresh',
+      heading: `Posted in the last ${FRESH_DAYS} days`,
+      note: 'Open, ranked, and dated by the board inside your window.',
+      rows: picked.fresh
+    },
+    {
+      id: 'applied',
+      heading: 'Already applied for',
+      note: 'A sent application is not a finished one. These are the rows to follow up on.',
+      rows: picked.applied
+    },
+    {
+      id: 'undated',
+      heading: 'No posted date',
+      note: 'The board published no date for these, so their age is unknown rather than old.',
+      rows: picked.undated
+    }
+  ].filter((g) => g.rows.length);
+  QUEUE = GROUPS.flatMap((g) => g.rows);
+
+  const total = picked.fresh.length + picked.applied.length + picked.undated.length;
+  at('#count').textContent = total
+    ? `${picked.fresh.length} posted in the last ${FRESH_DAYS} days, ${picked.applied.length} already applied for, `
+      + `${picked.undated.length} the board never dated.`
+    : 'Nothing ranked and open right now.';
+
+  renderA();
+  renderB();
+  renderC();
+
+  at('#board').addEventListener('click', (event) => {
+    const copy = event.target.closest('button.copy');
+    if (copy && copy.hasAttribute('data-msg')) {
+      event.preventDefault();
+      copyFrom(copy);
+      return;
+    }
+    const b = event.target.closest('[data-b]');
+    if (b) {
+      event.preventDefault();
+      handleB(b.getAttribute('data-b'), b.getAttribute('data-i'));
+      return;
+    }
+    const c = event.target.closest('[data-c-key]');
+    if (c) {
+      event.preventDefault();
+      cSelected = c.getAttribute('data-c-key') || '';
+      renderC();
+    }
+  });
+}
+
+main();
+</script>
+</body>
+</html>
