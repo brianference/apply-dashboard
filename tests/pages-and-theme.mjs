@@ -160,6 +160,34 @@ const backToLight = await painted();
 check('and the toggle goes back the other way',
   luminance(backToLight.bg) > 160, backToLight.bg);
 
+/* ------------------------------------------------------------ the tab row -- */
+
+/* Every section tab on ONE row. The column count used to be the literal 4 in
+   site-nav.css while site-nav.js defined five sections, so Profile sat alone on
+   a second row at every width including 375. Nothing measured it, so it shipped.
+   Measured on the painted top of each link rather than on the CSS: a grid can
+   declare five columns and still wrap if an item does not fit. */
+for (const path of ['/', '/outreach/', '/portfolio/']) {
+  for (const width of [1280, 900, 375]) {
+    const tabCtx = await browser.newContext({ viewport: { width, height: 900 } });
+    const tabPage = await tabCtx.newPage();
+    await tabPage.goto(`${SITE}${path}`, { waitUntil: 'domcontentloaded' });
+    const tabs = tabPage.locator('header.site nav.tabs a');
+    await tabs.first().waitFor({ state: 'visible', timeout: 20000 });
+    const seen = await tabPage.locator('header.site nav.tabs').evaluate((nav) => {
+      const links = [...nav.querySelectorAll('a')];
+      return {
+        count: links.length,
+        rows: new Set(links.map((a) => Math.round(a.getBoundingClientRect().top))).size,
+        labels: links.map((a) => a.textContent.trim())
+      };
+    });
+    check(`the ${seen.count} section tabs sit on one row at ${width}px on ${path}`,
+      seen.rows === 1, `${seen.rows} row(s): ${seen.labels.join(' | ')}`);
+    await tabCtx.close();
+  }
+}
+
 check('no console error on any page', errors.length === 0, errors.slice(0, 2).join(' | '));
 
 await browser.close();

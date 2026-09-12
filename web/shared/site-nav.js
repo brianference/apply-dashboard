@@ -390,7 +390,15 @@ export function buildHeader(who) {
       el("div", { class: "spacer" }),
       el("div", { class: "tools" }, [themeButton(), who.authenticated ? accountControl(who) : signInControl()])
     ]),
-    el("nav", { class: "tabs", "aria-label": "Sections" }, SECTIONS.map((s) => el("a", {
+    /* The stylesheet cannot count SECTIONS, and a hardcoded column count does
+       not survive someone adding a section: four columns held five tabs, so
+       Profile wrapped onto a row of its own. The count travels with the
+       markup instead. */
+    el("nav", {
+      class: "tabs",
+      "aria-label": "Sections",
+      style: `--tab-count: ${SECTIONS.length}`
+    }, SECTIONS.map((s) => el("a", {
       href: s.href,
       /* aria-current is what actually announces the current page; the class is
          only how it is painted. */
