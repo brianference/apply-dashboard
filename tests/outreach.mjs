@@ -73,15 +73,22 @@ check('every profile link traces to a recorded source, none is a guessed slug',
 
 /* And a name with no source is indistinguishable from an invented one. */
 const unsourced = await page.locator('.people .src.none').count();
+const sourced = await page.locator('.people a.src').count();
+/* Counting only the unsourced would pass a page rendering no people at all. */
 check('every named person carries the source the name was read on',
-  unsourced === 0, `${unsourced} without a source`);
+  sourced > 0 && unsourced === 0, `${sourced} sourced, ${unsourced} without`);
 
 /* Each named person's link must be about THAT person: either the profile URL
    they published, or a search with their own name quoted in it. A link that is
    neither is a link to somebody else under their name. */
-const peopleLinks = await page.locator('.people li').evaluateAll((els) => els.map((li) => ({
-  name: (li.querySelector('.person')?.textContent || '').trim(),
-  href: li.querySelector('.person')?.getAttribute('href') || ''
+/* This selector said `.people li` for one run after the roster turned the people
+   into table rows: it matched nothing, reported "0 people checked" and PASSED.
+   A filter over an empty list is always empty, so length === 0 means both
+   "nothing wrong" and "nothing examined". The non-zero count is what separates
+   them. */
+const peopleLinks = await page.locator('.people tr[data-person]').evaluateAll((els) => els.map((row) => ({
+  name: (row.querySelector('.person')?.textContent || '').trim(),
+  href: row.querySelector('.person')?.getAttribute('href') || ''
 })));
 const mismatched = peopleLinks.filter(({ name, href }) => {
   if (!name) return true;
@@ -90,7 +97,7 @@ const mismatched = peopleLinks.filter(({ name, href }) => {
   return !decoded.includes('"' + name + '"');
 });
 check('each link is that person\'s published profile or a search for their name',
-  mismatched.length === 0,
+  peopleLinks.length > 0 && mismatched.length === 0,
   mismatched.slice(0, 2).map((m) => m.name).join(' | ') || peopleLinks.length + ' people checked');
 
 const searches = hrefs.filter((h) => /linkedin\.com\/search\/results\//i.test(h));
@@ -108,18 +115,34 @@ check('the four steps appear in the method\'s order',
   firstSteps.length === 4 && /^1/.test(firstSteps[0].trim()) && /^4/.test(firstSteps[3].trim()),
   firstSteps.map((t) => t.replace(/\s+/g, ' ').trim()).join(' / '));
 
-/* The four rows share one gutter. Sized per row instead, the wider label
-   ("Who has posted about the team") pushed its own why-text 73px right of the
-   other three, so the method read as four ragged indents. Measured on the
-   PAINTED left edge: a stylesheet grep for subgrid would pass a page that
-   reintroduced the rag in any other unit. */
-const whyLefts = await page.locator('.target').first().locator('.steps .why')
+/* The reasons live in one expander per card now, not beside all four chips:
+   the same four sentences on every card is noise the tenth time. They still
+   have to line up, and a collapsed element has no painted box, so the expander
+   is opened before measuring. Measured on the PAINTED left edge, because a
+   stylesheet grep would pass a layout that went ragged in any other unit.
+
+   The previous version of this check measured `.steps .why`, which the chip
+   redesign removed. It reported a spread of -Infinity over an empty list rather
+   than failing, which is what a check measuring nothing looks like. Requiring
+   exactly four is what turns that into a failure. */
+const firstCard = page.locator('.target').first();
+await firstCard.locator('.reasons summary').click();
+const whyLefts = await firstCard.locator('.reasonlist .why')
   .evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().left)));
-const spread = Math.max(...whyLefts) - Math.min(...whyLefts);
-check('the four why-texts share one left edge',
-  whyLefts.length === 4 && spread === 0, `spread ${spread}px of ${whyLefts.join(' ')}`);
+const spread = whyLefts.length ? Math.max(...whyLefts) - Math.min(...whyLefts) : null;
+check('all four search reasons share one left edge',
+  whyLefts.length === 4 && spread === 0,
+  `${whyLefts.length} reasons, spread ${spread}px of ${whyLefts.join(' ')}`);
 
 /* ----------------------------------------------------------- the addresses -- */
+
+/* Read once, used by the checks below and by the evidence check. */
+const ledes = await page.locator('.contacts-lede').allTextContents();
+const ledesWithConvention = ledes.filter((t) => /not verified/i.test(t));
+const silent = ledes.filter((t) => !/not verified|No address convention/i.test(t));
+check('each contacts block states whether a convention exists',
+  silent.length === 0, silent.slice(0, 1).join('') || `${ledes.length} blocks`);
+
 
 /* An address on this page is DERIVED from an employer's convention, never
  * looked up. Two things must therefore hold, and the second is the one that
@@ -167,18 +190,31 @@ check('every address sits on the domain its own employer declared',
 
 /* The label is the only thing stopping a derived address reading as a verified
    one, so it has to carry the evidence rather than a reassuring word. */
-const badLabels = mails.flatMap((c) => c.labels)
-  .filter((l) => !/derived from \S+, \d+% of \d+/.test(l));
-check('every address is labelled derived, with the share and the sample size',
-  badLabels.length === 0, badLabels.slice(0, 2).join(' | ')
-    || `${mails.flatMap((c) => c.labels).length} labelled`);
+/* Two checks where there used to be one. The share and the sample size are
+   stated once per card, in the lede, because the convention belongs to the
+   employer and printing it nine times was 9 identical lines of noise. Each row
+   still has to be marked derived, and the full evidence has to be reachable
+   without a mouse being required to learn the numbers exist. */
+const allLabels = mails.flatMap((c) => c.labels);
+const badLabels = allLabels.filter((l) => !/derived/i.test(l));
+check('every address is marked derived', badLabels.length === 0,
+  badLabels.slice(0, 2).join(' | ') || `${allLabels.length} marked`);
+
+const titles = await page.locator('.people .mail-why').evaluateAll((els) =>
+  els.map((e) => e.getAttribute('title') || ''));
+const thinTitles = titles.filter((t) => !/derived from \S+, \d+% of \d+/.test(t));
+check('and carries the share and sample size in full',
+  titles.length > 0 && thinTitles.length === 0,
+  thinTitles.slice(0, 1).join('') || `${titles.length} carry the evidence`);
+
+/* The numbers must be VISIBLE somewhere on the card, not only in a title. */
+const ledeNumbers = ledesWithConvention.filter((t) => /\d+ of \d+ unique/.test(t));
+check('the card states the evidence in words a reader can see',
+  ledesWithConvention.length === 0 || ledeNumbers.length === ledesWithConvention.length,
+  `${ledeNumbers.length} of ${ledesWithConvention.length} conventions state their counts`);
 
 /* And an employer with no convention must SAY so rather than stay silent, or a
    reader cannot tell "no evidence" from "not looked at". */
-const ledes = await page.locator('.contacts-lede').allTextContents();
-const silent = ledes.filter((t) => !/not verified|No address convention/i.test(t));
-check('each contacts block states whether a convention exists',
-  silent.length === 0, silent.slice(0, 1).join('') || `${ledes.length} blocks`);
 
 /* ------------------------------------------------------------ the postings -- */
 
