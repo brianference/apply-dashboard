@@ -27,7 +27,9 @@ const SOURCE_LOADERS = {
   himalayas: () => import("./sources/himalayas.mjs"),
   weworkremotely: () => import("./sources/weworkremotely.mjs"),
   jobspresso: () => import("./sources/jobspresso.mjs"),
-  oracle: () => import("./sources/oracle.mjs")
+  oracle: () => import("./sources/oracle.mjs"),
+  remotive: () => import("./sources/remotive.mjs"),
+  workingnomads: () => import("./sources/workingnomads.mjs")
 };
 
 /**
