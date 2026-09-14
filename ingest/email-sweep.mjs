@@ -36,7 +36,13 @@ const EMPLOYERS = [
   { key: 'BillingPlatform', org: 'BillingPlatform', domain: 'billingplatform.com' },
   { key: 'Clarium', org: 'clariumhealth', domain: 'clariumhealth.com' },
   { key: 'Lexipol', org: 'lexipol', domain: 'lexipol.com' },
-  { key: 'Arity', org: 'arity', domain: 'arity.com' }
+  { key: 'Arity', org: 'arity', domain: 'arity.com' },
+  { key: 'Deepgram', org: 'deepgram', domain: 'deepgram.com' },
+  { key: 'Pinterest', org: 'pinterest', domain: 'pinterest.com' },
+  { key: 'Netflix', org: 'Netflix', domain: 'netflix.com' },
+  { key: 'Tremendous', org: 'tremendous-rewards', domain: 'tremendous.com' },
+  { key: 'Filevine', org: 'filevine', domain: 'filevine.com' },
+  { key: 'MeridianLink', org: 'meridianlink', domain: 'meridianlink.com' }
 ];
 
 /** How many of an org's most recently pushed repositories to read. */
