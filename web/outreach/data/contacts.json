@@ -888,7 +888,7 @@
         "https://www.revenuecat.com/blog/company/how-we-work-remotely-at-revenuecat",
         "https://www.revenuecat.com/blog/company/how-we-hire-at-revenuecat"
       ],
-      "note": "Their company blog posts carry a dateModified of 2026-09-11, so the titles in them are being kept current even though the posts are older. No RevenueCat individual publishes a profile URL on any page read, so these are name searches.",
+      "note": "Their company blog posts carry a dateModified of 2026-09-11, so the titles in them are being kept current even though the posts are older. No RevenueCat individual publishes a profile URL on any page read, so these are name searches. Two 'Inside the product org' posts that carried their org chart now redirect to the jobs board, so the org structure below the Head of Product is no longer published anywhere. The founders' titles sit in 2022 and 2023 body text on pages whose dateModified is 2026-09-11.",
       "people": [
         {
           "name": "Jens-Fabian Goetzmann",
@@ -897,6 +897,14 @@
           "profile": null,
           "why": "most likely owns this req",
           "note": "Described as 'our Head of Product' in RevenueCat's own post about how they work remotely, which carries a dateModified of 2026-09-11."
+        },
+        {
+          "name": "Niklas Winkels",
+          "title": "no title published, author of the Funnels public beta announcement",
+          "source": "https://www.revenuecat.com/blog/company/funnels-public-beta",
+          "profile": null,
+          "why": "the sharper contact: he ships the thing this req is about",
+          "note": "The req is Senior Product Manager, Funnels, and he wrote their Funnels public beta post dated 2026-03-17 as well as the product changelog. RevenueCat publishes no title for him."
         },
         {
           "name": "Jacob Eiting",
@@ -911,6 +919,20 @@
           "source": "https://www.revenuecat.com/blog/company/how-we-hire-at-revenuecat",
           "profile": null,
           "why": "co-founder, peer to product"
+        },
+        {
+          "name": "Josh Holtz",
+          "title": "SDKs at RevenueCat, per his own GitHub profile",
+          "source": "https://github.com/joshdholtz",
+          "profile": "https://www.linkedin.com/in/josh-holtz-771b582a",
+          "why": "engineer, ask what the team ships"
+        },
+        {
+          "name": "Nihal Gonsalves",
+          "title": "@RevenueCat, per his own GitHub profile",
+          "source": "https://github.com/nihalgonsalves",
+          "profile": "https://www.linkedin.com/in/nihal-gonsalves",
+          "why": "engineer"
         }
       ],
       "email": {
@@ -919,6 +941,69 @@
         "unique": 12,
         "reason": "top shape only 67% of 12, floor is 70%",
         "evidence": "read purchases-ios, purchases-android, purchases-js, cordova-plugin-purchases, purchases-hybrid-common, purchases-flutter, purchases-capacitor, purchases-kmp; not enough agreement to state a convention",
+        "checked": "2026-09-14"
+      }
+    },
+    "Camunda": {
+      "sources": [
+        "https://camunda.com/about/leadership/",
+        "https://camunda.com/press-releases/camundacon-2026-brings-the-global-orchestration-community-together-to-break-through-the-automation-ceiling/"
+      ],
+      "note": "One of the few employers here whose own leadership page publishes profile URLs, so the three founders and the CTO link straight through. Their CamundaCon live blogs name the working product managers, which is where the layer below the VP comes from.",
+      "people": [
+        {
+          "name": "Bastian Körber",
+          "title": "VP Product Management",
+          "source": "https://camunda.com/press-releases/camundacon-2026-brings-the-global-orchestration-community-together-to-break-through-the-automation-ceiling/",
+          "profile": null,
+          "why": "most likely owns this req",
+          "note": "Named in Camunda's own CamundaCon 2026 press release dated 2026-04-09. The leadership page does not list him, so this title rests on that release."
+        },
+        {
+          "name": "Daniel Meyer",
+          "title": "CTO",
+          "source": "https://camunda.com/about/leadership/",
+          "profile": "https://www.linkedin.com/in/daniel-meyer-a7713953",
+          "why": "product reports up through him",
+          "note": "His own bio on that page says he leads the product and engineering teams."
+        },
+        {
+          "name": "Felix Müller",
+          "title": "Senior Principal Product Manager at Camunda",
+          "source": "https://camunda.com/blog/2025/10/camundacon-nyc-2025-day-2-live-blog/",
+          "profile": null,
+          "why": "the most senior working PM they name",
+          "note": "From a CamundaCon live blog dated October 2025, so about 11 months old."
+        },
+        {
+          "name": "Tobias Conz",
+          "title": "Senior Product Manager at Camunda",
+          "source": "https://camunda.com/blog/2025/10/camundacon-nyc-2025-day-1-live-blog/",
+          "profile": null,
+          "why": "a peer to this req"
+        },
+        {
+          "name": "Jakob Freund",
+          "title": "CEO and Co-Founder",
+          "source": "https://camunda.com/about/leadership/",
+          "profile": "https://www.linkedin.com/in/jakob-freund-camunda",
+          "why": "co-founder"
+        },
+        {
+          "name": "Bernd Ruecker",
+          "title": "Chief Technologist and Co-Founder",
+          "source": "https://camunda.com/about/leadership/",
+          "profile": "https://www.linkedin.com/in/bernd-ruecker",
+          "why": "co-founder, and the most publicly active of them"
+        }
+      ],
+      "email": {
+        "domain": "camunda.com",
+        "shape": "first.last",
+        "unique": 29,
+        "agree": 29,
+        "pct": 100,
+        "evidence": "29 of 29 unique camunda.com addresses in public commit metadata (camunda, connectors, camunda-platform-helm, camunda-docs) use first.last",
         "checked": "2026-09-14"
       }
     }
