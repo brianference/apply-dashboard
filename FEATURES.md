@@ -138,7 +138,7 @@ projects.
 
 ## Known gaps, gathered
 
-Measured against the live queue and the live outreach page on 2026-09-11, not
+Measured against the live queue and the live outreach page on 2026-09-14, not
 recalled. Re-measure before trusting this list: the four items that used to sit
 here were all closed and the list said otherwise for weeks. What was here and is
 now done, with where it went: the pay floor (`ingest/test-pay-tier.mjs`, which
@@ -151,10 +151,10 @@ header search, chips, theme and the legal pages (`tests/search-and-chips.mjs`,
 **Host-limited, not fixable from here.** These are gaps in what employers
 publish, so no amount of reading closes them:
 
-1. 180 of 369 queued rows (49%) carry no published pay band. The board published
+1. 181 of 375 queued rows (48%) carry no published pay band. The board published
    nothing, and a guessed band is worse than a blank one, so the row reads "no
    band published".
-2. 43 of 369 (12%) carry no posted date. Their age is unknown rather than old,
+2. 43 of 375 (11%) carry no posted date. Their age is unknown rather than old,
    which is why the outreach page groups them separately instead of dropping
    them under the seven-day rule.
 3. Six of the nine researched employers have no address convention, because no
@@ -163,7 +163,7 @@ publish, so no amount of reading closes them:
 
 **Open work, fixable.**
 
-4. 53 distinct employers on the outreach page have no named people yet. The
+4. 54 distinct employers on the outreach page have no named people yet. The
    named layer covers 9 employers and 46 people. The highest-ranked uncovered
    ones are applications already sent: Tremendous and Filevine at 82%, Samsara
    at 80%, MeridianLink at 79%.
