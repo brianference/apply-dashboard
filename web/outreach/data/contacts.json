@@ -87,11 +87,11 @@
       "email": {
         "domain": "docker.com",
         "shape": "first.last",
-        "unique": 19,
-        "agree": 17,
-        "pct": 89,
-        "evidence": "17 of 19 unique docker.com addresses in public commit metadata (homebrew-tap, sbx-releases, docker-agent, scout-cli, desktop-action, buildx) use first.last",
-        "checked": "2026-09-11"
+        "unique": 22,
+        "agree": 21,
+        "pct": 95,
+        "evidence": "21 of 22 unique docker.com addresses in public commit metadata (mcp-gateway-oauth-helpers, docker-agent, docker-agent-action, docs, docker-py, cli, sbx-releases) use first.last",
+        "checked": "2026-09-14"
       }
     },
     "Arity": {
@@ -145,7 +145,7 @@
         "unique": 0,
         "reason": "no addresses",
         "evidence": "no public repository exposes an address on this domain",
-        "checked": "2026-09-11"
+        "checked": "2026-09-14"
       }
     },
     "Jerry.ai": {
@@ -216,7 +216,7 @@
         "unique": 5,
         "reason": "top shape only 60% of 5, floor is 70%",
         "evidence": "read github-asana-action, setup-git-credentials, actions-s3-cache, marksy-lite; not enough agreement to state a convention",
-        "checked": "2026-09-11"
+        "checked": "2026-09-14"
       }
     },
     "MoneyGram": {
@@ -263,7 +263,7 @@
         "unique": 0,
         "reason": "no addresses",
         "evidence": "no public repository exposes an address on this domain",
-        "checked": "2026-09-11"
+        "checked": "2026-09-14"
       }
     },
     "ZipRecruiter": {
@@ -335,7 +335,7 @@
         "agree": 12,
         "pct": 86,
         "evidence": "12 of 14 unique ziprecruiter.com addresses in public commit metadata (h3-go, zr_murmur2, flair, grafana-tools-sdk, poetry2uv, k8s-prometheus-adapter, cloudwatching, chromedriver-proxy) use first",
-        "checked": "2026-09-11"
+        "checked": "2026-09-14"
       }
     },
     "LawnStarter": {
@@ -383,7 +383,7 @@
         "agree": 7,
         "pct": 100,
         "evidence": "7 of 7 unique lawnstarter.com addresses in public commit metadata (react-native-picker-select, Bettermode-Project, engineer-assessment, testing-helpers, customer-feedback-trust-safety-fee, The-Knot-Scraping-Tool) use first.last",
-        "checked": "2026-09-11"
+        "checked": "2026-09-14"
       }
     },
     "Clarium": {
@@ -421,7 +421,7 @@
         "unique": 0,
         "reason": "no addresses",
         "evidence": "no public repository exposes an address on this domain",
-        "checked": "2026-09-11"
+        "checked": "2026-09-14"
       }
     },
     "Lexipol": {
@@ -460,7 +460,7 @@
         "unique": 0,
         "reason": "no addresses",
         "evidence": "no public repository exposes an address on this domain",
-        "checked": "2026-09-11"
+        "checked": "2026-09-14"
       }
     },
     "BillingPlatform": {
@@ -506,7 +506,7 @@
         "unique": 0,
         "reason": "no addresses",
         "evidence": "no public repository exposes an address on this domain",
-        "checked": "2026-09-11"
+        "checked": "2026-09-14"
       }
     },
     "MeridianLink": {
@@ -562,7 +562,15 @@
           "profile": null,
           "why": "owns the mortgage line their open PM reqs sit in"
         }
-      ]
+      ],
+      "email": {
+        "domain": "meridianlink.com",
+        "shape": null,
+        "unique": 0,
+        "reason": "no addresses",
+        "evidence": "no public repository exposes an address on this domain",
+        "checked": "2026-09-14"
+      }
     },
     "Litify": {
       "sources": [
@@ -570,6 +578,262 @@
       ],
       "note": "THE ROLE HE APPLIED TO WAS UPGRADED. Greenhouse req 8069113 is the same posting he applied to, and it is still open, but its title is now 'Director of Product - Litify ELM Practice Management & AI Solutions' where the stored row still reads 'Senior Product Manager (ELM Practice Management)'. Verified on Litify's own board 2026-09-14: it is the only product posting of their ten. An application already sent against a req that has since been retitled upward is worth a follow-up naming the new title. No named product leader was found on any Litify primary source.",
       "people": []
+    },
+    "Deepgram": {
+      "sources": [
+        "https://deepgram.com/company/leadership",
+        "https://deepgram.com/careers"
+      ],
+      "note": "The clearest answer of any employer researched so far. The Senior Product Manager, Enterprise req is live on their own Ashby board, published 2026-07-24, in a Product department with exactly two product executives above it, and both publish a profile URL on deepgram.com. Their per-author pages carry real profile links in the HTML, which is where most of these came from.",
+      "people": [
+        {
+          "name": "Natalie Rutgers",
+          "title": "SVP of Product",
+          "source": "https://deepgram.com/company/leadership",
+          "profile": "https://www.linkedin.com/in/natalie-rutgers-907430103",
+          "why": "most likely owns this req",
+          "note": "Her title differs across two Deepgram pages: SVP of Product on the leadership page, VP of Product on her author page. The leadership page carries the more recent lastmod, so SVP is the likelier current form."
+        },
+        {
+          "name": "Mehul Patel",
+          "title": "VP of Products",
+          "source": "https://deepgram.com/authors/mehul-patel",
+          "profile": "https://www.linkedin.com/in/mehulpatelai",
+          "why": "the other product executive above this req"
+        },
+        {
+          "name": "Mark Butler",
+          "title": "Talent Acquisition Manager",
+          "source": "https://deepgram.com/careers",
+          "profile": null,
+          "why": "the named recruiter",
+          "note": "One of very few employers here who name their recruiter on their own site."
+        },
+        {
+          "name": "Scott Stephenson",
+          "title": "CEO",
+          "source": "https://deepgram.com/company/leadership",
+          "profile": "https://www.linkedin.com/in/scott-stephenson-",
+          "why": "co-founder",
+          "note": "The trailing hyphen in that URL is verbatim, not a typo."
+        },
+        {
+          "name": "Adam Sypniewski",
+          "title": "CTO",
+          "source": "https://deepgram.com/authors/adam-sypniewski",
+          "profile": "https://www.linkedin.com/in/adam-sypniewski-32a25982",
+          "why": "peer to product"
+        },
+        {
+          "name": "Shadi Baqleh",
+          "title": "COO",
+          "source": "https://deepgram.com/authors/shadi-baqleh",
+          "profile": "https://www.linkedin.com/in/shadibaqleh",
+          "why": "runs operations"
+        },
+        {
+          "name": "Nick Martin",
+          "title": "Senior Technical Product Manager",
+          "source": "https://deepgram.com/authors/nick-martin",
+          "profile": null,
+          "why": "the closest peer to this req"
+        }
+      ],
+      "email": {
+        "domain": "deepgram.com",
+        "shape": "first.last",
+        "unique": 9,
+        "agree": 9,
+        "pct": 100,
+        "evidence": "9 of 9 unique deepgram.com addresses in public commit metadata (deepgram-js-sdk, deepgram-rust-sdk, deepgram-go-sdk, deepgram-java-sdk, deepgram-python-sdk, deepgram-js-sdk-transport-sagemaker, deepgram-python-sdk-transport-sagemaker) use first.last",
+        "checked": "2026-09-14"
+      }
+    },
+    "Netflix": {
+      "sources": [
+        "https://about.netflix.com/en/leadership",
+        "https://netflixtechblog.com/scaling-global-storytelling-modernizing-localization-analytics-at-netflix-816f47290641"
+      ],
+      "note": "These are the AREA'S PUBLIC VOICES, not a confirmed hiring manager, and the difference matters before writing to any of them. Netflix publishes no director or VP of product for localization anywhere on its own site: the leadership page goes straight to the CPTO. The req itself, created 2026-08-27 on their own ATS, names nobody, and reads as AI and ML localization for internal tools and content operations rather than consumer streaming.",
+      "people": [
+        {
+          "name": "Kathy Rokni",
+          "title": "Director of Globalization",
+          "source": "https://locworld.com/speakers/kathy-rokni/",
+          "profile": null,
+          "why": "closest to owning this area, currency unproven",
+          "note": "Title read on her LocWorld speaker page, timestamped about 12 months ago, and she is NOT on the LocWorld56 2026 speaker list, so whether she still holds it is unproven. An aggregator gives Senior Director; that is not recorded here because no Netflix source supports it."
+        },
+        {
+          "name": "Valentin Geffrier",
+          "title": "no title stated, bylined on Netflix's localization analytics post",
+          "source": "https://netflixtechblog.com/scaling-global-storytelling-modernizing-localization-analytics-at-netflix-816f47290641",
+          "profile": "https://www.linkedin.com/in/valentingeffrier/",
+          "why": "wrote the localization work, March 2026",
+          "note": "One of only two Netflix localization people with a profile URL published on a primary source in the last six months. The post states no title for him."
+        },
+        {
+          "name": "Tanguy Cornuau",
+          "title": "no title stated, bylined on the same post",
+          "source": "https://netflixtechblog.com/scaling-global-storytelling-modernizing-localization-analytics-at-netflix-816f47290641",
+          "profile": "https://www.linkedin.com/in/tanguycornuau/",
+          "why": "co-wrote the localization work, March 2026"
+        },
+        {
+          "name": "Elizabeth Stone",
+          "title": "Chief Product and Technology Officer",
+          "source": "https://about.netflix.com/en/leadership",
+          "profile": null,
+          "why": "the only product line of sight Netflix publishes",
+          "note": "Named for completeness. A PM req is many rungs below her."
+        }
+      ],
+      "email": {
+        "domain": "netflix.com",
+        "shape": "first",
+        "unique": 22,
+        "agree": 22,
+        "pct": 100,
+        "evidence": "22 of 22 unique netflix.com addresses in public commit metadata (vmaf, metaflow, dgs-framework, metacat, nerror, metaflow-nflx-extensions, mantis, zuul) use first",
+        "checked": "2026-09-14"
+      }
+    },
+    "Pinterest": {
+      "sources": [
+        "https://newsroom.pinterest.com/company/leadership/",
+        "https://pinterest-engineering.medium.com/on-the-re-prioritization-of-open-source-ai-86f7279481e3"
+      ],
+      "note": "Pinterest publishes NO individual profile URL anywhere, not on its newsroom and not on its engineering blog, so every link here is a name search. Two warnings. The req is absent from pinterestcareers.com's own sitemap, so it may be closed or unlisted. And aggregators describe it as a Trust and Safety role owning content-safety model lifecycle rather than the AI and ML platform org; that could not be confirmed on Pinterest's own site, so the owner is genuinely unresolved between two readings.",
+      "people": [
+        {
+          "name": "Ryan Galgon",
+          "title": "Director, Product Management",
+          "source": "https://pinterest-engineering.medium.com/on-the-re-prioritization-of-open-source-ai-86f7279481e3",
+          "profile": null,
+          "why": "likely owner if this is the AI platform org",
+          "note": "The only named product leader over AI and ML that Pinterest publishes. Bylined on their engineering blog, 2025-12-04."
+        },
+        {
+          "name": "Faisal Farooq",
+          "title": "Sr. Director Trust Engineering",
+          "source": "https://pinterest-engineering.medium.com/how-pinterest-built-a-real-time-radar-for-violative-content-using-ai-d5a108e02ac2",
+          "profile": null,
+          "why": "likely owner if this is a Trust and Safety role",
+          "note": "Bylined 2025-12-08 on the content-safety ML work the req may belong to."
+        },
+        {
+          "name": "David Liu",
+          "title": "Senior Director of Engineering, ML Platform",
+          "source": "https://pinterest-engineering.medium.com/a-decade-of-ai-platform-at-pinterest-4e3b37c0f758",
+          "profile": null,
+          "why": "runs the platform this role would serve"
+        },
+        {
+          "name": "Matt Madrigal",
+          "title": "Chief Product and Technology Officer",
+          "source": "https://newsroom.pinterest.com/company/leadership/",
+          "profile": null,
+          "why": "top of product",
+          "note": "Bylined as Chief Technology Officer in December 2025, so the product half is recent."
+        }
+      ],
+      "email": {
+        "domain": "pinterest.com",
+        "shape": "first",
+        "unique": 18,
+        "agree": 17,
+        "pct": 94,
+        "evidence": "17 of 18 unique pinterest.com addresses in public commit metadata (querybook, gprofiler-performance-studio, figma-calculations, mojito, PINOperation, PINRemoteImage) use first",
+        "checked": "2026-09-14"
+      }
+    },
+    "Tremendous": {
+      "sources": [
+        "https://www.tremendous.com/about/",
+        "https://www.tremendous.com/careers/"
+      ],
+      "note": "No product title above PM exists anywhere on tremendous.com: no CPO, no VP Product, no Head of Product, on the site, newsroom, blog or GitHub. Five Senior PM reqs are open at once, and none states a reporting line. A search snippet calls the COO Head of Product over seven PMs; that phrasing appears on no primary source and is not recorded here.",
+      "people": [
+        {
+          "name": "Kapil Kale",
+          "title": "COO",
+          "source": "https://www.tremendous.com/about/",
+          "profile": null,
+          "why": "most likely owns this req",
+          "note": "Their own About page says he co-founded the company and that he runs the product and engineering team. Nobody else on their site holds a product title. His GitHub publishes only a Twitter link."
+        },
+        {
+          "name": "Nick Baum",
+          "title": "CEO",
+          "source": "https://www.tremendous.com/about/",
+          "profile": null,
+          "why": "co-founder"
+        },
+        {
+          "name": "Prateek",
+          "title": "Product, New York City. Their careers page gives no surname and no title",
+          "source": "https://www.tremendous.com/careers/",
+          "profile": "https://www.linkedin.com/in/prateek92/",
+          "why": "the only product person they name",
+          "note": "An employee card on their careers page, first name only, department Product. The profile URL is published in that page's HTML, which is how the surname becomes reachable without guessing one."
+        }
+      ],
+      "email": {
+        "domain": "tremendous.com",
+        "shape": "first",
+        "unique": 8,
+        "agree": 6,
+        "pct": 75,
+        "evidence": "6 of 8 unique tremendous.com addresses in public commit metadata (tremendous-ruby, tremendous-node, tremendous-python, tremendous-connect-sample-app, aws_agcod) use first",
+        "checked": "2026-09-14"
+      }
+    },
+    "Filevine": {
+      "sources": [
+        "https://lexsummit.com/speakers/",
+        "https://filevine.com/news/"
+      ],
+      "note": "LexSummit is Filevine's own conference, which is why its speaker page counts as a primary source here. The depositions product he applied against is the one their own 2025-09-08 release is about.",
+      "people": [
+        {
+          "name": "Michael Anderson",
+          "title": "Chief Product Officer, Filevine",
+          "source": "https://lexsummit.com/speakers/",
+          "profile": null,
+          "why": "most likely owns this req",
+          "note": "Quoted as Chief Product Officer in their 2024-09-12 release about the depositions product. An earlier 2023 podcast gives the older form, EVP of Product."
+        },
+        {
+          "name": "Alex McLaughlin",
+          "title": "VP of Product at Filevine",
+          "source": "https://filevine.com/podcasts/filevines-new-ai-deposition-tool-may-change-the-way-we-take-depositions-with-steve-embry-and-alex-mclaughlin/",
+          "profile": null,
+          "why": "spoke publicly about the depositions tool itself",
+          "note": "Title from a podcast dated 2024-12-03, about 21 months old, so treat it as possibly stale. He is the closest public voice to this exact product."
+        },
+        {
+          "name": "Ryan Anderson",
+          "title": "CEO & Co-Founder, Filevine",
+          "source": "https://lexsummit.com/speakers/",
+          "profile": "https://www.linkedin.com/in/ryan-anderson-49a30740",
+          "why": "co-founder, and the only Filevine profile URL published anywhere"
+        },
+        {
+          "name": "Sona Sulakian",
+          "title": "VP, AI Products at Filevine",
+          "source": "https://lexsummit.com/speakers/",
+          "profile": null,
+          "why": "owns the AI product line this role touches"
+        }
+      ],
+      "email": {
+        "domain": "filevine.com",
+        "shape": null,
+        "unique": 2,
+        "reason": "only 2 unique addresses, floor is 4",
+        "evidence": "read fedramp20x-low-submission, migration-helpers, filevine-api-examples; not enough agreement to state a convention",
+        "checked": "2026-09-14"
+      }
     }
   }
 }
