@@ -42,7 +42,10 @@ const EMPLOYERS = [
   { key: 'Netflix', org: 'Netflix', domain: 'netflix.com' },
   { key: 'Tremendous', org: 'tremendous-rewards', domain: 'tremendous.com' },
   { key: 'Filevine', org: 'filevine', domain: 'filevine.com' },
-  { key: 'MeridianLink', org: 'meridianlink', domain: 'meridianlink.com' }
+  { key: 'MeridianLink', org: 'meridianlink', domain: 'meridianlink.com' },
+  { key: 'Vanta', org: 'VantaInc', domain: 'vanta.com' },
+  { key: 'RevenueCat', org: 'RevenueCat', domain: 'revenuecat.com' },
+  { key: 'Camunda', org: 'camunda', domain: 'camunda.com' }
 ];
 
 /** How many of an org's most recently pushed repositories to read. */

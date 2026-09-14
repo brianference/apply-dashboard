@@ -834,6 +834,93 @@
         "evidence": "read fedramp20x-low-submission, migration-helpers, filevine-api-examples; not enough agreement to state a convention",
         "checked": "2026-09-14"
       }
+    },
+    "Vanta": {
+      "sources": [
+        "https://www.vanta.com/company/about",
+        "https://www.vanta.com/vantacon/speakers"
+      ],
+      "note": "Vanta publishes no author bylines and no profile URLs anywhere on its site, so all but one of these links are name searches. The Senior PM, Agent Ecosystem req is live on their Ashby board, published 2026-08-12, in a Product Management department. Five sibling product reqs are open alongside it, including a Senior Director of Product, so the org is being built out rather than backfilled.",
+      "people": [
+        {
+          "name": "Jeremy Epling",
+          "title": "Chief Product Officer",
+          "source": "https://www.vanta.com/company/about",
+          "profile": null,
+          "why": "most likely owns this req",
+          "note": "The req sits directly in the Product Management department, and Vanta names no product leader below him on any primary source."
+        },
+        {
+          "name": "Edward Thomson",
+          "title": "Product at Vanta, per his own GitHub profile",
+          "source": "https://github.com/ethomson",
+          "profile": null,
+          "why": "the best-evidenced product contact",
+          "note": "His GitHub reads company Vanta and bio 'Product at Vanta; maintainer of libgit2. Formerly product and engineering at Vercel, GitHub, Microsoft.' The Agent Ecosystem surface is Vanta's Claude Code plugin and hosted MCP server, both in their public org, so he is close to the actual work. He publishes only Bluesky and Twitter, no profile URL."
+        },
+        {
+          "name": "Christina Cacioppo",
+          "title": "CEO & Founder",
+          "source": "https://www.vanta.com/company/about",
+          "profile": null,
+          "why": "founder"
+        },
+        {
+          "name": "Mitali Palekar",
+          "title": "software @VantaInc, per her own GitHub bio",
+          "source": "https://github.com/mitalipalekar",
+          "profile": "https://www.linkedin.com/in/mitalipalekar/",
+          "why": "engineer, and the only published profile here",
+          "note": "Worth knowing the conflict: her GitHub company field still reads Linkedin while her bio reads 'software @VantaInc | prev software @linkedin'. The bio is the more specific of the two and puts LinkedIn in the past, so Vanta is current and the company field is stale."
+        }
+      ],
+      "email": {
+        "domain": "vanta.com",
+        "shape": null,
+        "unique": 17,
+        "reason": "top shape only 53% of 17, floor is 70%",
+        "evidence": "read vanta-auditor-api-sdk-typescript, vanta-auditor-api-sdk-java, vanta-agent-scripts, vanta-mcp-server, eslint-plugin-vanta; not enough agreement to state a convention",
+        "checked": "2026-09-14"
+      }
+    },
+    "RevenueCat": {
+      "sources": [
+        "https://www.revenuecat.com/blog/company/how-we-work-remotely-at-revenuecat",
+        "https://www.revenuecat.com/blog/company/how-we-hire-at-revenuecat"
+      ],
+      "note": "Their company blog posts carry a dateModified of 2026-09-11, so the titles in them are being kept current even though the posts are older. No RevenueCat individual publishes a profile URL on any page read, so these are name searches.",
+      "people": [
+        {
+          "name": "Jens-Fabian Goetzmann",
+          "title": "Head of Product",
+          "source": "https://www.revenuecat.com/blog/company/how-we-work-remotely-at-revenuecat",
+          "profile": null,
+          "why": "most likely owns this req",
+          "note": "Described as 'our Head of Product' in RevenueCat's own post about how they work remotely, which carries a dateModified of 2026-09-11."
+        },
+        {
+          "name": "Jacob Eiting",
+          "title": "CEO",
+          "source": "https://www.revenuecat.com/blog/company/how-we-hire-at-revenuecat",
+          "profile": null,
+          "why": "co-founder, and writes their hiring post"
+        },
+        {
+          "name": "Miguel Carranza",
+          "title": "CTO",
+          "source": "https://www.revenuecat.com/blog/company/how-we-hire-at-revenuecat",
+          "profile": null,
+          "why": "co-founder, peer to product"
+        }
+      ],
+      "email": {
+        "domain": "revenuecat.com",
+        "shape": null,
+        "unique": 12,
+        "reason": "top shape only 67% of 12, floor is 70%",
+        "evidence": "read purchases-ios, purchases-android, purchases-js, cordova-plugin-purchases, purchases-hybrid-common, purchases-flutter, purchases-capacitor, purchases-kmp; not enough agreement to state a convention",
+        "checked": "2026-09-14"
+      }
     }
   }
 }
