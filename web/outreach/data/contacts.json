@@ -508,6 +508,68 @@
         "evidence": "no public repository exposes an address on this domain",
         "checked": "2026-09-11"
       }
+    },
+    "MeridianLink": {
+      "sources": [
+        "https://www.meridianlink.com/leadership/",
+        "https://www.meridianlink.com/blog/meridianlink-live-2026-accelerating-the-future-of-lending-together/"
+      ],
+      "note": "Read 2026-09-14. Two things to know before writing to anyone here. The company went PRIVATE under Centerbridge, per its own 8-K filed 2025-10-24, so it is no longer the public MLNK. And the Senior PM, AI Products req he applied to is no longer on its Ashby board: 26 postings remain and that one is not among them. Also absent from the current leadership page: Devesh Khare, named Chief Product Officer in MeridianLink's own 2022 releases, and Chris Maloof. Do not reference either as current.",
+      "people": [
+        {
+          "name": "Wes Zauner",
+          "title": "VP of Product Management",
+          "source": "https://www.meridianlink.com/blog/meridianlink-live-2026-accelerating-the-future-of-lending-together/",
+          "profile": null,
+          "why": "most likely owns a PM req",
+          "note": "Named in MeridianLink's own LIVE! 2026 post dated 2026-05-20, demonstrating MeridianLink Access and MeridianLink Intelligence. He is NOT on the leadership page, which lists only the C-suite, so this title rests on that post alone. An earlier release around October 2024 gives the older form, Vice President of Product."
+        },
+        {
+          "name": "Troy Coggiola",
+          "title": "Chief Product & Strategy Officer",
+          "source": "https://www.meridianlink.com/leadership/",
+          "profile": null,
+          "why": "owns product at the top",
+          "note": "A product press release dated 2026-02-11 calls him Chief Strategy Officer while the leadership page and the May 2026 post both say Chief Product & Strategy Officer, so he appears to have picked up product between those dates. The remit Khare used to hold now sits with him."
+        },
+        {
+          "name": "Larry Katz",
+          "title": "CEO",
+          "source": "https://www.meridianlink.com/leadership/",
+          "profile": null,
+          "why": "runs the company",
+          "note": "The LIVE! 2026 post gives the longer form, President and CEO."
+        },
+        {
+          "name": "Raj Patel",
+          "title": "Chief Technology Officer",
+          "source": "https://www.meridianlink.com/leadership/",
+          "profile": null,
+          "why": "peer to product"
+        },
+        {
+          "name": "Elizabeth Rieveley",
+          "title": "Chief People Officer",
+          "source": "https://www.meridianlink.com/leadership/",
+          "profile": null,
+          "why": "owns recruiting",
+          "note": "No recruiter is named on any MeridianLink primary source."
+        },
+        {
+          "name": "JP Kelly",
+          "title": "SVP of Mortgage",
+          "source": "https://www.meridianlink.com/blog/meridianlink-live-2026-accelerating-the-future-of-lending-together/",
+          "profile": null,
+          "why": "owns the mortgage line their open PM reqs sit in"
+        }
+      ]
+    },
+    "Litify": {
+      "sources": [
+        "https://boards-api.greenhouse.io/v1/boards/litify/jobs"
+      ],
+      "note": "THE ROLE HE APPLIED TO WAS UPGRADED. Greenhouse req 8069113 is the same posting he applied to, and it is still open, but its title is now 'Director of Product - Litify ELM Practice Management & AI Solutions' where the stored row still reads 'Senior Product Manager (ELM Practice Management)'. Verified on Litify's own board 2026-09-14: it is the only product posting of their ten. An application already sent against a req that has since been retitled upward is worth a follow-up naming the new title. No named product leader was found on any Litify primary source.",
+      "people": []
     }
   }
 }
