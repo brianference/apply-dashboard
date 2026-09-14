@@ -2,6 +2,181 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v25.0.0 - Named people with a source, addresses with their evidence, and a backup that has been tested (2026-09-14)
+
+The outreach page stopped being a list of searches and became a list of people.
+Everything here is about one rule: a name or an address on that page has to
+carry the thing that proves it, or it does not go on the page.
+
+### Named people, each with the source the name was read on
+
+The page now shows 46 people across 9 employers. Every one of them was read on a
+primary source: the employer's own leadership page, their own press release,
+their own blog byline, or the person's own GitHub profile. The `source` link next
+to each name goes to the page it was read on, and it is a COLUMN rather than a
+hover, because a name whose provenance needs a mouse is a name most readers take
+on trust.
+
+Aggregator and scraper sites are not evidence of current employment and are not
+used. RocketReach, ZoomInfo, Comparably, Apollo, Lusha, TheOrg and Zippia
+surfaced names throughout the research and supplied none of these.
+
+18 of the 46 carry a profile link. A `linkedin.com/in/` URL appears only when the
+person published that exact URL somewhere public, and GitHub's `social_accounts`
+endpoint turned out to be the reliable supply. For the other 28 the link is a
+LinkedIn search carrying their own quoted name and employer, which lands on the
+real profile without constructing a slug. A guessed slug is either a 404 or,
+worse, a stranger presented as the hiring manager, and nothing about the two
+links looks different.
+
+One delegated claim did not survive checking. A profile URL was reported for
+ZipRecruiter's CTO, sourced to a 2023 conference speaker page; that page does not
+contain it. The link was dropped rather than published unsourced.
+
+### Addresses, derived from evidence and labelled as derived
+
+The guide Brian pointed at answers "find the hiring manager's email" by selling
+credits in its own product. It names no pattern, no verification method and no
+tool. So `ingest/email-sweep.mjs` derives the employer's convention from the
+author addresses in its own public commit metadata, which people published
+themselves by committing.
+
+What is stored is a SHAPE and a count, never an address. This repo is public, so
+the personal data stops at the sweep, and the page applies the shape to a name in
+the reader's browser.
+
+Two floors, each with a case that trips it: at least 4 unique addresses and at
+least 70 percent agreement. Counting UNIQUE addresses rather than occurrences is
+the whole measurement. Measured both ways on docker.com, occurrences said 54 of
+54 agreed and unique addresses said 17 of 19. The second is true and the first is
+one prolific committer counted thirty times. The first survey made exactly that
+mistake and had to be redone.
+
+Three of nine employers clear the bar: Docker `first.last` at 17 of 19,
+ZipRecruiter `first` at 12 of 14, LawnStarter `first.last` at 7 of 7. Jerry earns
+the floor at 60 percent of 5, so no address shows for them. Remove the floor and
+the page prints `menghan.li@getjerry.com` with no hedge against evidence pointing
+at `first`. That is what the known-bad proof produces. The other six employers say
+on the card that no convention could be established, because a reader cannot
+otherwise tell no evidence from not looked at.
+
+### The roster, chosen from three built designs
+
+Grok Build produced three structurally distinct designs against a spec with the
+provenance rules as hard constraints, on real data, and Brian picked the roster
+table. A table is not automatically denser: the first attempt measured WORSE,
+1040px up to 1323px, because every row stacked three things in the name cell and
+three more in the address cell. Measured after fixing it, the Docker card with
+nine people went 1532px to 1181px, the people block 1015px to 783px, and the four
+searches 186px to 36px.
+
+"Take the address" became "Copy address", because Brian asked what the old label
+meant and that was the answer.
+
+### Two guards that had stopped looking
+
+The most important finding in this release is not a feature.
+
+When the roster turned the people into table rows, the guard that stops a
+stranger's profile appearing under someone's name still said `.people li`. It
+matched nothing, printed "0 people checked" and PASSED. The why-alignment check
+pointed at `.steps .why`, which the chip redesign removed, and reported a spread
+of -Infinity over an empty list. A filter over an empty list is always empty, so
+`length === 0` means both "nothing wrong" and "nothing examined", and only a
+non-zero count separates them. Both now refuse an empty match. They examine 88
+rows where they examined none.
+
+### Region names the location gate did not know
+
+Wiring two remote boards exposed a real hole. `NOT_US` listed france, germany,
+spain and the acronyms emea, apac, latam and anz, but not the bare word "Europe",
+which is exactly what a remote board prints. "Remote / Europe" reached the last
+line of `locationEligible`, matched nothing, and was accepted as ordinary remote
+work. Europe, Asia, Africa, Oceania, Middle East and Caribbean added, and checked
+in BOTH directions: "LATAM, Europe, USA, Canada, APAC" is still accepted, because
+the final rule is `NOT_US && !US_WIDE`. The existing location suite does not catch
+this, which is why it went unnoticed.
+
+### Four columns holding five tabs
+
+Adding the Outreach section made five, and `site-nav.css` declared
+`repeat(4, ...)`. Profile sat on a row of its own at 1280, 1194, 1024, 900, 768
+and 375 alike, so it looked like that on every device from the day the section
+landed. The script now publishes `--tab-count` and the stylesheet reads it, so a
+sixth section cannot bring it back.
+
+### Two boards wired, honestly reported
+
+Four of the ten remote boards Brian asked about were already in the daily run.
+Remotive and Working Nomads both serve clean JSON and are wired now; the other
+four serve HTML only and FlexJobs is behind a subscription. Their yield so far is
+zero: yesterday's daily log shows 16 and 44 rows fetched and nothing surviving the
+gate. Remotive's public feed ignores its own category and search parameters and
+returns the latest 16 rows whatever you ask for. They stay wired because two calls
+a day is cheap, not because they are producing.
+
+### Backup and restore, and a skill finally under version control
+
+`ingest/snapshot.mjs` takes a restore point: the queue, the researched contacts,
+and a manifest carrying row counts, a sha256 per file, the live build stamp and
+the git commit. It writes OUTSIDE this repo, because a 1.2MB queue dump committed
+on a schedule would both bloat a public repo and publish the shape of his search.
+
+The manifest is the point. A dump with no checksum cannot be told apart from a
+truncated dump, and the failure mode of a backup is learning that when you need
+it. So the script re-reads what it just wrote before exiting, and refuses to
+write at all if a source returns zero rows. Proved against corruption both ways:
+one altered word inside contacts.json fails verification, and so does deleting
+the file.
+
+`brian-voice` had no version control at all, and a packaged zip was the only copy.
+It is now a PRIVATE GitHub repo, tagged v6.3.0, and it must stay private:
+`references/` holds 35 of Brian's sent emails and 42 timestamped Slack messages.
+Privacy was confirmed three ways, not assumed.
+
+`docs/backup-and-restore.md` names what is actually at risk, and the answer is
+not the code. It is the 149 submitted applications and the 46 researched people,
+neither of which any ingest run recreates.
+
+### Counts
+
+56 suites, up from 53. Seven known-bad proofs on the outreach page alone, each
+failing on the right input and restoring green. 1089 rows in the snapshot.
+
+### Still open, measured rather than recalled
+
+54 employers on the page have no named people yet, and the highest-ranked
+uncovered ones are applications already sent: Tremendous and Filevine at 82
+percent, Samsara at 80. 181 of 375 open rows carry no published band and 43 carry
+no posted date, both being what employers publish rather than anything readable
+from here. LawnStarter and Lexipol each describe a product leader in their own
+posting without naming them anywhere.
+
+## v24.0.0 - Message a person before applying (2026-09-11)
+
+Tagged at the time without notes, recorded here for completeness.
+
+The first version of `/outreach/`, built from Aakash Gupta's method post: open
+the company, go to People, search the function the role sits in, find the two or
+three people who posted about that team in the past month, and message before
+applying.
+
+Every link was a SEARCH scoped to a quoted employer name, and the suite refused
+any `linkedin.com/in/` href, because nothing in the database knows who the hiring
+manager is and a name would have been fabricated research wearing the clothes of
+a lead.
+
+Proving that guard took three attempts. The first two reported false passes: one
+never rebuilt the served files, and the other shelled out to a `bash` that
+rejects `set -o pipefail` and exited 2 while the harness ignored the exit code.
+Both times the test re-ran against the unmutated build and called the guard
+sound. The harness now asserts its own mutation is present in the served
+artifact before it believes any result.
+
+Also fixed while looking at it: the step rows each sized their own columns, so
+the widest label pushed its why-text 73px right of the other three. The tracks
+moved onto the list with subgrid, measured on the painted left edge.
+
 ## v23.0.0 - Seven postings stored twice, and a board that was never 403 (2026-09-04)
 
 ### The duplicates
