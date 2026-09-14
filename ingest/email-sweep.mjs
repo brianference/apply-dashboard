@@ -45,7 +45,8 @@ const EMPLOYERS = [
   { key: 'MeridianLink', org: 'meridianlink', domain: 'meridianlink.com' },
   { key: 'Vanta', org: 'VantaInc', domain: 'vanta.com' },
   { key: 'RevenueCat', org: 'RevenueCat', domain: 'revenuecat.com' },
-  { key: 'Camunda', org: 'camunda', domain: 'camunda.com' }
+  { key: 'Camunda', org: 'camunda', domain: 'camunda.com' },
+  { key: 'Samsara', org: 'samsara-dev', domain: 'samsara.com' }
 ];
 
 /** How many of an org's most recently pushed repositories to read. */

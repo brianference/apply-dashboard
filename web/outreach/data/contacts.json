@@ -1000,10 +1000,80 @@
       "email": {
         "domain": "camunda.com",
         "shape": "first.last",
-        "unique": 29,
-        "agree": 29,
+        "unique": 30,
+        "agree": 30,
         "pct": 100,
-        "evidence": "29 of 29 unique camunda.com addresses in public commit metadata (camunda, connectors, camunda-platform-helm, camunda-docs) use first.last",
+        "evidence": "30 of 30 unique camunda.com addresses in public commit metadata (camunda, zeebe-process-test, connectors, camunda-platform-helm, camunda-docs) use first.last",
+        "checked": "2026-09-14"
+      }
+    },
+    "Samsara": {
+      "sources": [
+        "https://www.samsara.com/company/leadership/",
+        "https://www.samsara.com/blog/designing-ground-intelligence-giving-cities-a-real-time-view-of-every-pothole"
+      ],
+      "note": "The richest of the twelve for reachable people: Samsara's blog embeds real profile hrefs in its bylines, so most of these link straight through. The req he applied to is filed under a Business Operation department, says you join the Product Operations team and work closely with R&D leaders, so it sits under product rather than in it. A Director, Product Operations req surfaced in search but its URL now redirects to the careers index, so whether that seat is filled is unknown; if it is empty, screening likely sits with the CPO's staff directly.",
+      "people": [
+        {
+          "name": "Johan Land",
+          "title": "EVP and Chief Product Officer",
+          "source": "https://www.samsara.com/company/leadership/",
+          "profile": "https://www.linkedin.com/in/johanland",
+          "why": "the org this req reports into",
+          "note": "Title conflict worth knowing. The leadership page says EVP and Chief Product Officer. A blog byline dated 2026-09-09, which is newer, says Senior Vice President of Product, and a press release dated 2026-06-24 says Chief Product Officer. A byline template that was never updated is the likelier explanation than a demotion, so the leadership page is taken as current. His profile URL is published scheme-less in that post's HTML."
+        },
+        {
+          "name": "Ryan Yu",
+          "title": "Vice President, Product",
+          "source": "https://www.samsara.com/blog/building-products-that-deliver-real-world-impact",
+          "profile": "https://www.linkedin.com/in/ryan-yu/",
+          "why": "most likely owns this req or sits next to whoever does",
+          "note": "Title from a Samsara post dated 2025-08-19, so about 13 months old."
+        },
+        {
+          "name": "David Gal",
+          "title": "Vice President of Product & Engineering, Connected Equipment",
+          "source": "https://www.samsara.com/blog/meet-the-rising-tech-leader-scaling-samsaras-connected-platform",
+          "profile": "https://www.linkedin.com/in/david-gal-a604a8/",
+          "why": "runs a product line end to end"
+        },
+        {
+          "name": "Patrick Barragán",
+          "title": "Vice President of Artificial Intelligence",
+          "source": "https://www.samsara.com/blog/designing-ground-intelligence-giving-cities-a-real-time-view-of-every-pothole",
+          "profile": "https://www.linkedin.com/in/patrickbarrag%C3%A1n/",
+          "why": "owns the AI work their new products lead with",
+          "note": "The percent-encoding in that URL is verbatim from their HTML, because his profile slug carries an accented character."
+        },
+        {
+          "name": "Praveen Murugesan",
+          "title": "VP, Software Engineering",
+          "source": "https://www.samsara.com/blog/designing-ground-intelligence-giving-cities-a-real-time-view-of-every-pothole",
+          "profile": "https://www.linkedin.com/in/praveenmurugesan",
+          "why": "engineering peer"
+        },
+        {
+          "name": "Sanjit Biswas",
+          "title": "CEO & Co-Founder",
+          "source": "https://www.samsara.com/company/leadership/",
+          "profile": null,
+          "why": "co-founder"
+        },
+        {
+          "name": "John Bicket",
+          "title": "CTO & Co-Founder",
+          "source": "https://www.samsara.com/company/leadership/",
+          "profile": null,
+          "why": "co-founder"
+        }
+      ],
+      "email": {
+        "domain": "samsara.com",
+        "shape": "first.last",
+        "unique": 4,
+        "agree": 4,
+        "pct": 100,
+        "evidence": "4 of 4 unique samsara.com addresses in public commit metadata (test-summary-buildkite-plugin, cache-buildkite-plugin, monorepo-diff-buildkite-plugin, gotwilio) use first.last",
         "checked": "2026-09-14"
       }
     }
