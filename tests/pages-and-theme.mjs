@@ -162,28 +162,61 @@ check('and the toggle goes back the other way',
 
 /* ------------------------------------------------------------ the tab row -- */
 
-/* Every section tab on ONE row. The column count used to be the literal 4 in
-   site-nav.css while site-nav.js defined five sections, so Profile sat alone on
-   a second row at every width including 375. Nothing measured it, so it shipped.
-   Measured on the painted top of each link rather than on the CSS: a grid can
-   declare five columns and still wrap if an item does not fit. */
+/* Every section tab readable, at every width. Two properties, and the second is
+   the one that shipped broken: the tabs sit on ONE row, and no label's painted
+   text escapes its own cell or touches its neighbour's.
+ *
+ * The first version of this check measured only the row count. It passed while
+ * "Experiments" spilled 6px out of a 75px cell into "Outreach" on a 375px
+ * phone, because five equal columns were being forced onto one row. One row of
+ * overlapping words is worse than two clean rows, so counting rows was
+ * protecting the wrong thing.
+ *
+ * A Range over the link's contents gives the PAINTED TEXT box. The element's
+ * own box is the cell. They are not the same, and the gap between them is
+ * exactly where this defect lived. */
 for (const path of ['/', '/outreach/', '/portfolio/']) {
-  for (const width of [1280, 900, 375]) {
+  for (const width of [1280, 768, 390, 360, 320]) {
     const tabCtx = await browser.newContext({ viewport: { width, height: 900 } });
     const tabPage = await tabCtx.newPage();
     await tabPage.goto(`${SITE}${path}`, { waitUntil: 'domcontentloaded' });
-    const tabs = tabPage.locator('header.site nav.tabs a');
-    await tabs.first().waitFor({ state: 'visible', timeout: 20000 });
+    await tabPage.locator('header.site nav.tabs a').first()
+      .waitFor({ state: 'visible', timeout: 20000 });
+
     const seen = await tabPage.locator('header.site nav.tabs').evaluate((nav) => {
       const links = [...nav.querySelectorAll('a')];
+      const boxes = links.map((a) => {
+        const range = document.createRange();
+        range.selectNodeContents(a);
+        const text = range.getBoundingClientRect();
+        const cell = a.getBoundingClientRect();
+        return {
+          label: a.textContent.trim(),
+          textLeft: text.left,
+          textRight: text.right,
+          /* Sub-pixel rounding makes a 0.5px reading meaningless, so only a
+             spill of more than 1px counts. */
+          spill: Math.round(Math.max(0, cell.left - text.left)
+            + Math.max(0, text.right - cell.right))
+        };
+      });
+      const collisions = boxes.filter((box, i) =>
+        i > 0 && box.textLeft < boxes[i - 1].textRight - 1).map((box) => box.label);
       return {
         count: links.length,
         rows: new Set(links.map((a) => Math.round(a.getBoundingClientRect().top))).size,
-        labels: links.map((a) => a.textContent.trim())
+        spilling: boxes.filter((box) => box.spill > 1).map((box) => `${box.label} by ${box.spill}px`),
+        collisions
       };
     });
+
     check(`the ${seen.count} section tabs sit on one row at ${width}px on ${path}`,
-      seen.rows === 1, `${seen.rows} row(s): ${seen.labels.join(' | ')}`);
+      seen.count > 0 && seen.rows === 1, `${seen.rows} row(s)`);
+    check(`no tab label escapes its cell at ${width}px on ${path}`,
+      seen.spilling.length === 0, seen.spilling.join(', ') || 'none spill');
+    check(`no two tab labels overlap at ${width}px on ${path}`,
+      seen.collisions.length === 0, seen.collisions.join(', ') || 'none overlap');
+
     await tabCtx.close();
   }
 }
