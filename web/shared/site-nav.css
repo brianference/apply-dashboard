@@ -215,6 +215,25 @@ header.site .brand em { display: none; }
 header.site .who { max-width: 16ch; padding: 0 10px; }
 header.site .who .mail { max-width: 11ch; }
 header.site nav.tabs a { font-size: 13px; min-height: 44px; }
+
+  /* Five equal columns is 75px each at 375px, and "Experiments" paints 76px,
+     so it spilled its cell and ran into "Outreach". Sized to content and
+     scrolled instead: a label can no longer be narrower than its own word. */
+  header.site nav.tabs {
+    display: flex;
+    grid-template-columns: none;
+    overflow-x: auto;
+    /* Momentum scrolling on iOS, and a hint that there is more to the right. */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 12px;
+  }
+  header.site nav.tabs::-webkit-scrollbar { display: none; }
+  header.site nav.tabs a {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    white-space: nowrap;
+  }
   }
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; filter: none !important; }
