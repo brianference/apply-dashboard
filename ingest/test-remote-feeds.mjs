@@ -53,25 +53,32 @@ const REMOTIVE = {
   ]
 };
 
-const NOMADS = [
-  {
-    url: 'https://www.workingnomads.com/job/go/1857010/',
-    title: 'Product Lead (Strategy + Full Stack)',
-    company_name: 'Optimizee Group',
-    category_name: 'Development',
-    tags: 'full stack,php,laravel,product owner',
-    location: 'Worldwide',
-    pub_date: '2026-09-12T08:13:43-04:00'
-  },
-  {
-    url: 'https://www.workingnomads.com/job/go/2/',
-    title: 'Product Manager, Europe only',
-    company_name: 'Somewhere',
-    location: 'Europe',
-    pub_date: '2026-09-10T00:00:00-04:00'
-  },
-  { title: 'no url', company_name: 'Nope' }
-];
+/* The shape the search index returns: Elasticsearch hits with a _source. Copied
+   from https://www.workingnomads.com/jobsapi/_search on 2026-09-16. The first
+   version of this fixture was the /api/exposed_jobs/ shape, which turned out
+   to be the 53 premium rows with zero product managers in them. */
+const NOMADS = {
+  hits: {
+    total: { value: 3 },
+    hits: [
+      { _source: {
+        title: 'Senior Product Manager', company: 'Nearform', category_name: 'Management',
+        locations: ['UK'], position_type: 'full-time', apply_url: 'https://job-boards.greenhouse.io/nearform/jobs/7651083003',
+        pub_date: '2026-09-16T07:19:03.181135-04:00', salary_range: '£85k per year', annual_salary_usd: 110500, premium: false, expired: false
+      } },
+      { _source: {
+        title: 'Product Manager - Voice AI', company: 'Podium', category_name: 'Management',
+        locations: ['USA'], position_type: 'full-time', apply_url: 'https://jobs.lever.co/podium/abc123?utm_source=x',
+        pub_date: '2026-09-15T10:00:00-04:00', annual_salary_usd: 0, premium: false, expired: false
+      } },
+      { _source: {
+        title: 'Expired one', company: 'Gone', locations: ['USA'], apply_url: 'https://x.example/1',
+        pub_date: '2026-09-10T00:00:00-04:00', expired: true
+      } },
+      { _source: { title: 'no url', company: 'Nope', locations: ['USA'] } }
+    ]
+  }
+};
 
 /* ------------------------------------------------------------------ remotive -- */
 
@@ -104,18 +111,29 @@ check('a bare array is accepted too, not only {jobs}',
 /* ------------------------------------------------------------ working nomads -- */
 
 const wn = normalizeWorkingNomadsJobs(NOMADS);
-check('working nomads drops the row with no url', wn.length === 2, `${wn.length} kept of 3`);
+check('working nomads keeps the live rows with a url', wn.length === 2, `${wn.length} kept of 4`);
+check('an expired row is dropped, not carried', !wn.some((r) => r.company === 'Gone'));
 check('its title and employer come through',
-  wn[0].title === 'Product Lead (Strategy + Full Stack)' && wn[0].company === 'Optimizee Group',
+  wn[0].title === 'Senior Product Manager' && wn[0].company === 'Nearform',
   `${wn[0].company} / ${wn[0].title}`);
 check('its source is stamped', wn.every((r) => r.source === 'workingnomads'));
+/* THE ONE THAT MATTERS: the EMPLOYER's url, so decide() can match duplicates
+   from Greenhouse and Lever against it. */
+check('the stored url is apply_url, the employer posting',
+  wn[0].url === 'https://job-boards.greenhouse.io/nearform/jobs/7651083003', wn[0].url);
 check('its pub_date parses', !Number.isNaN(Date.parse(wn[0].posted)), wn[0].posted);
-check('its location reaches work_type', /Worldwide/.test(wn[0].work_type), wn[0].work_type);
-check('a Europe-only row is refused by the gate',
-  locationEligible(wn[1].work_type, wn[1].title).ok === false, wn[1].work_type);
-check('a results-wrapped payload is accepted',
-  normalizeWorkingNomadsJobs({ results: NOMADS }).length === 2);
-check('a payload that is not an array yields nothing',
+check('locations reach work_type', /UK/.test(wn[0].work_type) && /USA/.test(wn[1].work_type),
+  `${wn[0].work_type} | ${wn[1].work_type}`);
+/* "UK" alone was passing the gate: the country list knew "united kingdom" and
+   "london" but not the two-letter form a board prints. */
+check('a UK-only row is refused by the gate',
+  locationEligible(wn[0].work_type, wn[0].title).ok === false, wn[0].work_type);
+check('a USA row is accepted', locationEligible(wn[1].work_type, wn[1].title).ok === true);
+check('annual_salary_usd becomes salary_min, and 0 becomes null',
+  wn[0].salary_min === 110500 && wn[1].salary_min === null, `${wn[0].salary_min} / ${wn[1].salary_min}`);
+check('a bare array of sources is accepted too',
+  normalizeWorkingNomadsJobs(NOMADS.hits.hits.map((h) => h._source)).length === 2);
+check('a payload with no hits yields nothing',
   normalizeWorkingNomadsJobs(null).length === 0 && normalizeWorkingNomadsJobs({}).length === 0);
 
 console.log(bad

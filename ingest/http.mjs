@@ -7,10 +7,15 @@ export const USER_AGENT = "apply-dashboard-ingest/0.1 (+https://apply-dashboard.
  * Fetch a URL as text with a timeout and a stable User-Agent.
  *
  * @param {string} url
- * @param {{ timeoutMs?: number, headers?: Record<string, string>, accept?: string }} [options]
+ * @param {{ timeoutMs?: number, headers?: Record<string, string>, accept?: string, method?: string, body?: string }} [options]
  * @returns {Promise<{ url: string, finalUrl: string, status: number, contentType: string, text: string }>}
  */
 export async function fetchText(url, options = {}) {
+  /* Working Nomads' index is a POST with a JSON body. Passed through here
+     rather than through a second HTTP helper, so every source keeps the same
+     timeout, User-Agent and 429 retry. */
+  const method = options.method || "GET";
+  const body = options.body;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const headers = {
     "user-agent": USER_AGENT,
@@ -20,6 +25,8 @@ export async function fetchText(url, options = {}) {
   let response;
   try {
     response = await fetch(url, {
+      method,
+      body,
       headers,
       redirect: "follow",
       signal: AbortSignal.timeout(timeoutMs)
@@ -30,6 +37,8 @@ export async function fetchText(url, options = {}) {
       logWarn("HTTP 429, retrying once", { url, retryMs });
       await new Promise((resolve) => setTimeout(resolve, retryMs));
       response = await fetch(url, {
+        method,
+        body,
         headers,
         redirect: "follow",
         signal: AbortSignal.timeout(timeoutMs)

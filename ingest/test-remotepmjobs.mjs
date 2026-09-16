@@ -54,12 +54,14 @@ const PAGE = `<html><head>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"JobPosting",
  "title":"Product Manager, Agent Platform","datePosted":"2026-09-16","validThrough":"2026-11-15",
  "hiringOrganization":{"@type":"Organization","name":"OpenRouter"},
- "jobLocationType":"TELECOMMUTE","applicantLocationRequirements":{"@type":"Country","name":"USA"},
+ "jobLocationType":"TELECOMMUTE","applicantLocationRequirements":{"@type":"Country","name":"Mexico"},
  "employmentType":"FULL_TIME",
  "baseSalary":{"@type":"MonetaryAmount","currency":"USD","value":{"@type":"QuantitativeValue","minValue":190000,"maxValue":240000,"unitText":"YEAR"}}}</script>
 </head><body>
+<a href="https://resources.openrouter.ai/terms-of-use">terms</a>
 <a href="https://www.linkedin.com/in/somebody/">poster</a>
-<a href="https://jobs.ashbyhq.com/openrouter/11a8c381?utm_source=remotepmjobs.com&amp;utm_medium=referral&amp;utm_campaign=apply&amp;ref=x">Apply</a>
+<div><span class="text-[11px] font-semibold">Location</span><span class="text-right text-[13px]">US (CA, CO, FL +14 more)</span></div>
+<a href="https://jobs.ashbyhq.com/openrouter/11a8c381?utm_source=remotepmjobs.com&amp;utm_medium=referral&amp;utm_campaign=apply&amp;ref=x" target="_blank" data-umami-event="apply_click" data-apply-button>Apply</a>
 <a href="https://www.scrolllaunch.com/products/remote-pm-jobs?utm_source=badge">badge</a>
 </body></html>`;
 
@@ -77,7 +79,11 @@ check('a LinkedIn profile on the page is not mistaken for the apply link',
 check('the badge link is not mistaken for the apply link',
   row && !row.url.includes('scrolllaunch'));
 
-check('the country restriction reaches work_type', row && /USA/.test(row.work_type), row && row.work_type);
+/* The fixture's JSON-LD says Mexico on purpose, copied from what Flickr's page
+   really does while its sidebar says US. The sidebar must win. */
+check('the sidebar Location reaches work_type first', row && /^Remote \/ US \(CA, CO, FL \+14 more\)/.test(row.work_type), row && row.work_type);
+check('a body link ahead of the apply button is not mistaken for it',
+  row && !row.url.includes('resources.openrouter.ai'), row && row.url);
 check('TELECOMMUTE is read as Remote', row && /^Remote/.test(row.work_type), row && row.work_type);
 check('and the location gate accepts it', row && locationEligible(row.work_type, row.title).ok === true);
 check('datePosted parses to an ISO instant', row && !Number.isNaN(Date.parse(row.posted)), row && row.posted);
@@ -85,16 +91,16 @@ check('the published band is carried', row && row.salary_min === 190000 && row.s
   row && `${row.salary_min}-${row.salary_max}`);
 
 /* A Europe-only restriction must reach the gate and be refused there. */
-const EU = PAGE.replace('"name":"USA"', '"name":"Germany"');
+const EU = PAGE.replace('US (CA, CO, FL +14 more)', 'Germany');
 const euRow = parsePosting(EU);
-check('a Germany-only restriction is carried and the gate refuses it',
+check('a Germany sidebar is carried and the gate refuses it',
   euRow && /Germany/.test(euRow.work_type) && locationEligible(euRow.work_type, euRow.title).ok === false,
   euRow && euRow.work_type);
 
 /* Missing pieces yield null rather than a half row. */
 check('a page with no JobPosting block yields null',
   parsePosting('<html><a href="https://jobs.ashbyhq.com/x/1">Apply</a></html>') === null);
-check('a page with no outbound apply link yields null',
+check('a page with no data-apply-button anchor yields null, even with other outbound links',
   parsePosting(PAGE.replace(/<a href="https:\/\/jobs\.ashbyhq[^>]+>Apply<\/a>/, '')) === null);
 check('an unparsable ld+json block is skipped, not fatal',
   parsePosting('<script type="application/ld+json">{nope</script>' + PAGE) !== null);
