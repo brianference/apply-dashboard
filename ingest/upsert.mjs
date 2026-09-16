@@ -29,7 +29,8 @@ const SOURCE_LOADERS = {
   jobspresso: () => import("./sources/jobspresso.mjs"),
   oracle: () => import("./sources/oracle.mjs"),
   remotive: () => import("./sources/remotive.mjs"),
-  workingnomads: () => import("./sources/workingnomads.mjs")
+  workingnomads: () => import("./sources/workingnomads.mjs"),
+  remotepmjobs: () => import("./sources/remotepmjobs.mjs")
 };
 
 /**
