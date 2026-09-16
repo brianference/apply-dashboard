@@ -86,21 +86,41 @@ export function parsePosting(html) {
   }
   if (!posting || !posting.title) return null;
 
-  /* The apply link is the first outbound href that is not the board itself,
-     a social profile or a badge. The board appends utm_* to it; those are
-     stripped so the URL matches what the employer's own board would give. */
-  const hrefs = [...text.matchAll(/href="(https?:\/\/(?!remotepmjobs\.com)[^"]+)"/g)]
-    .map((x) => x[1].replace(/&amp;/g, "&"))
-    .filter((h) => !/linkedin\.com|twitter\.com|x\.com|facebook\.com|scrolllaunch|fonts\.|cdn\.|logo|stripe/i.test(h));
-  if (!hrefs.length) return null;
-  const apply = new URL(hrefs[0]);
+  /* The apply link is the anchor the board marks data-apply-button. The first
+     draft took the first outbound href instead, and a posting body can link
+     the employer's own site before the button appears: Buildout's links
+     resources.buildout.com/terms-of-use ahead of its Ashby posting. Matched
+     on all 335 pages read on 2026-09-16. The board appends utm_* to the href;
+     those are stripped so the URL matches what the employer's board gives. */
+  const button = text.match(/<a\s+href="([^"]+)"[^>]*\bdata-apply-button\b/)
+    || text.match(/<a\s+[^>]*\bdata-apply-button\b[^>]*\shref="([^"]+)"/);
+  if (!button) return null;
+  const raw = button[1].replace(/&amp;/g, "&");
+  if (!/^https?:\/\//i.test(raw)) return null;
+  const apply = new URL(raw);
+  /* Judged on the HOST. The href's query string carries
+     utm_source=remotepmjobs.com, and a substring test on the whole URL
+     rejected every real apply link on the first run. */
+  if (/(^|\.)remotepmjobs\.com$/i.test(apply.hostname)) return null;
   for (const key of [...apply.searchParams.keys()]) {
     if (/^utm_/i.test(key) || key === "ref") apply.searchParams.delete(key);
   }
 
   const org = posting.hiringOrganization && posting.hiringOrganization.name;
+  /* The sidebar Location is what the gate reads. The JSON-LD's
+     applicantLocationRequirements is unreliable here: Flickr's Staff PM
+     carries Mexico while the sidebar says "US (CA, CO, FL +14 more)" and the
+     Greenhouse posting is US. Over 335 pages ALR was USA on 190 and null on
+     69; the sidebar agreed with the employer every time it was checked. ALR
+     rides along after it as a secondary hint, never as the primary field. */
+  const sidebar = text.match(/>Location<\/span><span[^>]*>([^<]+)<\/span>/);
+  const location = sidebar ? sidebar[1].trim() : null;
+  /* ALR is used ONLY when the page has no sidebar Location at all. Carrying a
+     wrong country beside a right one would hand the gate "US ... / Mexico"
+     and leave it to a precedence rule to sort out. */
   const req = posting.applicantLocationRequirements;
-  const country = Array.isArray(req) ? req.map((r) => r && r.name).filter(Boolean).join(", ") : (req && req.name) || null;
+  const country = location ? null
+    : Array.isArray(req) ? req.map((r) => r && r.name).filter(Boolean).join(", ") : (req && req.name) || null;
   const salary = posting.baseSalary && posting.baseSalary.value;
   const min = salary && salary.minValue != null ? Number(salary.minValue) : null;
   const max = salary && salary.maxValue != null ? Number(salary.maxValue) : null;
@@ -113,7 +133,7 @@ export function parsePosting(html) {
        what the location gate reads, so it rides along. */
     work_type: joinWorkType(
       posting.jobLocationType === "TELECOMMUTE" ? "Remote" : null,
-      country,
+      location || country,
       posting.employmentType || null
     ),
     posted: isoFromUnknown(posting.datePosted),
