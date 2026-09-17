@@ -158,6 +158,32 @@ const CLEARANCE = new RegExp([
    his $165k-this-week view, which is not what "outside your focus" should
    look like. Exclusion and de-ranking are different answers, and he wanted
    the other one. */
+/* A non-English language REQUIRED. Decisive on one hit, like clearance: a
+   language he does not speak is an impossible requirement, not a weak one.
+   Brian, 2026-09-17, on Fundraise Up's "Language: Russian language required
+   -- working bridge to a largely Russian-speaking product and engineering
+   organization."
+
+   Every form below insists on the language. "Fluency in Spanish a plus",
+   "Spanish preferred" and "bilingual is nice to have" do not match, because
+   they do not require anything. English is deliberately absent from the list,
+   and so is anything a programming language could be called. */
+const LANGUAGES = '(russian|mandarin|cantonese|chinese|japanese|korean|german|french|spanish|'
+  + 'portuguese|italian|hebrew|arabic|hindi|dutch|swedish|norwegian|danish|finnish|polish|'
+  + 'ukrainian|turkish|vietnamese|thai|indonesian|tagalog|bahasa|czech|greek|romanian|hungarian)';
+const LANGUAGE_REQUIRED = new RegExp([
+  /* "Language: Russian language required", "Russian required", "Russian fluency required" */
+  `\\b${LANGUAGES}( language)?( fluency| proficiency)? (is )?(required|mandatory|essential|a must)\\b`,
+  /* "must be fluent in Russian", "must speak Russian" */
+  `\\bmust (be )?(fluent|proficient|speak|read and write)( in)? ${LANGUAGES}\\b`,
+  /* "fluency in Russian is required", "fluent in Russian required" */
+  `\\b(fluency|fluent|proficiency|proficient) in ${LANGUAGES}( language)?( is)? (required|mandatory|essential)\\b`,
+  /* "native Russian speaker required", "native or fluent Russian required" */
+  `\\bnative( or fluent)? ${LANGUAGES}( speaker)?( is)? (required|mandatory|essential)\\b`,
+  /* "requires fluency in Russian" */
+  `\\brequires? (fluency|proficiency|fluent|proficient)( in)? ${LANGUAGES}\\b`
+].join('|'), 'i');
+
 const MARKETING_TITLE = /\bmarketing\b|\bdemand gen(eration)?\b|\bmartech\b|\bcampaign management\b/i;
 
 const RISK_COMPLIANCE_TITLE = /\brisk\b|\bcompliance\b|\bregulatory\b|\bgrc\b|governance,\s*risk/i;
@@ -229,6 +255,11 @@ export function domainSignals(job, jd) {
     return { ruled: true, domain: 'clearance', why: `requires a clearance: "${hit[0].trim()}"` };
   }
 
+  const lang = text.match(LANGUAGE_REQUIRED);
+  if (lang) {
+    return { ruled: true, domain: 'language', why: `requires a language: "${lang[0].trim()}"` };
+  }
+
   for (const domain of DOMAINS) {
     const decisive = text.match(domain.decisive);
     if (decisive) {
@@ -243,7 +274,7 @@ export function domainSignals(job, jd) {
 }
 
 /** The domains a signed-in account can switch back on. */
-export const TOGGLEABLE_DOMAINS = ['healthcare', 'construction', 'clearance', 'risk-compliance', 'hardware', 'marketing'];
+export const TOGGLEABLE_DOMAINS = ['healthcare', 'construction', 'clearance', 'risk-compliance', 'hardware', 'marketing', 'language'];
 
 /**
  * Queued rows whose title (or company, for the description-based domains)

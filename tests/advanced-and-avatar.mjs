@@ -76,6 +76,18 @@ const summed = switchCounts.reduce((a, b) => a + b, 0);
 check('the lede total equals the sum of the switches, not a separate tally',
   ledeTotal > 0 && ledeTotal === summed, `lede ${ledeTotal} vs switches ${summed}`);
 
+/* Every switch has to carry a human label. The panel builds them from the
+   excluded_domain values in the data and names them from DOMAIN_LABELS, so a
+   domain added to the pipeline without a label shows its raw slug. That is
+   how "duplicate-posting" once reached the list as a bare slug. Every label
+   in DOMAIN_LABELS starts with a capital; a slug is all lowercase, with or
+   without a hyphen. "Hardware" is a label, "hardware" is a slug. */
+const switchLabels = await page.locator('#adv-switches .adv-switch').evaluateAll((els) =>
+  els.map((el) => (el.querySelector('label') || el).textContent.replace(/\(?\d+\)?/g, '').trim()));
+const slugs = switchLabels.filter((l) => /^[a-z][a-z-]*$/.test(l));
+check('every switch shows a human label, not a raw domain slug',
+  switchLabels.length > 0 && slugs.length === 0, slugs.join(' | ') || switchLabels.join(' | '));
+
 /* Signed out, they are visible but inert: hiding them would make the feature
    invisible to the people it exists to bring in, and enabling them would
    promise something the account does not have. */

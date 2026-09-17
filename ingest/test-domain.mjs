@@ -312,6 +312,46 @@ check(TOGGLEABLE_DOMAINS.indexOf('marketing') !== -1,
   'marketing can be switched back on from Advanced',
   TOGGLEABLE_DOMAINS.join(', '));
 
+/* ---------------------------------------------------------- language -- */
+
+/* Brian, 2026-09-17: exclude any that require non-English languages. The
+   verbatim case is Fundraise Up's Senior PM, Partnerships, read from its own
+   Greenhouse board. Decisive on one hit, like clearance. */
+const langJob = { title: 'Senior Product Manager, Partnerships', company: 'Fundraise Up' };
+const langRuled = domainSignals(langJob,
+  'Language: Russian language required \u2014 working bridge to a largely Russian-speaking product and engineering organization.');
+check(langRuled.ruled && langRuled.domain === 'language',
+  'Fundraise Up, "Russian language required", is ruled out as language',
+  `${langRuled.domain}: ${langRuled.why}`);
+
+for (const [text, label] of [
+  ['You must be fluent in Mandarin to work with our Shanghai team.', 'must be fluent in Mandarin'],
+  ['Fluency in German is required.', 'fluency in German is required'],
+  ['Native Japanese speaker required.', 'native Japanese speaker required'],
+  ['This role requires fluency in Portuguese.', 'requires fluency in Portuguese']
+]) {
+  const r = domainSignals(langJob, text);
+  check(r.ruled && r.domain === 'language', `${label} is ruled out`, r.why);
+}
+
+/* THE KEPT CASES. A language rule that removes these is worse than none:
+   it would take real rows off the list without a word. */
+for (const [text, label] of [
+  ['Fluency in Spanish is a plus.', 'a language that is "a plus" stays in'],
+  ['Bilingual English/French preferred.', 'a language that is "preferred" stays in'],
+  ['English required; we are a global remote team.', 'English required stays in'],
+  ['Strong Python language skills required.', 'a programming language stays in'],
+  ['Excellent written and verbal communication skills required.', 'communication skills stay in'],
+  ['Experience with the German market is a plus; language not required.', 'a market, not a language, stays in']
+]) {
+  const r = domainSignals(langJob, text);
+  check(!r.ruled, label, r.ruled ? `WRONGLY ruled: ${r.domain} ${r.why}` : '');
+}
+
+check(TOGGLEABLE_DOMAINS.indexOf('language') !== -1,
+  'language can be switched back on from Advanced, like the other domains',
+  TOGGLEABLE_DOMAINS.join(', '));
+
 console.log(failures.length
   ? `\n${failures.length} FAILED`
   : '\nthe domain rule catches the right postings and leaves the rest alone');
