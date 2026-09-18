@@ -15,7 +15,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   payPercentile, publishedStarts, rankBlend, scoreOne, rankWhy,
-  RANK_FIT_WEIGHT, RANK_SUCCESS_WEIGHT, RANK_PAY_WEIGHT,
+  FRESH_BONUS, FRESH_DAYS,
+  RANK_FIT_WEIGHT, RANK_SUCCESS_WEIGHT, RANK_PAY_WEIGHT, RANK_UNREAD_CEILING, unreadBlend,
   RANK_UNREAD_SUCCESS_WEIGHT
 } from './fit-score.mjs';
 
@@ -89,14 +90,16 @@ check('scoreOne with no distribution gives payTerm 50, not 0, even at $400k',
 
 /* ---- blend arithmetic on a hand-worked case ------------------------- */
 
-check('fit 80, success 60, pay 90 is round(32 + 21 + 22.5) = 76',
-  rankBlend(80, 60, 90) === 76, String(rankBlend(80, 60, 90)));
+check('fit 80, success 60, pay 90 is round(24 + 36 + 9) = 69',
+  rankBlend(80, 60, 90) === 69, String(rankBlend(80, 60, 90)));
 
-check('fit weight is 0.40', RANK_FIT_WEIGHT === 0.40, String(RANK_FIT_WEIGHT));
-check('success weight is 0.35', RANK_SUCCESS_WEIGHT === 0.35, String(RANK_SUCCESS_WEIGHT));
-check('pay weight is 0.25', RANK_PAY_WEIGHT === 0.25, String(RANK_PAY_WEIGHT));
+check('fit weight is 0.30', RANK_FIT_WEIGHT === 0.30, String(RANK_FIT_WEIGHT));
+check('success weight is 0.60', RANK_SUCCESS_WEIGHT === 0.60, String(RANK_SUCCESS_WEIGHT));
+check('pay weight is 0.10', RANK_PAY_WEIGHT === 0.10, String(RANK_PAY_WEIGHT));
+/* 0.3 + 0.6 + 0.1 is 0.9999999999999999 in binary floating point, so the
+   comparison allows for that and still catches a real 0.95. */
 check('weights sum to 1.0 -- a future 0.95 would silently compress every score',
-  RANK_FIT_WEIGHT + RANK_SUCCESS_WEIGHT + RANK_PAY_WEIGHT === 1,
+  Math.abs(RANK_FIT_WEIGHT + RANK_SUCCESS_WEIGHT + RANK_PAY_WEIGHT - 1) < 1e-9,
   String(RANK_FIT_WEIGHT + RANK_SUCCESS_WEIGHT + RANK_PAY_WEIGHT));
 check('unread still weights success at 0.6',
   RANK_UNREAD_SUCCESS_WEIGHT === 0.6, String(RANK_UNREAD_SUCCESS_WEIGHT));
@@ -138,9 +141,8 @@ const unreadHigh = scoreOne(
   [160000, 180000, 200000, 400000]
 );
 check('unread description has fit null', unreadHigh.fit === null);
-check('unread rank counts the pay term',
-  unreadHigh.rank === Math.round(
-    unreadHigh.success.pct * RANK_SUCCESS_WEIGHT + unreadHigh.payTerm * RANK_PAY_WEIGHT),
+check('unread rank counts the pay term, through the scaled blend',
+  unreadHigh.rank === unreadBlend(unreadHigh.success.pct, unreadHigh.payTerm),
   `rank=${unreadHigh.rank} success=${unreadHigh.success.pct} payTerm=${unreadHigh.payTerm}`);
 check('a top-of-list band raises an unread row above success * 0.6',
   unreadHigh.rank > Math.round(unreadHigh.success.pct * RANK_UNREAD_SUCCESS_WEIGHT),
@@ -149,14 +151,17 @@ check('a top-of-list band raises an unread row above success * 0.6',
 /* The ceiling, asserted at the extreme rather than assumed. Perfect success and
    the top pay percentile must still land at 60, or an unread row could reach
    the same score as a fully-scored one. */
+/* Under success-led weights the raw two-term sum is 0.70. The ceiling is now
+   stated and scaled to, so it cannot drift with the weights: an unreadable
+   posting must not outrank read ones in the sixties. */
 check('the unread ceiling is 60, even at success 100 and pay 100',
-  Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT) === 60,
-  String(Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT)));
+  unreadBlend(100, 100) === 60, String(unreadBlend(100, 100)));
 check('the unread ceiling equals the old success-only ceiling',
-  Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT)
-    === Math.round(100 * RANK_UNREAD_SUCCESS_WEIGHT),
-  `${Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT)} vs `
-  + `${Math.round(100 * RANK_UNREAD_SUCCESS_WEIGHT)}`);
+  RANK_UNREAD_CEILING === Math.round(100 * RANK_UNREAD_SUCCESS_WEIGHT),
+  `${RANK_UNREAD_CEILING} vs ${Math.round(100 * RANK_UNREAD_SUCCESS_WEIGHT)}`);
+check('the raw two-term sum WOULD exceed the ceiling without scaling, which is why it is scaled',
+  Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT) > RANK_UNREAD_CEILING,
+  String(Math.round(100 * RANK_SUCCESS_WEIGHT + 100 * RANK_PAY_WEIGHT)));
 
 /* And an unpriced unread row takes the median, so it is not punished for the
    board publishing nothing. */
@@ -209,60 +214,56 @@ check('scoreOne rank equals rankBlend(fit, success, payTerm) when fit is measure
   wired.fit != null && wired.rank === rankBlend(wired.fit.pct, wired.success.pct, wired.payTerm),
   `rank=${wired.rank} blend=${wired.fit ? rankBlend(wired.fit.pct, wired.success.pct, wired.payTerm) : 'no-fit'} payTerm=${wired.payTerm}`);
 
-/* ---- ORDERING: the behaviour Brian asked for ------------------------
-   Today's two-term blend ranks the lower-paying row higher. The new blend
-   reverses them. That is the only case that proves the change did something. */
+/* ---- ORDERING: what pay may and may not do ---------------------------
+   On 2026-09-03 the pay term was added so that a high published start could
+   reverse a fit-and-success ordering, and the test here asserted exactly that
+   reversal. On 2026-09-18 the first three interview outcomes were measured
+   against all 150 applications, and the employers that replied were the ones a
+   high start had been ranking DOWN: Mitratech's $170k start, Bjak's unpublished
+   pay. So the property is now the opposite, and stated: pay still orders two
+   otherwise-equal rows, but it no longer overturns a 20-point gap in fit and
+   success. docs/ranking-plan.md carries the numbers. */
 
 const lowPay = { fit: 80, success: 80, pay: 10 };
 const highPay = { fit: 60, success: 60, pay: 90 };
-const oldOf = (row) => Math.round(row.fit * 0.55 + row.success * 0.45);
 const newOf = (row) => rankBlend(row.fit, row.success, row.pay);
 
-check("today's blend ranks the lower-paying row higher",
-  oldOf(lowPay) > oldOf(highPay),
-  `old low-pay ${oldOf(lowPay)} vs high-pay ${oldOf(highPay)}`);
-check('the new blend reverses them',
-  newOf(highPay) > newOf(lowPay),
-  `new high-pay ${newOf(highPay)} vs low-pay ${newOf(lowPay)}`);
+check('pay still counts: equal fit and success, the higher start ranks higher',
+  rankBlend(70, 70, 90) > rankBlend(70, 70, 10),
+  `${rankBlend(70, 70, 90)} vs ${rankBlend(70, 70, 10)}`);
+check('pay no longer overturns a 20-point fit-and-success gap (the 2026-09-03 reversal is retired)',
+  newOf(lowPay) > newOf(highPay),
+  `stronger row ${newOf(lowPay)} vs high-pay ${newOf(highPay)}`);
 
 /* Same claim through scoreOne, so a blend function the scorer never calls
-   cannot satisfy the suite. Same description, different pay and a modest
-   success gap (Senior vs Principal): today the lower-paying Senior wins on
-   success, and the new blend has to reverse them on pay. A weaker JD at
-   $280k does not reverse -- fit 0 vs 87 swamps the pay term -- which is
-   why these two share a description. */
+   cannot satisfy the suite. Same description, same title, different pay:
+   the only difference is the start, so pay must decide. */
 const dist = [160000, 170000, 180000, 190000, 200000, 210000, 220000, 230000, 240000, 250000, 260000, 270000, 280000];
 const lowPayRow = scoreOne(
   { ...JOB, title: 'Senior Product Manager', salary_min: 160000, dedupe_key: 'low' }, READABLE, dist
 );
 const highPayRow = scoreOne(
-  { ...JOB, title: 'Principal Product Manager', salary_min: 280000, dedupe_key: 'high' }, READABLE, dist
+  { ...JOB, title: 'Senior Product Manager', salary_min: 280000, dedupe_key: 'high' }, READABLE, dist
 );
-const oldLow = lowPayRow.fit
-  ? Math.round(lowPayRow.fit.pct * 0.55 + lowPayRow.success.pct * 0.45)
-  : null;
-const oldHigh = highPayRow.fit
-  ? Math.round(highPayRow.fit.pct * 0.55 + highPayRow.success.pct * 0.45)
-  : null;
-check('scoreOne: two rows where today would rank the lower-paying one higher',
-  oldLow != null && oldHigh != null && oldLow > oldHigh,
-  `old low-pay ${oldLow} vs high-pay ${oldHigh} (fit ${lowPayRow.fit && lowPayRow.fit.pct} vs ${highPayRow.fit && highPayRow.fit.pct})`);
-check('scoreOne: the new blend reverses them',
+check('scoreOne: with everything else equal, the higher start ranks higher',
   highPayRow.rank > lowPayRow.rank,
-  `new high-pay ${highPayRow.rank} vs low-pay ${lowPayRow.rank} (payTerm ${highPayRow.payTerm} vs ${lowPayRow.payTerm})`);
+  `high-pay ${highPayRow.rank} vs low-pay ${lowPayRow.rank} (payTerm ${highPayRow.payTerm} vs ${lowPayRow.payTerm})`);
+check('scoreOne: and the gap pay makes is small, under 10 points on a 160k-to-280k spread',
+  highPayRow.rank - lowPayRow.rank > 0 && highPayRow.rank - lowPayRow.rank < 10,
+  `gap ${highPayRow.rank - lowPayRow.rank}`);
 
 /* ---- known-bad: a temp copy with one weight changed MUST fail -------
    Never in the working tree. If this block starts passing because the copy
    still scores 76, the suite is decorative. */
 
 const src = fs.readFileSync(path.join(ROOT, 'ingest', 'fit-score.mjs'), 'utf8');
-check('the source names RANK_PAY_WEIGHT = 0.25 so a temp copy can change it',
-  /export const RANK_PAY_WEIGHT = 0\.25/.test(src));
+check('the source names RANK_PAY_WEIGHT = 0.10 so a temp copy can change it',
+  /export const RANK_PAY_WEIGHT = 0\.10/.test(src));
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pay-rank-'));
 const ingestUrl = pathToFileURL(path.join(ROOT, 'ingest')).href.replace(/\/$/, '');
 const brokenSrc = src
-  .replace('export const RANK_PAY_WEIGHT = 0.25', 'export const RANK_PAY_WEIGHT = 0.10')
+  .replace('export const RANK_PAY_WEIGHT = 0.10', 'export const RANK_PAY_WEIGHT = 0.25')
   .replace(/from '\.\//g, `from '${ingestUrl}/`);
 const brokenPath = path.join(tmp, 'fit-score.mjs');
 fs.writeFileSync(brokenPath, brokenSrc);
@@ -270,12 +271,12 @@ const broken = await import(pathToFileURL(brokenPath).href);
 
 const brokenBlend = broken.rankBlend(80, 60, 90);
 const brokenSum = broken.RANK_FIT_WEIGHT + broken.RANK_SUCCESS_WEIGHT + broken.RANK_PAY_WEIGHT;
-check('TEMP COPY with pay weight 0.10 FAILS the hand-worked 76',
-  brokenBlend !== 76, `got ${brokenBlend}`);
-check('TEMP COPY with pay weight 0.10 FAILS the weights-sum-to-1.0 assertion',
+check('TEMP COPY with pay weight 0.25 FAILS the hand-worked 69',
+  brokenBlend !== 69, `got ${brokenBlend}`);
+check('TEMP COPY with pay weight 0.25 FAILS the weights-sum-to-1.0 assertion',
   brokenSum !== 1, `sum=${brokenSum}`);
-check('the real module still scores that case 76 after the copy was broken',
-  rankBlend(80, 60, 90) === 76);
+check('the real module still scores that case 69 after the copy was broken',
+  rankBlend(80, 60, 90) === 69);
 
 try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* temp dir is a proof, not a product */ }
 
@@ -332,6 +333,30 @@ check('the fit-score CLI builds it from every queued row',
   fitSrc.indexOf('publishedStarts(jobs.filter(') !== -1
   && fitSrc.indexOf('publishedStarts(live)') === -1,
   fitSrc.indexOf('publishedStarts(live)') !== -1 ? 'STILL USES THE SLICE' : '');
+
+
+/* ---- freshness: a posting inside its first week earns a small, visible bonus --
+   Measured 2026-09-18: the interview application with a known posting date
+   went in two days after it; the median across all 150 applications was
+   twenty. Never on an unknown date, never past 100, visible in rank_why. */
+{
+  const dayMs = 86400000;
+  const today = new Date().toISOString().slice(0, 10);
+  const lastMonth = new Date(Date.now() - 40 * dayMs).toISOString().slice(0, 10);
+  const freshRow = scoreOne({ ...JOB, salary_min: 200000, posted: today, dedupe_key: 'fresh' }, READABLE, ten);
+  const staleRow = scoreOne({ ...JOB, salary_min: 200000, posted: lastMonth, dedupe_key: 'stale' }, READABLE, ten);
+  const undated = scoreOne({ ...JOB, salary_min: 200000, posted: null, dedupe_key: 'undated' }, READABLE, ten);
+  check('a posting from today scores FRESH_BONUS above the same posting from last month',
+    freshRow.rank === staleRow.rank + FRESH_BONUS, `${freshRow.rank} vs ${staleRow.rank}`);
+  check('an unknown posted date earns nothing, because unknown is not fresh',
+    undated.rank === staleRow.rank && undated.fresh === false, `${undated.rank} vs ${staleRow.rank}`);
+  check('the bonus is named in rank_why', /applying early/.test(rankWhy({ ...freshRow, job: JOB })), rankWhy({ ...freshRow, job: JOB }).slice(0, 120));
+  check('and absent from a stale row\'s reason', !/applying early/.test(rankWhy({ ...staleRow, job: JOB })));
+  check('the bonus cannot push a rank past 100', scoreOne({ ...JOB, posted: today }, READABLE, ten).rank <= 100);
+  const edge = new Date(Date.now() - (FRESH_DAYS + 1) * dayMs).toISOString().slice(0, 10);
+  check('day FRESH_DAYS + 1 is not fresh',
+    scoreOne({ ...JOB, salary_min: 200000, posted: edge, dedupe_key: 'edge' }, READABLE, ten).fresh === false);
+}
 
 console.log(bad
   ? `\n${bad} FAILED`

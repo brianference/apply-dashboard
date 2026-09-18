@@ -2,6 +2,113 @@
 
 Started at v14.0.0; earlier releases are in the git tags.
 
+## v26.0.0 - The first three interviews, and what they did to the ranker (2026-09-18)
+
+Brian got first-round interviews from Mitratech, WWT and Bjak, and asked for a
+plan to improve the ranking from the applications that got one. This release
+is what measuring that produced. Two of its findings are about the tracker
+itself rather than the ranker, and they came first.
+
+### The tracker had never recorded an outcome, and had never ranked half of what it sent
+
+Zero rows in `outcomes` before this release. The three interviews are the
+first signal the system has, against 146 applications whose result is unknown
+rather than known-negative. And only 81 of 150 applications had ever been
+ranked: 69 went in before the ranker existed or were ranked out later, and
+every write path treated a submitted row as history. Two of the three
+interview sources had no rank, no fit score and no description read. A ranker
+cannot be judged against outcomes it never scored.
+
+`ingest/score-history.mjs` scores every application without touching status,
+submitted_at or anything the gate decides, and is re-runnable, which is how a
+weight change gets measured against the same outcomes. Two of the three
+applications were also made outside the tracker: Mitratech sat as `queued`
+until this release and WWT is not in the database at all. The WWT posting
+still needs to be supplied; Brian asked for the release to go ahead without it.
+
+### The ranker would have buried the employer that replied
+
+With all 150 scored, Bjak's three rows ranked 34, 37 and 52 against a median
+of 56. Every alternative weight blend was then run over the whole set, asking
+where the four interview rows land as a percentile. No blend moves Bjak out
+of the bottom half; success-led 30/60/10 was the only one that moved them up,
+from a mean percentile of 45 to 55. `docs/ranking-plan.md` carries the table.
+
+### The weights changed, and the change is named as thin
+
+`RANK_FIT_WEIGHT` 0.40 to 0.30, `RANK_SUCCESS_WEIGHT` 0.35 to 0.60,
+`RANK_PAY_WEIGHT` 0.25 to 0.10. The pay term fell furthest because the three
+employers that replied were the ones a high published start had been ranking
+down: Mitratech's $170k start is below the floor, Bjak published nothing.
+This is on three outcomes and the code says so; the constants are named and
+`score-history.mjs --all --write` re-measures the same outcomes after any
+further change.
+
+Two properties had to be re-specified rather than silenced. The 2026-09-03
+test asserted that a high published start could reverse a fit-and-success
+ordering; it now asserts the opposite, that pay still orders two otherwise
+equal rows but no longer overturns a 20-point gap. And the unread-description
+ceiling used to fall out of the weights, 0.35 + 0.25 = 0.60; under the new
+weights the raw sum is 0.70, which would have let a posting nobody could read
+outrank read rows in the sixties. The ceiling is now a stated constant,
+`RANK_UNREAD_CEILING = 60`, scaled to explicitly. Less evidence cannot
+outrank more, and that rule no longer depends on arithmetic luck.
+
+### Applying early, made visible
+
+The interview application with a known posting date went in two days after
+it; the median across all 150 was twenty. A posting inside its first week now
+earns `FRESH_BONUS = 5` after the blend, named in `rank_why` as "5 points for
+applying early", never granted on an unknown date because unknown is not
+fresh, and never past 100. Small on purpose, and named so it can be measured
+and removed.
+
+### Every open row re-ranked
+
+A weight change that reaches only tomorrow's ingest leaves yesterday's list
+ranked by yesterday's rule. `daily.mjs --rescore` re-ranks every open row;
+502 were re-ranked and the history rescored under the new weights. On the
+live data the direction held: Bjak's rows sit at 35, 40 and 54 against a
+median of 44, Mitratech at 72, and 144 open rows carry the freshness bonus.
+
+### Relistings collapsed
+
+50 live rows were Jobgether relistings under "Jobgether (anonymized partner
+employer)", invisible to the three duplicate checks because both the company
+and the URL differ. 15 collapsed onto the single named employer whose live row
+carries the same title. 3 generic titles were left alone as ambiguous, because
+"Senior Product Manager" is listed by twenty employers and picking one would
+mark a real posting as a duplicate of a job it is not. The one application
+sent through Jobgether for a role also queued under Upstart was reported, not
+rewritten. Both guards proved by known-bad.
+
+### Also in this release
+
+A non-English language requirement now rules a posting out, decisive on one
+hit like clearance, after Fundraise Up's "Russian language required". Six kept
+cases are asserted, because a false positive removes real rows without a word.
+Re-gating the stored queue dropped 18 rows, 4 to this rule and 11 to the
+location words added the week before that had never been re-run.
+
+Remotive and Working Nomads wired; Working Nomads' first endpoint turned out
+to be the 53 premium rows with zero product managers, and now queries the
+index the page itself queries. Remote PM Jobs wired from its sitemap and
+JobPosting markup, with two corrections from a second reader measuring the
+same 335 pages. Two more gate holes closed, "Europe" and then "UK", both the
+same shape. Four columns were holding five nav tabs on every device.
+
+### Deliberately not done
+
+Marking applications with no reply after 45 days as `no-response` would make
+the denominator real, and the outcomes ladder has the stage for it. It is a
+process step for Brian rather than a rule the pipeline writes on his behalf:
+a silence is not a rejection until he decides it is.
+
+### Counts
+
+58 suites, up from 56. 505 open rows. 150 applications, all scored. 3
+interviews recorded, one pending the WWT posting.
+
 ## v25.0.0 - Named people with a source, addresses with their evidence, and a backup that has been tested (2026-09-14)
 
 The outreach page stopped being a list of searches and became a list of people.
