@@ -56,6 +56,7 @@ const KIND = {
   'ingest/test-email-pattern.mjs': 'node',
   'ingest/test-remote-feeds.mjs': 'node',
   'ingest/test-remotepmjobs.mjs': 'node',
+  'ingest/test-collapse-relistings.mjs': 'node',
   'functions/test-origin.mjs': 'node',
   'tests/search-and-chips.mjs': 'site',
   'tests/pages-and-theme.mjs': 'site',
