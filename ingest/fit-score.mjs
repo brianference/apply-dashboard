@@ -986,7 +986,7 @@ export function rankBlend(fitPct, successPct, payTerm) {
  * @param {number[]|null|undefined} payStarts
  * @returns {number}
  */
-function payTermFor(job, payStarts) {
+export function payTermFor(job, payStarts) {
   const start = parsePayStart(job && job.salary_min);
   if (start == null || start === 0) return 50;
   return payPercentile(start, payStarts);
