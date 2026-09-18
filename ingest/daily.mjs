@@ -163,15 +163,20 @@ for (const job of quarantined.filter(j => !boardRef(j.url))) {
   } catch (e) { stats.errors++; say(`quarantine gate failed: ${e.message}`); }
 }
 
+/* --rescore ranks EVERY open row, not only the unranked ones. A weight
+   change that only reaches tomorrow's ingest leaves yesterday's list ranked
+   by yesterday's rule, which is the "recompute, then stamp" failure. Used
+   once after the 2026-09-18 reweight; the twice-daily runs stay incremental. */
+const RESCORE = !!args.rescore;
 const needsRank = live
   .filter(j => j.status === 'queued' || j.status === 'pending-review')
-  .filter(j => j.rank_pct === null || j.rank_pct === undefined)
+  .filter(j => RESCORE || j.rank_pct === null || j.rank_pct === undefined)
   /* boardRef used to be the gate. That is why 145 queued rows never got a
      description: Himalayas, Workday and JSON-LD hosts were skipped before
      the reader ran. Blocked and dead hosts still short-circuit inside
      readJd without a fetch. */
-  .slice(0, MAX_RANK);
-say(`unranked, to read: ${needsRank.length}`);
+  .slice(0, RESCORE ? Infinity : MAX_RANK);
+say(`${RESCORE ? "rescoring every open row" : "unranked"}, to read: ${needsRank.length}`);
 
 /* Fetch every description FIRST. resumeMatch weighs a posting's terms against
    how rare they are across the cached corpus, and the corpus is those cached

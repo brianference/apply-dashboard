@@ -875,6 +875,27 @@ const OFF_FOCUS = [
  * actual domain and above the noise.
  */
 const OFF_FOCUS_PENALTY = 25;
+/* A posting inside its first week earns this, after the blend. Measured
+   2026-09-18: the interview application with a known posting date went in
+   two days after it; the median across all 150 applications was twenty.
+   Age at ranking time is the actionable proxy for applying early. Small on
+   purpose, named so it can be measured and removed, and never granted on an
+   unknown date, because unknown is not fresh. */
+export const FRESH_DAYS = 7;
+export const FRESH_BONUS = 5;
+
+/**
+ * Days since the posting's own published date, or null when there is none.
+ *
+ * @param {{posted?: string|null}} job
+ * @param {number} [now]
+ * @returns {number|null}
+ */
+export function postedAgeDays(job, now = Date.now()) {
+  const t = Date.parse(job && job.posted ? String(job.posted) : '');
+  if (!Number.isFinite(t)) return null;
+  return Math.floor((now - t) / 86400000);
+}
 
 /**
  * Which off-focus domain a posting belongs to, by title.
@@ -899,11 +920,23 @@ export function offFocusDomain(title) {
    fails a test instead of silently compressing every score. Pay is a
    percentile, not dollars, for the same reason resume overlap is
    calibrated: a raw $170k cannot be averaged with a 45-94 fit score. */
-export const RANK_FIT_WEIGHT = 0.40;
-export const RANK_SUCCESS_WEIGHT = 0.35;
-export const RANK_PAY_WEIGHT = 0.25;
-/* Unread descriptions keep this weight on success alone. Mixing pay into
-   only that branch would be a second change with its own behaviour. */
+/* Success-led since 2026-09-18. Measured over all 150 applications with the
+   three first interviews recorded (docs/ranking-plan.md): under 40/35/25 the
+   interview rows sat at a mean percentile of 45, and 30/60/10 was the only
+   blend that lifted them, to 55. Three outcomes is thin evidence and this
+   is recorded as such; ingest/score-history.mjs --all --write re-measures
+   the same outcomes after any further change. The pay term fell furthest
+   because the three employers that replied were the ones a high published
+   start had been ranking DOWN: Mitratech's $170k start, Bjak's unpublished. */
+export const RANK_FIT_WEIGHT = 0.30;
+export const RANK_SUCCESS_WEIGHT = 0.60;
+export const RANK_PAY_WEIGHT = 0.10;
+/* The ceiling for a row whose description could not be read. Less evidence
+   cannot outrank more: a fully-read row can reach 100, an unread one stops
+   here. It used to fall out of the weights (0.35 + 0.25 = 0.60); it is now
+   stated, so a weight change cannot move it by accident. */
+export const RANK_UNREAD_CEILING = 60;
+/* Kept for the tests that compare against the old success-only branch. */
 export const RANK_UNREAD_SUCCESS_WEIGHT = 0.6;
 
 /**
@@ -968,6 +1001,24 @@ export function rankBlend(fitPct, successPct, payTerm) {
     + successPct * RANK_SUCCESS_WEIGHT
     + payTerm * RANK_PAY_WEIGHT
   );
+}
+
+/**
+ * The two-term blend for a row with no readable description, scaled so that
+ * perfect success and top pay land exactly on RANK_UNREAD_CEILING.
+ *
+ * Failing input: success 100 and pay 100 must return 60, not 70. Under the
+ * success-led weights the raw two-term sum is 0.70, and without this scaling
+ * an unreadable posting could outrank read ones in the sixties.
+ *
+ * @param {number} successPct
+ * @param {number} payTerm
+ * @returns {number}
+ */
+export function unreadBlend(successPct, payTerm) {
+  const raw = successPct * RANK_SUCCESS_WEIGHT + payTerm * RANK_PAY_WEIGHT;
+  const scale = RANK_UNREAD_CEILING / (100 * (RANK_SUCCESS_WEIGHT + RANK_PAY_WEIGHT));
+  return Math.round(raw * scale);
 }
 
 /**
@@ -1062,17 +1113,20 @@ export function scoreOne(job, jd, payStarts) {
        did not: a posting with a published $280k band and no fetchable
        description ignored the band completely. */
     : fit === null
-      ? Math.round(success.pct * RANK_SUCCESS_WEIGHT + payTerm * RANK_PAY_WEIGHT)
+      ? unreadBlend(success.pct, payTerm)
       : rankBlend(fit.pct, success.pct, payTerm);
   /* A domain he does not work in costs points rather than the whole posting.
      Applied after the blend, not inside it, so the penalty is visible in the
      reason rather than dissolved into a component score. */
   const offFocus = base === null ? null : offFocusDomain(job && job.title);
-  const rank = offFocus ? Math.max(0, base - OFF_FOCUS_PENALTY) : base;
+  const age = postedAgeDays(job);
+  const fresh = base !== null && age !== null && age >= 0 && age <= FRESH_DAYS;
+  const penalised = offFocus ? Math.max(0, base - OFF_FOCUS_PENALTY) : base;
+  const rank = penalised === null ? null : (fresh ? Math.min(100, penalised + FRESH_BONUS) : penalised);
   /* A failed gate clears the tier the same way it clears the rank: the row
      is off the list, not a low-ranked job in a pay lane. */
   const pay_tier = gate.ok ? payTier(job) : null;
-  return { gate, fit, success, rank, pay_tier, offFocus, jdRead: !!jd, payTerm, payStart };
+  return { gate, fit, success, rank, pay_tier, offFocus, fresh, postedAge: age, jdRead: !!jd, payTerm, payStart };
 }
 
 /**
@@ -1094,6 +1148,7 @@ export function scoreOne(job, jd, payStarts) {
 export function rankWhy(s) {
   const why = [];
   if (s.offFocus) why.push(`${s.offFocus.name} is outside your focus: ${OFF_FOCUS_PENALTY} points off`);
+  if (s.fresh) why.push(`posted ${s.postedAge} day${s.postedAge === 1 ? '' : 's'} ago: ${FRESH_BONUS} points for applying early`);
   if (s.fit && s.fit.resumePct != null) {
     why.push(`resume: better than ${s.fit.resumePct}% of your queue - matches ${(s.fit.matched || []).slice(0, 6).join(', ')}`);
     if ((s.fit.missing || []).length) why.push(`not in your resume: ${s.fit.missing.slice(0, 6).join(', ')}`);
