@@ -95,6 +95,17 @@ check('blocked-employers.json lists Coinbase with match "coinbase"',
 check('employerBlockReason uses the committed name and reason',
   employerBlockReason(fromFile) === EMPLOYER_REASON);
 
+/* Instacart: blocked 2026-09-22 after no application got a response. */
+const INSTACART_REASON = 'employer: Instacart is blocked - no response to any application';
+const instacart = requirementsGate({ ...GOOD, company: 'Instacart' }, null);
+check('an Instacart row fails the gate with the employer rule',
+  instacart.ok === false && (instacart.reasons || []).includes(INSTACART_REASON),
+  (instacart.reasons || []).join('; '));
+const instacartUnlisted = requirementsGate({ ...GOOD, company: 'Instacart' }, null,
+  { blockedEmployers: BLOCKED_EMPLOYERS.filter((e) => e.name !== 'Instacart') });
+check('the same Instacart row passes once Instacart is off the list',
+  instacartUnlisted.ok === true, (instacartUnlisted.reasons || []).join('; '));
+
 /* ---- apply-employer-block: 9 Coinbase rows, submitted is history ---- */
 
 const nine = [
