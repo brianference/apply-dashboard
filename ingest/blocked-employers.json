@@ -4,5 +4,11 @@
     "match": "coinbase",
     "since": "2026-08-31",
     "reason": "employer application limit reached"
+  },
+  {
+    "name": "Instacart",
+    "match": "instacart",
+    "since": "2026-09-22",
+    "reason": "no response to any application"
   }
 ]
