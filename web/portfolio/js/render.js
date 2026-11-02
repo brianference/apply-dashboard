@@ -63,6 +63,18 @@ export function projectRow(project) {
   if (project.repo) {
     actions.push(el("a", { class: "source", href: project.repo, target: "_blank", rel: "noopener noreferrer" }, ["Source"]));
   }
+  if (project.video) {
+    actions.push(el("a", { class: "source", href: project.video, target: "_blank", rel: "noopener noreferrer" }, ["Watch the build"]));
+  }
+  const gallery = (project.gallery && project.gallery.length)
+    ? el("ul", { class: "gallery", "aria-label": `${project.name} screenshots` }, project.gallery.map((g) =>
+      el("li", {}, [
+        el("a", { href: g.src, target: "_blank", rel: "noopener noreferrer" }, [
+          el("img", { src: g.src, alt: g.caption, loading: "lazy" })
+        ]),
+        el("span", {}, [g.caption])
+      ])))
+    : null;
   return el("article", { class: "row", id: "p-" + project.slug }, [
     el("a", { class: "shot", href: project.url, target: "_blank", rel: "noopener noreferrer" }, [
       /* loading=lazy because ten full-width screenshots sit below the fold.
@@ -75,7 +87,8 @@ export function projectRow(project) {
       el("h3", {}, [project.name]),
       el("p", {}, [project.blurb]),
       el("div", { class: "actions" }, actions)
-    ])
+    ]),
+    gallery
   ]);
 }
 
