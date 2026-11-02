@@ -225,6 +225,10 @@
       "name": "Flexport"
     },
     {
+      "token": "gigs",
+      "name": "Gigs"
+    },
+    {
       "token": "gitlab",
       "name": "GitLab"
     },
@@ -275,6 +279,10 @@
     {
       "token": "iterable",
       "name": "Iterable"
+    },
+    {
+      "token": "ketryx",
+      "name": "Ketryx"
     },
     {
       "token": "klaviyo",
@@ -405,6 +413,10 @@
       "name": "Overstory"
     },
     {
+      "token": "pallet",
+      "name": "Pallet"
+    },
+    {
       "token": "pandadoc",
       "name": "PandaDoc"
     },
@@ -419,6 +431,10 @@
     {
       "token": "pendo",
       "name": "Pendo"
+    },
+    {
+      "token": "peregrinetechnologies",
+      "name": "Peregrine"
     },
     {
       "token": "pingidentity",
@@ -667,6 +683,10 @@
       "name": "PointClickCare"
     },
     {
+      "token": "runlaminar",
+      "name": "Laminar"
+    },
+    {
       "token": "shieldai",
       "name": "Shield AI"
     },
@@ -719,6 +739,22 @@
     {
       "token": "abridge",
       "name": "Abridge"
+    },
+    {
+      "token": "AeroVect",
+      "name": "AeroVect"
+    },
+    {
+      "token": "AfterQuery",
+      "name": "AfterQuery"
+    },
+    {
+      "token": "AgentMail",
+      "name": "AgentMail"
+    },
+    {
+      "token": "airops",
+      "name": "AirOps"
     },
     {
       "token": "aiwyn",
@@ -777,6 +813,10 @@
       "name": "Column"
     },
     {
+      "token": "conduct",
+      "name": "Conduct"
+    },
+    {
       "token": "crusoe",
       "name": "Crusoe"
     },
@@ -787,6 +827,10 @@
     {
       "token": "cyberhaven",
       "name": "Cyberhaven"
+    },
+    {
+      "token": "david-ai",
+      "name": "David AI"
     },
     {
       "token": "decagon",
@@ -805,12 +849,24 @@
       "name": "Docker"
     },
     {
+      "token": "Edison Scientific",
+      "name": "Edison Scientific"
+    },
+    {
       "token": "elevenlabs",
       "name": "ElevenLabs"
     },
     {
+      "token": "EliseAI",
+      "name": "EliseAI"
+    },
+    {
       "token": "evergrid",
       "name": "Evergrid"
+    },
+    {
+      "token": "factory",
+      "name": "Factory"
     },
     {
       "token": "fieldguide",
@@ -819,6 +875,10 @@
     {
       "token": "fireworks",
       "name": "Fireworks"
+    },
+    {
+      "token": "flai",
+      "name": "Flai"
     },
     {
       "token": "fyxer",
@@ -831,6 +891,10 @@
     {
       "token": "greptile",
       "name": "Greptile"
+    },
+    {
+      "token": "halluminate",
+      "name": "Halluminate"
     },
     {
       "token": "harvey",
@@ -847,6 +911,10 @@
     {
       "token": "hex",
       "name": "Hex"
+    },
+    {
+      "token": "hone",
+      "name": "Hone"
     },
     {
       "token": "hopper",
@@ -877,8 +945,20 @@
       "name": "Lark Health"
     },
     {
+      "token": "legora",
+      "name": "Legora"
+    },
+    {
+      "token": "Lightfield",
+      "name": "Lightfield"
+    },
+    {
       "token": "linear",
       "name": "Linear"
+    },
+    {
+      "token": "lio",
+      "name": "Lio"
     },
     {
       "token": "listenlabs",
@@ -893,12 +973,24 @@
       "name": "Lovable"
     },
     {
+      "token": "maven-agi",
+      "name": "Maven AGI"
+    },
+    {
+      "token": "melius",
+      "name": "Melius"
+    },
+    {
       "token": "mercor",
       "name": "Mercor"
     },
     {
       "token": "meridianlink",
       "name": "MeridianLink"
+    },
+    {
+      "token": "metaview",
+      "name": "Metaview"
     },
     {
       "token": "middesk",
@@ -929,6 +1021,10 @@
       "name": "Notion"
     },
     {
+      "token": "nox-metals",
+      "name": "Nox Metals"
+    },
+    {
       "token": "openai",
       "name": "OpenAI"
     },
@@ -951,6 +1047,14 @@
     {
       "token": "pika",
       "name": "Pika"
+    },
+    {
+      "token": "PointOne",
+      "name": "PointOne"
+    },
+    {
+      "token": "polymarket",
+      "name": "Polymarket"
     },
     {
       "token": "poolside",
@@ -993,12 +1097,24 @@
       "name": "RevenueCat"
     },
     {
+      "token": "ropes",
+      "name": "Ropes"
+    },
+    {
+      "token": "Rox-Data-Corp",
+      "name": "Rox"
+    },
+    {
       "token": "runway",
       "name": "Runway"
     },
     {
       "token": "sandboxaq",
       "name": "SandboxAQ"
+    },
+    {
+      "token": "savvy",
+      "name": "Savvy"
     },
     {
       "token": "scribe",
@@ -1019,6 +1135,10 @@
     {
       "token": "speak",
       "name": "Speak"
+    },
+    {
+      "token": "stacks",
+      "name": "Stacks"
     },
     {
       "token": "suno",
@@ -1047,6 +1167,10 @@
     {
       "token": "tenex",
       "name": "TENEX.AI"
+    },
+    {
+      "token": "tensorwave",
+      "name": "TensorWave"
     },
     {
       "token": "tiger",
