@@ -2,7 +2,7 @@
  * Entry point for the split-hero portfolio. Fetches, then renders.
  */
 
-import { el, lines, projectRow, repoList, putJsonLd, factText, experienceList, projectList, closingBand } from "./render.js";
+import { el, lines, projectRow, galleryList, repoList, putJsonLd, factText, experienceList, projectList, closingBand } from "./render.js";
 import { fetchProfile, currentHandle } from "./api.js";
 import { PROJECTS } from "./projects.js";
 import { mountSiteNav } from "/shared/site-nav.js";
@@ -34,15 +34,41 @@ const link = (url, label, cls) =>
  */
 function showProjects() {
   const [featured, ...rest] = PROJECTS;
-  at("#hero-shot").setAttribute("href", featured.url);
-  at("#hero-shot").hidden = false;
-  at("#hero-img").setAttribute("src", featured.shot);
-  at("#hero-img").setAttribute("alt", `Screenshot of ${featured.name}`);
+  const heroShot = at("#hero-shot");
+  heroShot.hidden = false;
+  if (featured.embed) {
+    /* The walkthrough plays in place of the screenshot. The no-referrer policy
+       on this site makes YouTube refuse some embeds, so this one frame asks for
+       the origin to be sent. */
+    heroShot.replaceChildren(el("iframe", {
+      class: "hero-video",
+      src: featured.embed,
+      title: `${featured.name} build walkthrough`,
+      loading: "lazy",
+      allow: "accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen",
+      allowfullscreen: "",
+      referrerpolicy: "strict-origin-when-cross-origin"
+    }));
+    heroShot.removeAttribute("href");
+  } else {
+    heroShot.setAttribute("href", featured.url);
+    at("#hero-img").setAttribute("src", featured.shot);
+    at("#hero-img").setAttribute("alt", `Screenshot of ${featured.name}`);
+  }
   at("#featured-name").textContent = featured.name;
   at("#featured-blurb").textContent = featured.blurb;
   const featuredLinks = [link(featured.url, "Visit", "visit")];
   if (featured.repo) featuredLinks.push(link(featured.repo, "Source", "source"));
+  if (featured.video) featuredLinks.push(link(featured.video, "Watch on YouTube", "source"));
   at("#featured-links").replaceChildren(...featuredLinks);
+  const strip = galleryList(featured);
+  const heroGallery = document.querySelector("#hero-gallery");
+  if (heroGallery) heroGallery.remove();
+  if (strip) {
+    strip.id = "hero-gallery";
+    strip.classList.add("hero-gallery");
+    at(".hero").after(strip);
+  }
   at("#rows").replaceChildren(...rest.map(projectRow));
 }
 
@@ -121,7 +147,18 @@ async function start() {
      appeared, and a portfolio is read for the work. */
   const paragraphs = String(profile.summary || "")
     .split(String.fromCharCode(10)).map((t) => t.trim()).filter(Boolean);
-  at("#bio").textContent = paragraphs[0] || "";
+  const bio = at("#bio");
+  bio.textContent = paragraphs[0] || "";
+  /* One long paragraph pushed the featured project a full screen down, so it
+     is clamped to a few lines and opened on request. */
+  bio.classList.add("clamped");
+  const more = el("button", { class: "bio-more", type: "button", "aria-expanded": "false" }, ["Read more"]);
+  more.addEventListener("click", () => {
+    const open = bio.classList.toggle("clamped") === false;
+    more.textContent = open ? "Show less" : "Read more";
+    more.setAttribute("aria-expanded", String(open));
+  });
+  bio.after(more);
 
   const links = [];
   if (profile.links.linkedin) links.push(link(profile.links.linkedin, "LinkedIn", "pill"));

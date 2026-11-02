@@ -8,24 +8,17 @@
  * staying up as a claim nobody can check.
  */
 
-/** @typedef {{slug: string, name: string, url: string, repo: string|null, blurb: string, shot: string, video?: string, gallery?: Array<{src: string, caption: string}>}} Project */
+/** @typedef {{slug: string, name: string, url: string, repo: string|null, blurb: string, shot: string, video?: string, embed?: string, gallery?: Array<{src: string, caption: string}>}} Project */
 
 /** @type {Project[]} */
 export const PROJECTS = [
-  {
-    slug: "redanvil",
-    name: "RedAnvil",
-    url: "https://redanvil.pages.dev",
-    repo: "https://github.com/brianference/redanvil",
-    blurb: "An app factory. One prompt becomes a PRD, then a full-stack app with a database, API and tests, with human review of design and logo and a rule gate that sends the build back when it is not good enough.",
-    shot: "./img/redanvil.png"
-  },
   {
     slug: "halloween-escape-room",
     name: "Halloween Escape Room (Perplexity)",
     url: "https://halloween-escape-room.pplx.app/",
     repo: null,
     video: "https://youtu.be/Q_YxGpKRs6s",
+    embed: "https://www.youtube-nocookie.com/embed/Q_YxGpKRs6s",
     blurb: "A nine-level Halloween escape game vibe coded in five days during my Perplexity contract, using Hugging Face, Anthropic Fable, Grok Imagine and Seedance. It is fully playable, with puzzles and monster battles that get harder each level: a zombie at the gate, a vampire in the foyer, a mummy in the library, and on up to the roof.",
     shot: "./img/halloween/foyer.jpg",
     gallery: [
@@ -38,6 +31,14 @@ export const PROJECTS = [
       { src: "./img/halloween/attic.jpg", caption: "Attic: witch" },
       { src: "./img/halloween/roof.jpg", caption: "Roof: final puzzle" }
     ]
+  },
+  {
+    slug: "redanvil",
+    name: "RedAnvil",
+    url: "https://redanvil.pages.dev",
+    repo: "https://github.com/brianference/redanvil",
+    blurb: "An app factory. One prompt becomes a PRD, then a full-stack app with a database, API and tests, with human review of design and logo and a rule gate that sends the build back when it is not good enough.",
+    shot: "./img/redanvil.png"
   },
   {
     slug: "daisydog",
