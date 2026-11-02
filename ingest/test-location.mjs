@@ -68,6 +68,13 @@ const loc = [
   ['United States', '', true, 'a country with no city cannot be an on-site requirement'],
   ['Full Time / United States', '', true, 'same, as Boulevard words it'],
   ['', '', false, 'no location at all fails closed'],
+  ['Costa Mesa, California, United States', '', false, 'ANDURIL: Costa Mesa is Orange County, not Arizona'],
+  ['Costa Mesa, CA', '', false, 'same city, abbreviated'],
+  ['Mesa, AZ', '', true, 'the real Mesa still passes'],
+  ['Mesa, Arizona', '', true, 'spelled out'],
+  ['São Paulo / Hybrid / Remote', '', false, 'OPENAI: accented spelling must meet the same list'],
+  ['Sao Paulo / Hybrid / Remote', '', false, 'unaccented spelling, which already worked'],
+  ['Remote - São Paulo, Brazil', '', false, 'remote but outside the US'],
 ];
 
 const role = [
