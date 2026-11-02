@@ -8,7 +8,7 @@
  * staying up as a claim nobody can check.
  */
 
-/** @typedef {{slug: string, name: string, url: string, repo: string|null, blurb: string, shot: string}} Project */
+/** @typedef {{slug: string, name: string, url: string, repo: string|null, blurb: string, shot: string, video?: string, gallery?: Array<{src: string, caption: string}>}} Project */
 
 /** @type {Project[]} */
 export const PROJECTS = [
@@ -19,6 +19,25 @@ export const PROJECTS = [
     repo: "https://github.com/brianference/redanvil",
     blurb: "An app factory. One prompt becomes a PRD, then a full-stack app with a database, API and tests, with human review of design and logo and a rule gate that sends the build back when it is not good enough.",
     shot: "./img/redanvil.png"
+  },
+  {
+    slug: "halloween-escape-room",
+    name: "Halloween Escape Room (Perplexity)",
+    url: "https://halloween-escape-room.pplx.app/",
+    repo: null,
+    video: "https://youtu.be/Q_YxGpKRs6s",
+    blurb: "A nine-level Halloween escape game vibe coded in five days during my Perplexity contract, using Hugging Face, Anthropic Fable, Grok Imagine and Seedance. It is fully playable, with puzzles and monster battles that get harder each level: a zombie at the gate, a vampire in the foyer, a mummy in the library, and on up to the roof.",
+    shot: "./img/halloween/foyer.jpg",
+    gallery: [
+      { src: "./img/halloween/gate.jpg", caption: "Gate: zombie" },
+      { src: "./img/halloween/foyer.jpg", caption: "Foyer: vampire" },
+      { src: "./img/halloween/library.jpg", caption: "Library: mummy" },
+      { src: "./img/halloween/hall-of-mirrors.jpg", caption: "Hall of Mirrors: ghost" },
+      { src: "./img/halloween/cellar.jpg", caption: "Cellar: werewolf" },
+      { src: "./img/halloween/ballroom.jpg", caption: "Ballroom: Frankenstein" },
+      { src: "./img/halloween/attic.jpg", caption: "Attic: witch" },
+      { src: "./img/halloween/roof.jpg", caption: "Roof: final puzzle" }
+    ]
   },
   {
     slug: "daisydog",

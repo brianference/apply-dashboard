@@ -210,6 +210,21 @@ a:hover { text-decoration: underline; }
 
 .row .copy p { margin: 0 0 16px; color: var(--muted); max-width: 42ch; }
 
+.gallery {
+    grid-column: 1 / -1;
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+.gallery li { margin: 0; }
+.gallery a { display: block; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); }
+.gallery img { display: block; width: 100%; aspect-ratio: 2 / 1; object-fit: cover; }
+.gallery span { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); }
+@media (min-width: 900px) { .gallery { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
 .row .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 @media (min-width: 900px) {
