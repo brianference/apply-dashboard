@@ -8,7 +8,7 @@
  * staying up as a claim nobody can check.
  */
 
-/** @typedef {{slug: string, name: string, url: string, repo: string|null, blurb: string, shot: string, video?: string, embed?: string, gallery?: Array<{src: string, caption: string}>}} Project */
+/** @typedef {{slug: string, name: string, url: string, repo: string|null, blurb: string, shot: string, video?: string, embed?: string, embedTitle?: string, gallery?: Array<{src: string, caption: string}>}} Project */
 
 /** @type {Project[]} */
 export const PROJECTS = [
@@ -19,6 +19,7 @@ export const PROJECTS = [
     repo: null,
     video: "https://youtu.be/Q_YxGpKRs6s",
     embed: "https://www.youtube-nocookie.com/embed/Q_YxGpKRs6s",
+    embedTitle: "Perplexity Halloween Escape Room Game Video Demo",
     blurb: "A nine-level Halloween escape game vibe coded in five days during my Perplexity contract, using Hugging Face, Anthropic Fable, Grok Imagine and Seedance. It is fully playable, with puzzles and monster battles that get harder each level: a zombie at the gate, a vampire in the foyer, a mummy in the library, and on up to the roof.",
     shot: "./img/halloween/foyer.jpg",
     gallery: [

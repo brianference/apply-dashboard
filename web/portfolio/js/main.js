@@ -48,7 +48,7 @@ function showProjects() {
       allow: "accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen",
       allowfullscreen: "",
       referrerpolicy: "strict-origin-when-cross-origin"
-    }));
+    }), el("p", { class: "hero-video-title" }, [featured.embedTitle || featured.name]));
     heroShot.removeAttribute("href");
   } else {
     heroShot.setAttribute("href", featured.url);
