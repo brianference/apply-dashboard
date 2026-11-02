@@ -145,6 +145,7 @@ a:hover { text-decoration: underline; }
     background: var(--surface);
   }
 
+.hero-video { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; }
 .hero-shot img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top center; }
 
 .hero-copy h1 {
@@ -165,9 +166,27 @@ a:hover { text-decoration: underline; }
 .hero-copy .bio {
     margin: 0 0 28px;
     color: var(--muted);
-    max-width: 48ch;
+    max-width: 62ch;
   }
 
+.hero-copy .bio.clamped {
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+.bio-more {
+    margin: 0 0 24px;
+    padding: 6px 0;
+    background: none;
+    border: 0;
+    color: var(--accent, #2b5870);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+  }
 .hero-copy h2 {
     margin: 0 0 8px;
     font-size: 28px;
@@ -175,7 +194,7 @@ a:hover { text-decoration: underline; }
     line-height: 1.15;
   }
 
-.hero-copy .blurb { margin: 0 0 16px; color: var(--muted); max-width: 48ch; }
+.hero-copy .blurb { margin: 0 0 16px; color: var(--muted); max-width: 62ch; }
 
 .band { padding: 8px 0 64px; }
 
@@ -219,6 +238,8 @@ a:hover { text-decoration: underline; }
     gap: 12px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+.hero-gallery { max-width: 1440px; margin: 0 auto; padding: 8px 16px 28px; }
+@media (min-width: 900px) { .hero-gallery { padding: 8px 28px 40px; } }
 .gallery li { margin: 0; }
 .gallery a { display: block; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); }
 .gallery img { display: block; width: 100%; aspect-ratio: 2 / 1; object-fit: cover; }
@@ -229,10 +250,10 @@ a:hover { text-decoration: underline; }
 
 @media (min-width: 900px) {
     .hero {
-      grid-template-columns: minmax(22rem, 0.85fr) minmax(0, 1.35fr);
+      grid-template-columns: minmax(24rem, 1fr) minmax(0, 1.25fr);
       gap: 40px;
       padding: 40px 28px 20px;
-      align-items: center;
+      align-items: start;
     }
     .hero-copy { order: -1; }
     .row {

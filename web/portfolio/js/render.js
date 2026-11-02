@@ -50,6 +50,23 @@ export function lines(text) {
 }
 
 /**
+ * The screenshot strip under a project, or null when it has none.
+ *
+ * @param {import("./projects.js").Project} project
+ * @returns {HTMLElement|null}
+ */
+export function galleryList(project) {
+  if (!project.gallery || !project.gallery.length) return null;
+  return el("ul", { class: "gallery", "aria-label": `${project.name} screenshots` }, project.gallery.map((g) =>
+    el("li", {}, [
+      el("a", { href: g.src, target: "_blank", rel: "noopener noreferrer" }, [
+        el("img", { src: g.src, alt: g.caption, loading: "lazy" })
+      ]),
+      el("span", {}, [g.caption])
+    ])));
+}
+
+/**
  * One project row: screenshot on one side, words on the other.
  *
  * The CSS alternates which side each lands on down the page; nothing here has
@@ -66,15 +83,7 @@ export function projectRow(project) {
   if (project.video) {
     actions.push(el("a", { class: "source", href: project.video, target: "_blank", rel: "noopener noreferrer" }, ["Watch the build"]));
   }
-  const gallery = (project.gallery && project.gallery.length)
-    ? el("ul", { class: "gallery", "aria-label": `${project.name} screenshots` }, project.gallery.map((g) =>
-      el("li", {}, [
-        el("a", { href: g.src, target: "_blank", rel: "noopener noreferrer" }, [
-          el("img", { src: g.src, alt: g.caption, loading: "lazy" })
-        ]),
-        el("span", {}, [g.caption])
-      ])))
-    : null;
+  const gallery = galleryList(project);
   return el("article", { class: "row", id: "p-" + project.slug }, [
     el("a", { class: "shot", href: project.url, target: "_blank", rel: "noopener noreferrer" }, [
       /* loading=lazy because ten full-width screenshots sit below the fold.
