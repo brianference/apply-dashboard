@@ -53,6 +53,7 @@ const KIND = {
   'ingest/test-wwr-feed.mjs': 'node',
   'ingest/test-browser-boards.mjs': 'node',
   'ingest/test-salary-sweep.mjs': 'node',
+  'ingest/test-followup-sweep.mjs': 'node',
   'ingest/test-email-pattern.mjs': 'node',
   'ingest/test-remote-feeds.mjs': 'node',
   'ingest/test-remotepmjobs.mjs': 'node',
