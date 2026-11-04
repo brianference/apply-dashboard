@@ -94,11 +94,12 @@ export function locationEligible(workType, title) {
      2026-11-04, reversing the rule that read "Remote-Friendly (Travel-Required) |
      Washington, DC" as hybrid at an office. It returns here because FENCED would
      read "Remote-Friendly, San Francisco" as remote fenced to the Bay Area. A list
-     naming only other countries stays out. The word "or" is dropped because the
-     state list reads it as Oregon, which would let "London or Paris" through. */
+     naming only other countries stays out. Two-letter words are dropped before the
+     US list because it reads "Toronto, CA", "Tel Aviv, IL" and the word "or" as
+     states. */
   if (/remote[- ]friendly/i.test(text)) {
-    const where = String(workType || title || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/\bor\b/gi, ' ');
-    if (NOT_US.test(where) && !US_WIDE.test(where) && !US_ELSEWHERE.test(where)) {
+    const usPlaces = text.replace(/\b[a-z]{2}\b/gi, ' ');
+    if (NOT_US.test(text) && !US_WIDE.test(text) && !US_ELSEWHERE.test(usPlaces)) {
       return { ok: false, why: 'remote-friendly, outside the US' };
     }
     return { ok: true, why: 'remote-friendly' };

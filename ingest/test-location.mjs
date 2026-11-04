@@ -71,6 +71,9 @@ const loc = [
   ['Sydney, Australia | Remote-Friendly, Australia', '', false, 'ANTHROPIC: nor Australia'],
   ['Bogotá, Colombia (Remote Friendly)', '', false, 'ROBOTS AND PENCILS: nor Colombia, accent folded'],
   ['Remote-Friendly | London or Paris', '', false, 'the state list reads the word or as Oregon'],
+  ['Toronto, CA | Remote-Friendly', '', false, 'REVIEW: a country code is not California'],
+  ['Tel Aviv, IL (Remote Friendly)', '', false, 'REVIEW: nor Illinois'],
+  ['Remote-Friendly', 'Product Manager, Canada', false, 'REVIEW: the title can name the country'],
   ['Hybrid / FullTime / San Francisco / Remote-Friendly', '', false, 'hybrid still needs an Arizona office'],
   ['Toronto, Remote- Canada', '', false, 'STRIPE: remote within Canada'],
   ['Remote only, San Francisco', '', false, 'FELICIS: Wellfound scopes remote to a city this way'],
@@ -412,14 +415,17 @@ if (!/runUpsert\(\{[^}]*alsoTitles:\s*STRATEGY_TITLE/.test(fs.readFileSync('inge
   const realFetch = globalThis.fetch;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'collect-'));
   const posting = (title) => ({ title, jobUrl: 'https://jobs.ashbyhq.com/x/' + encodeURIComponent(title), location: 'Remote' });
-  globalThis.fetch = async (url) => (String(url).includes('ashbyhq.com')
+  globalThis.fetch = async (url) => (String(url).includes('himalayas.app')
+    ? new Response(JSON.stringify({ jobs: String(url).includes('strategist')
+      ? [{ title: 'Staff Deployment Strategist', companyName: 'Stub', applicationLink: 'https://himalayas.app/stub/1' }] : [] }), { status: 200 })
+    : String(url).includes('ashbyhq.com')
     ? new Response(JSON.stringify({ jobs: ['Deployment Strategist', 'Senior Product Manager', 'Sales Director'].map(posting) }), { status: 200 })
     : new Response(String(url).includes('lever.co') ? '[]' : '{"jobs":[]}', { status: 200 }));
   try {
     const jobsOut = path.join(tmp, 'jobs.json');
     await runUpsert({ query: 'product', alsoTitles: STRATEGY_TITLE, limit: 2000, out: path.join(tmp, 'up.sql'), jobsOut });
     const titles = new Set(JSON.parse(fs.readFileSync(jobsOut, 'utf8')).jobs.map((j) => j.title));
-    const want = titles.has('Deployment Strategist') && titles.has('Senior Product Manager') && !titles.has('Sales Director');
+    const want = titles.has('Deployment Strategist') && titles.has('Staff Deployment Strategist') && titles.has('Senior Product Manager') && !titles.has('Sales Director');
     if (!want) bad += 1;
     console.log((want ? '  ok   ' : '  FAIL ') + 'collected: ' + [...titles].join('; '));
   } finally {

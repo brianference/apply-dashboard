@@ -1,3 +1,4 @@
+import { logWarn } from "../logger.mjs";
 import { isCli, runSourceCli } from "../cli.mjs";
 import { fetchJson } from "../http.mjs";
 import { filterJobs, isoFromUnknown, joinWorkType } from "../jobs.mjs";
@@ -39,7 +40,7 @@ export function normalizeHimalayasJobs(payload) {
 /**
  * Fetch Himalayas remote jobs. Uses the search endpoint when a query is given.
  *
- * @param {{ limit?: number, query?: string }} [options]
+ * @param {{ limit?: number, query?: string, alsoTitles?: RegExp }} [options]
  * @returns {Promise<Array<{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null }>>}
  */
 export async function fetchJobs(options = {}) {
@@ -56,7 +57,17 @@ export async function fetchJobs(options = {}) {
   } else {
     payload = await fetchJson(BROWSE_URL);
   }
-  return filterJobs(normalizeHimalayasJobs(payload), options);
+  const jobs = normalizeHimalayasJobs(payload);
+  /* This feed searches on the server, so a "product" search never returns a
+     strategist for alsoTitles to keep. A failure here keeps the main search. */
+  if (options.alsoTitles) {
+    try {
+      jobs.push(...normalizeHimalayasJobs(await fetchJson(SEARCH_URL + "?q=deployment%20strategist")));
+    } catch (error) {
+      logWarn("himalayas strategist search skipped", { error: String(error && error.message ? error.message : error) });
+    }
+  }
+  return filterJobs(jobs, options);
 }
 
 if (isCli(import.meta.url)) {
