@@ -164,3 +164,53 @@ No headless scraper was written. Each candidate below was fetched with the same 
 - Greenhouse tokens with HTTP 200 and jobs: 50
 - Lever tokens with HTTP 200 and jobs seeded: 4 (airslate, spotify, palantir, wealthfront)
 - Ashby tokens with HTTP 200 and jobs: 27
+
+## Added 2026-11-02: AI startup boards
+
+Read by `node` fetch on 2026-11-02 from the dev machine (User-Agent apply-dashboard-ingest/0.1), from `boards-to-add.json` in the job-boards handoff. Every board returned HTTP 200 with at least one posting. Ashby tokens are case-sensitive and one contains a space (`Edison Scientific`), which is URL-encoded in the request.
+
+### greenhouse
+
+| token | url | HTTP | content-type | row count | result |
+|---|---|---|---|---|---|
+| ketryx | `https://boards-api.greenhouse.io/v1/boards/ketryx/jobs` | 200 | application/json | 19 | ok |
+| pallet | `https://boards-api.greenhouse.io/v1/boards/pallet/jobs` | 200 | application/json | 21 | ok |
+| peregrinetechnologies | `https://boards-api.greenhouse.io/v1/boards/peregrinetechnologies/jobs` | 200 | application/json | 84 | ok |
+| gigs | `https://boards-api.greenhouse.io/v1/boards/gigs/jobs` | 200 | application/json | 30 | ok |
+
+### lever
+
+| token | url | HTTP | content-type | row count | result |
+|---|---|---|---|---|---|
+| runlaminar | `https://api.lever.co/v0/postings/runlaminar?mode=json` | 200 | application/json; charset=utf-8 | 18 | ok |
+
+### ashby
+
+| token | url | HTTP | content-type | row count | result |
+|---|---|---|---|---|---|
+| EliseAI | `https://api.ashbyhq.com/posting-api/job-board/EliseAI?includeCompensation=true` | 200 | application/json; charset=utf-8 | 115 | ok |
+| nox-metals | `https://api.ashbyhq.com/posting-api/job-board/nox-metals?includeCompensation=true` | 200 | application/json; charset=utf-8 | 37 | ok |
+| Edison Scientific | `https://api.ashbyhq.com/posting-api/job-board/Edison%20Scientific?includeCompensation=true` | 200 | application/json; charset=utf-8 | 25 | ok |
+| AgentMail | `https://api.ashbyhq.com/posting-api/job-board/AgentMail?includeCompensation=true` | 200 | application/json; charset=utf-8 | 9 | ok |
+| ropes | `https://api.ashbyhq.com/posting-api/job-board/ropes?includeCompensation=true` | 200 | application/json; charset=utf-8 | 4 | ok |
+| hone | `https://api.ashbyhq.com/posting-api/job-board/hone?includeCompensation=true` | 200 | application/json; charset=utf-8 | 12 | ok |
+| halluminate | `https://api.ashbyhq.com/posting-api/job-board/halluminate?includeCompensation=true` | 200 | application/json; charset=utf-8 | 10 | ok |
+| AfterQuery | `https://api.ashbyhq.com/posting-api/job-board/AfterQuery?includeCompensation=true` | 200 | application/json; charset=utf-8 | 39 | ok |
+| lio | `https://api.ashbyhq.com/posting-api/job-board/lio?includeCompensation=true` | 200 | application/json; charset=utf-8 | 25 | ok |
+| conduct | `https://api.ashbyhq.com/posting-api/job-board/conduct?includeCompensation=true` | 200 | application/json; charset=utf-8 | 27 | ok |
+| stacks | `https://api.ashbyhq.com/posting-api/job-board/stacks?includeCompensation=true` | 200 | application/json; charset=utf-8 | 7 | ok |
+| PointOne | `https://api.ashbyhq.com/posting-api/job-board/PointOne?includeCompensation=true` | 200 | application/json; charset=utf-8 | 15 | ok |
+| flai | `https://api.ashbyhq.com/posting-api/job-board/flai?includeCompensation=true` | 200 | application/json; charset=utf-8 | 17 | ok |
+| AeroVect | `https://api.ashbyhq.com/posting-api/job-board/AeroVect?includeCompensation=true` | 200 | application/json; charset=utf-8 | 45 | ok |
+| david-ai | `https://api.ashbyhq.com/posting-api/job-board/david-ai?includeCompensation=true` | 200 | application/json; charset=utf-8 | 14 | ok |
+| Rox-Data-Corp | `https://api.ashbyhq.com/posting-api/job-board/Rox-Data-Corp?includeCompensation=true` | 200 | application/json; charset=utf-8 | 42 | ok |
+| Lightfield | `https://api.ashbyhq.com/posting-api/job-board/Lightfield?includeCompensation=true` | 200 | application/json; charset=utf-8 | 25 | ok |
+| maven-agi | `https://api.ashbyhq.com/posting-api/job-board/maven-agi?includeCompensation=true` | 200 | application/json; charset=utf-8 | 13 | ok |
+| tensorwave | `https://api.ashbyhq.com/posting-api/job-board/tensorwave?includeCompensation=true` | 200 | application/json; charset=utf-8 | 62 | ok |
+| airops | `https://api.ashbyhq.com/posting-api/job-board/airops?includeCompensation=true` | 200 | application/json; charset=utf-8 | 19 | ok |
+| metaview | `https://api.ashbyhq.com/posting-api/job-board/metaview?includeCompensation=true` | 200 | application/json; charset=utf-8 | 39 | ok |
+| savvy | `https://api.ashbyhq.com/posting-api/job-board/savvy?includeCompensation=true` | 200 | application/json; charset=utf-8 | 28 | ok |
+| legora | `https://api.ashbyhq.com/posting-api/job-board/legora?includeCompensation=true` | 200 | application/json; charset=utf-8 | 305 | ok |
+| factory | `https://api.ashbyhq.com/posting-api/job-board/factory?includeCompensation=true` | 200 | application/json; charset=utf-8 | 66 | ok |
+| polymarket | `https://api.ashbyhq.com/posting-api/job-board/polymarket?includeCompensation=true` | 200 | application/json; charset=utf-8 | 36 | ok |
+| melius | `https://api.ashbyhq.com/posting-api/job-board/melius?includeCompensation=true` | 200 | application/json; charset=utf-8 | 5 | ok |
