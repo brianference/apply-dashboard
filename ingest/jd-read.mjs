@@ -31,7 +31,7 @@ const DEFAULT_CACHE_DIR = path.join(
 export const JSONLD_DESC_MIN = 400;
 /** Survey threshold: plain page text counted as a read above this. */
 export const PAGE_TEXT_MIN = 1200;
-/** Posting vocabulary a ?gh_jid= page must use before its text counts as the posting. */
+/** Different posting terms a ?gh_jid= page must use before its text counts as the posting. */
 const MIN_POSTING_TERMS = 2;
 
 /* Hosts that are never FETCHED. Being unreadable is not the test -- an
@@ -571,7 +571,7 @@ function fromJsonLdHtml(html, now) {
  */
 function looksLikePosting(text) {
   const hits = String(text).match(/responsibilit|qualificat|what you.ll|requirements|about the (?:role|team)|you will/gi);
-  return !!hits && hits.length >= MIN_POSTING_TERMS;
+  return !!hits && new Set(hits.map((hit) => hit.toLowerCase())).size >= MIN_POSTING_TERMS;
 }
 
 /**

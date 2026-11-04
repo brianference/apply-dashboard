@@ -776,6 +776,12 @@ try { fs.rmSync(tmpBreak, { recursive: true, force: true }); } catch { /* temp d
       fetch: realFn, cacheDir: dir2, fetchBoard: async () => ({ text: null, status: 0 })
     });
     check('a ?gh_jid= page that serves the posting is still read', !!served.text, String(served.outcome));
+    const repeated = '<html><body><h1>Open roles</h1><p>' + 'Requirements vary by team. '.repeat(80) + '</p></body></html>';
+    const { fetch: repeatFn } = fakeFetch([{ match: () => true, status: 200, contentType: 'text/html', body: repeated }]);
+    const oneWord = await readJd('https://example.com/jobs?gh_jid=998', {
+      fetch: repeatFn, cacheDir: dir2, fetchBoard: async () => ({ text: null, status: 0 })
+    });
+    check('one posting word repeated does not make a listing a posting', oneWord.text === null, String(oneWord.outcome));
     const plain = await readJd('https://careers.example.com/jobs/product-manager', { fetch: pageFn, cacheDir: dir2 });
     check('an ordinary careers page is still read as text', !!plain.text, String(plain.outcome));
   }
