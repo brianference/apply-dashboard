@@ -93,8 +93,7 @@ export function rangePair(text) {
   while ((m = usd.exec(text))) {
     const a = toN(m[1]);
     const b = toN(m[2]);
-    const near = text.slice(Math.max(0, m.index - 40), m.index).split(/[.;
-]/).pop() + text.slice(usd.lastIndex, usd.lastIndex + 25);
+    const near = text.slice(Math.max(0, m.index - 40), m.index).split(/[.;\n]/).pop() + text.slice(usd.lastIndex, usd.lastIndex + 25);
     if (b % 1000 === 999 || /bonus|equity|commission|\bOTE\b|per customer|revenue/i.test(near)) continue;
     if (a >= 50000 && b <= 800000 && b > a) return { min: a, max: b };
   }
