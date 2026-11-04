@@ -27,6 +27,12 @@ const loc = [
      both carried this exact string and both reached the top of his list. */
   ['Hybrid / FullTime / San Francisco / Remote', '', false, 'hybrid in SF is out, whatever else the string says'],
   ['Hybrid / FullTime / San Mateo / Remote', '', false, 'FIREWORKS: an office the list did not name passed as remote'],
+  ['Hybrid / FullTime / SF Office / Remote', '', false, 'ABRIDGE: an office no list will ever name'],
+  ['Remote', 'Senior Product Manager, Hybrid Cloud', true, 'hybrid in the TITLE is a product, not a work arrangement'],
+  ['Hybrid - Glendale, CA', '', false, 'Glendale, California is not his Glendale'],
+  ['Hybrid / Peoria, IL', '', false, 'Peoria, Illinois is not his Peoria'],
+  ['Glendale, AZ', '', true, 'his Glendale still is'],
+  ['Peoria, Arizona', '', true, 'his Peoria still is'],
   ['CA Remote (BC & ON only); U.S. Remote', '', true, 'US Remote is offered too'],
   ['Phoenix, Arizona', '', true, 'his own metro, on site is fine'],
   ['Hybrid - Tempe, AZ', '', true, 'hybrid in Arizona is exactly the rule'],
