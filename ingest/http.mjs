@@ -7,7 +7,7 @@ export const USER_AGENT = "apply-dashboard-ingest/0.1 (+https://apply-dashboard.
  * Fetch a URL as text with a timeout and a stable User-Agent.
  *
  * @param {string} url
- * @param {{ timeoutMs?: number, headers?: Record<string, string>, accept?: string, method?: string, body?: string }} [options]
+ * @param {{ timeoutMs?: number, headers?: Record<string, string>, accept?: string, method?: string, body?: string, hideUrlInLogs?: boolean }} [options]
  * @returns {Promise<{ url: string, finalUrl: string, status: number, contentType: string, text: string }>}
  */
 export async function fetchText(url, options = {}) {
@@ -34,7 +34,7 @@ export async function fetchText(url, options = {}) {
     if (response.status === 429) {
       const retryAfterRaw = response.headers.get("retry-after");
       const retryMs = Math.min(10_000, Math.max(1_000, (Number(retryAfterRaw) || 2) * 1000));
-      logWarn("HTTP 429, retrying once", { url, retryMs });
+      logWarn("HTTP 429, retrying once", options.hideUrlInLogs ? { retryMs } : { url, retryMs });
       await new Promise((resolve) => setTimeout(resolve, retryMs));
       response = await fetch(url, {
         method,
