@@ -32,6 +32,7 @@ import { salaryFromAshbyCompensation, salaryFromText } from './salary-from-posti
 import { judgeBand, FLOOR } from './salary-sweep.mjs';
 import { ensurePayColumns } from './pay-columns.mjs';
 import { runUpsert } from './upsert.mjs';
+import { STRATEGY_TITLE } from './location-eligible.mjs';
 import { readCachedAshbyCompensation } from './salary-audit.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
@@ -95,7 +96,7 @@ try {
      more precisely, and doing it wrong. The limit is raised with it because
      greenhouse alone returns 1470 rows for "product" and 400 was silently
      truncating the largest source. */
-  await runUpsert({ query: 'product', limit: 2000 });
+  await runUpsert({ query: 'product', alsoTitles: STRATEGY_TITLE, limit: 2000 });
   const out = JSON.parse(fs.readFileSync(path.join(ROOT, 'ingest', 'out', 'jobs.json'), 'utf8'));
   collected = out.jobs || [];
   stats.collected = collected.length;

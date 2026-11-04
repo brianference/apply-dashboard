@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { normalizeUrl } from './sync-to-d1.mjs';
 import { isoFromUnknown } from './jobs.mjs';
 import { salaryFromText } from './salary-from-posting.mjs';
 import { descriptionFor as wwrDescriptionFor } from './wwr-feed.mjs';
@@ -599,7 +600,11 @@ function fromPageText(html) {
  * @returns {string}
  */
 export function urlCacheFileName(url) {
-  const key = String(url || '').trim().replace(/[#?].*$/, '').replace(/\/+$/, '');
+  /* Dropping the whole query put every ?gh_jid= posting at one careers page in one
+     file, so in a run each read whichever description came first: a Databricks
+     strategist got a learning specialist's text and pay. normalizeUrl keeps the id
+     and drops only tracking. */
+  const key = normalizeUrl(url);
   return 'page-' + createHash('sha1').update(key).digest('hex') + '.json';
 }
 

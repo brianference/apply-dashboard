@@ -90,15 +90,27 @@ export function locationEligible(workType, title) {
     if (NOT_US.test(text)) return { ok: false, why: 'hybrid, and outside the US' };
   }
 
-  /* "Remote-Friendly (Travel-Required) | Washington, DC" is a hybrid role at a
-     named office, not a remote one. The hyphenated form is marketing. */
-  if (/remote[- ]friendly/i.test(text) && US_ELSEWHERE.test(text)) {
-    return { ok: false, why: 'remote-friendly, but based at an office' };
+  /* Remote-friendly counts as remote wherever the office is named. Brian,
+     2026-11-04, reversing the rule that read "Remote-Friendly (Travel-Required) |
+     Washington, DC" as hybrid at an office. It returns here because FENCED would
+     read "Remote-Friendly, San Francisco" as remote fenced to the Bay Area. A list
+     naming only other countries stays out. Two-letter words are dropped before the
+     US list because it reads "Toronto, CA", "Tel Aviv, IL" and the word "or" as
+     states. */
+  if (/remote[- ]friendly/i.test(text)) {
+    const usPlaces = text.replace(/\b[a-z]{2}\b/gi, ' ');
+    if (NOT_US.test(text) && !US_WIDE.test(text) && !US_ELSEWHERE.test(usPlaces)) {
+      return { ok: false, why: 'remote-friendly, outside the US' };
+    }
+    return { ok: true, why: 'remote-friendly' };
   }
 
   if (!REMOTE.test(text)) {
     if (NOT_US.test(text)) return { ok: false, why: 'outside the US' };
     if (US_ELSEWHERE.test(text)) return { ok: false, why: 'on site, not Arizona' };
+    /* "onsite / Laurel, MD" with "US Government" in the title reached the US_WIDE
+       line below, because the city list is not every city. */
+    if (/\bon-?\s?site\b/i.test(workType || '')) return { ok: false, why: 'on site, not Arizona' };
     /* "United States" with no city named cannot be an on-site requirement --
        there is nowhere to report to. Airbnb and Boulevard both list their
        postings this way and both are US-wide roles. */
@@ -170,6 +182,12 @@ const NOT_PRODUCT = /product marketing|product success|\bpmm\b|engineering manag
    NOT_PRODUCT is tested first and already carries the phrase. */
 const IS_PRODUCT = /product manager|product management|product lead|product owner|head of product|director of product|\bdirector,? product\b|vp of product|vice president,? (of )?product|\bsvp,? (of )?product|\bvp,? product\b|chief product officer|\bcpo\b|group product manager|\bgpm\b|technical product manager|\btpm\b|product sr\.? manager|senior director of product|sr\.? director of product|product, .*(platform|ai)|\bproduct\b.{0,14}\b(manager|management|lead|owner|director)\b|product operations\b|\bproduct ops\b/i;
 
+/* Deployment strategist and forward-deployed strategy titles count, per Brian on
+   2026-11-04. None of them need the word product, so the daily collection has to
+   ask for them by name as well: see alsoTitles in filterJobs. */
+/** Strategy titles that count as product roles and that a "product" query cannot find. */
+export const STRATEGY_TITLE = /\b(?:deployment|forward[- ]deployed)\s+(?:&\s+)?strateg(?:ist|y)\b/i;
+
 /**
  * Is this a product-management role?
  *
@@ -184,6 +202,6 @@ export function roleEligible(title) {
   const t = String(title || '').trim();
   if (!t) return { ok: false, why: 'no title' };
   if (NOT_PRODUCT.test(t)) return { ok: false, why: 'not a product role' };
-  if (IS_PRODUCT.test(t)) return { ok: true, why: 'product' };
+  if (IS_PRODUCT.test(t) || STRATEGY_TITLE.test(t)) return { ok: true, why: 'product' };
   return { ok: false, why: 'title does not say product management' };
 }
