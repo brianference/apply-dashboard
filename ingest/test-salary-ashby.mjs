@@ -32,6 +32,13 @@ function check(name, ok, detail) {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${String(name).padEnd(72)} ${detail || ''}`);
 }
 
+check('a USD-prefixed band with no dollar sign is read',
+  salaryFromText('US-based candidates: USD 170,000 - 200,000').min === 170000);
+check('the same posting does not take the Canadian band',
+  salaryFromText('Canada: CAD 160,000 - 195,000. US: USD 170,000 - USD 200,000').min === 170000);
+check('a CAD band alone is not a USD band',
+  salaryFromText('CAD 160,000 - 195,000').min === null);
+
 /* The real Ashby compensation object for the Teamworks posting, measured
    2026-09-02 against
    https://api.ashbyhq.com/posting-api/job-board/teamworks?includeCompensation=true
