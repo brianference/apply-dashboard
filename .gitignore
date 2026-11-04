@@ -35,3 +35,5 @@ tests/tour-shots/
 # It is never committed: this repo has no package.json and no dependencies.
 node_modules/
 package-lock.json
+q.json
+q2.json
