@@ -24,8 +24,11 @@
  * @module
  */
 
+/* "Costa Mesa" is a city in Orange County, California. The bare \bmesa\b matched
+   it, so Anduril Costa Mesa postings passed as Arizona (reported in the 2026-11-02 handoff).
+   The lookbehind keeps "Mesa, AZ" and "Mesa, Arizona" and drops the Costa one. */
 /** Where he can work on site. */
-const HOME = /\barizona\b|\baz\b|phoenix|scottsdale|tempe|chandler|\bmesa\b|gilbert|glendale|peoria|cave creek/i;
+const HOME = /\barizona\b|\baz\b|phoenix|scottsdale|tempe|chandler|(?<!costa )\bmesa\b|gilbert|glendale|peoria|cave creek/i;
 
 /** Wording that means the role can be done from anywhere in the US. */
 const REMOTE = /\bremote\b|work from home|\bwfh\b|anywhere|distributed|telecommute|virtual/i;
@@ -59,7 +62,11 @@ const US_ELSEWHERE = /\b(new york|nyc|brooklyn|san francisco|bay area|palo alto|
  * @returns {{ok: boolean, why: string}}
  */
 export function locationEligible(workType, title) {
-  const text = ((workType || '') + ' ' + (title || '')).replace(/\s+/g, ' ').trim();
+  /* Accents are folded so "São Paulo" meets the same list as "sao paulo". The
+     list only held the ASCII spelling and OpenAI's "São Paulo / Hybrid / Remote"
+     read as an ordinary remote role. */
+  const text = ((workType || '') + ' ' + (title || '')).normalize('NFD').replace(/\p{M}/gu, '')
+    .replace(/\s+/g, ' ').trim();
   if (!text) return { ok: false, why: 'no location given' };
 
   /* Arizona wins outright, remote or not: he can commute to it. */
