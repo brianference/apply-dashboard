@@ -17,10 +17,6 @@
       "name": "AlphaSense"
     },
     {
-      "token": "amplitude",
-      "name": "Amplitude"
-    },
-    {
       "token": "andurilindustries",
       "name": "Anduril Industries"
     },
@@ -253,10 +249,6 @@
       "name": "Huntress"
     },
     {
-      "token": "hyphenconnect",
-      "name": "Hyphen Connect Limited"
-    },
-    {
       "token": "icapitalnetwork",
       "name": "iCapital Network"
     },
@@ -265,20 +257,12 @@
       "name": "Imply"
     },
     {
-      "token": "inovalon",
-      "name": "Inovalon"
-    },
-    {
       "token": "instacart",
       "name": "Instacart"
     },
     {
       "token": "intercom",
       "name": "Fin"
-    },
-    {
-      "token": "iterable",
-      "name": "Iterable"
     },
     {
       "token": "ketryx",
@@ -315,10 +299,6 @@
     {
       "token": "lyft",
       "name": "Lyft"
-    },
-    {
-      "token": "ma",
-      "name": "MSPbots.ai"
     },
     {
       "token": "maxwell",
@@ -407,10 +387,6 @@
     {
       "token": "oscar",
       "name": "Oscar Health"
-    },
-    {
-      "token": "overstory",
-      "name": "Overstory"
     },
     {
       "token": "pallet",
@@ -521,10 +497,6 @@
       "name": "Stripe"
     },
     {
-      "token": "temporaltechnologies",
-      "name": "Temporal Technologies"
-    },
-    {
       "token": "toast",
       "name": "Toast"
     },
@@ -559,10 +531,6 @@
     {
       "token": "vulncheck",
       "name": "VulnCheck Inc."
-    },
-    {
-      "token": "webflow",
-      "name": "Webflow"
     },
     {
       "token": "wikimedia",
@@ -1319,6 +1287,26 @@
     {
       "token": "change",
       "name": "Change.org"
+    },
+    {
+      "token": "amplitude",
+      "name": "Amplitude"
+    },
+    {
+      "token": "inovalon",
+      "name": "Inovalon"
+    },
+    {
+      "token": "iterable",
+      "name": "Iterable"
+    },
+    {
+      "token": "overstory",
+      "name": "Overstory"
+    },
+    {
+      "token": "webflow",
+      "name": "Webflow"
     }
   ],
   "oracle": [

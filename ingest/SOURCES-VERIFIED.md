@@ -240,3 +240,11 @@ Each board listed a title the trial found at that company, and was confirmed as 
 | Veriff | greenhouse:veriff | 11 | board name "Veriff" |
 | ON.energy | greenhouse:onenergy | 44 | board name "ON.energy" |
 | Pulumi | greenhouse:pulumicorporation | 4 | board name "Pulumi" |
+
+## Dead board recheck, 2026-11-04
+
+Moved from Greenhouse to Ashby, confirmed by their descriptions naming the company: Amplitude, Inovalon, Iterable, Overstory, Webflow.
+
+Removed after a 404: hyphenconnect and ma (no other board found), temporaltechnologies (already watched as ashby:temporal).
+
+Left in place, answering 200 with no postings today: HCEsquared, Klaxoon, SFOX, Remote (greenhouse:remotecom), 3Pillar Global.
