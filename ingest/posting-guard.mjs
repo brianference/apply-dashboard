@@ -23,15 +23,18 @@ const EVIDENCE_MAX = 120;
 /* Zero-width, word joiner, invisible operators, soft hyphen, BOM, bidi
    embeddings/overrides/isolates, line and paragraph separators, and the
    Unicode "tag" block (one invisible code point per ASCII letter). */
-const ZERO_WIDTH = /[\u200B-\u200D\u2060-\u2064\u00AD\uFEFF\u180E]/g;
-const BIDI = /[\u200E\u200F\u202A-\u202E\u2066-\u2069\u061C]/g;
+const ZERO_WIDTH = /[\u200B\u2060-\u2064\u00AD\uFEFF\u180E]/g;
+/* ZWNJ, ZWJ and the direction marks (LRM, RLM, ALM) are required orthography in
+   Persian, Hindi, Arabic, Hebrew and emoji sequences. They stay in the returned
+   text and are removed only from the copy scanned for instructions. */
+const KEPT_INVISIBLE = /[\u200C\u200D\u200E\u200F\u061C]/g;
 const TAGS = /[\u{E0000}-\u{E007F}]/gu;
-/* Bidi overrides, embeddings and isolates reorder what a reader sees; the
-   plain direction marks (LRM, RLM, ALM) are ordinary in right-to-left text. */
+/* Bidi overrides, embeddings and isolates reorder what a reader sees. */
 const BIDI_CONTROL = /[\u202A-\u202E\u2066-\u2069]/g;
-/* A zero-width character with a letter or digit on each side, a ZWJ between
-   emoji excepted. */
-const INSIDE_WORD = /[\p{L}\p{N}][\u200B\u200C\u2060\u00AD\uFEFF\u180E]+(?=[\p{L}\p{N}])|[\p{L}\p{N}]\u200D+(?=[\p{L}\p{N}])/u;
+const BIDI = BIDI_CONTROL;
+/* A hidden zero-width character with a letter or digit on each side. ZWNJ and
+   ZWJ are excluded: they sit inside ordinary Persian and Indic words. */
+const INSIDE_WORD = /[\p{L}\p{N}][\u200B\u2060\u00AD\uFEFF\u180E]+(?=[\p{L}\p{N}])/u;
 const LONG_RUN = /[\u200B-\u200D\u2060-\u2064\u00AD\uFEFF\u180E]{4,}/;
 const ZERO_WIDTH_TOTAL_MAX = 10;
 const SEPARATORS = /[\u2028\u2029]/g;
@@ -76,7 +79,11 @@ const CONFUSABLE_RE = new RegExp('[' + Object.keys(CONFUSABLES).join('') + ']', 
 /* Inline styles that make an element invisible to a reader. */
 const HIDDEN_STYLE = /display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?![.\d]*[1-9])|font-size\s*:\s*0(?:\.0+)?(?:px|pt|em|rem|%)?(?![\d.])|color\s*:\s*transparent|clip-path\s*:\s*inset\(\s*100%|(?:left|top|text-indent)\s*:\s*-\d{4,}px|(?:^|[;\s"'])color\s*:\s*(?:#fff(?:fff)?\b|white\b|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))/i;
 const COMMENT = /<!--([\s\S]*?)(?:-->|$)/g;
-const DROP_BLOCKS = /<(script|style|noscript|template)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi;
+const BLOCK_OPEN = /<(script|style|noscript|template)\b[^>]{0,2000}>/gi;
+/* The markup pass is a regex over untrusted text. Past this size it is skipped,
+   and a flag says so, so one hostile posting cannot stall a daily run. */
+const MARKUP_MAX = 300_000;
+const ATTR_MAX = 600;
 const VOID_TAGS = new Set(['br', 'img', 'input', 'meta', 'link', 'hr', 'wbr', 'source', 'area', 'base', 'col', 'embed', 'param', 'track']);
 
 /**
@@ -107,6 +114,7 @@ function showCodepoints(chars) {
  */
 function visibleForm(text) {
   return text
+    .replace(KEPT_INVISIBLE, '')
     .normalize('NFKC')
     .replace(CONFUSABLE_RE, (c) => CONFUSABLES[c])
     .replace(/[ \t\f\v\r]+/g, ' ')
@@ -142,6 +150,34 @@ function scanInstructions(text, source) {
 }
 
 /**
+ * Remove script, style, noscript and template blocks. A block with no closing
+ * tag is left alone: deleting to the end of the text would silently erase a
+ * posting that merely mentions "<style>". Linear: a tag with no close anywhere
+ * is remembered, so a run of unclosed openers is not rescanned.
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+function dropBlocks(html) {
+  const noClose = new Set();
+  let out = '';
+  let cursor = 0;
+  BLOCK_OPEN.lastIndex = 0;
+  let m;
+  while ((m = BLOCK_OPEN.exec(html)) !== null) {
+    const tag = m[1].toLowerCase();
+    if (noClose.has(tag)) continue;
+    const close = new RegExp(`</${tag}\\s*>`, 'gi');
+    close.lastIndex = BLOCK_OPEN.lastIndex;
+    if (!close.exec(html)) { noClose.add(tag); continue; }
+    out += html.slice(cursor, m.index) + ' ';
+    cursor = close.lastIndex;
+    BLOCK_OPEN.lastIndex = cursor;
+  }
+  return out + html.slice(cursor);
+}
+
+/**
  * Remove elements whose own inline style hides them, returning what was cut.
  * A regex over markup is not a parser: it follows same-name nesting by depth
  * counting, which is right for ordinary pages and is the documented limit.
@@ -151,7 +187,7 @@ function scanInstructions(text, source) {
  */
 function removeHiddenElements(html) {
   const hidden = [];
-  const open = /<([a-zA-Z][\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+  const open = new RegExp(`<([a-zA-Z][\\w:-]{0,40})((?:[^>"']|"[^"]{0,${ATTR_MAX}}"|'[^']{0,${ATTR_MAX}}'){0,${ATTR_MAX}})>`, 'g');
   let out = '';
   let cursor = 0;
   let m;
@@ -230,10 +266,12 @@ export function guardPosting(text) {
 
   /* 2. Markup. Only when something that looks like a tag is present. */
   const hiddenTexts = [];
-  if (/<[a-zA-Z!][^>]*>|<!--/.test(work)) {
+  if (work.length > MARKUP_MAX && /<[a-zA-Z!]/.test(work)) {
+    flags.push({ kind: 'hidden-markup', evidence: `markup not scanned: posting is ${work.length} characters` });
+  } else if (/<[a-zA-Z!][^>]{0,2000}>|<!--/.test(work)) {
     const comments = [];
     work = work.replace(COMMENT, (_, body) => { comments.push(body); return ' '; });
-    work = work.replace(DROP_BLOCKS, ' ');
+    work = dropBlocks(work);
     const cut = removeHiddenElements(work);
     work = cut.html;
     for (const body of comments) {
