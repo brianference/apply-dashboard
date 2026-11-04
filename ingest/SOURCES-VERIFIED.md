@@ -214,3 +214,29 @@ Read by `node` fetch on 2026-11-02 from the dev machine (User-Agent apply-dashbo
 | factory | `https://api.ashbyhq.com/posting-api/job-board/factory?includeCompensation=true` | 200 | application/json; charset=utf-8 | 66 | ok |
 | polymarket | `https://api.ashbyhq.com/posting-api/job-board/polymarket?includeCompensation=true` | 200 | application/json; charset=utf-8 | 36 | ok |
 | melius | `https://api.ashbyhq.com/posting-api/job-board/melius?includeCompensation=true` | 200 | application/json; charset=utf-8 | 5 | ok |
+
+## Boards found from a one-off LinkedIn feed trial, 2026-11-04
+
+Each board listed a title the trial found at that company, and was confirmed as that company's own.
+
+| Company | Board | Postings | Ownership check |
+|---|---|---|---|
+| Granum | greenhouse:granum | 11 | board name "Granum" |
+| Caseware | lever:caseware | 42 | descriptions name the company |
+| Ruby Labs | ashby:ruby-labs | 34 | descriptions name the company |
+| Juniper Square | ashby:junipersquare | 48 | descriptions name the company |
+| Securitize | greenhouse:securitize | 3 | board name "Securitize" |
+| Snapdocs | ashby:snapdocs | 4 | descriptions name the company |
+| Mechanism Ventures | ashby:mechanism-ventures | 4 | descriptions name the company |
+| Edmentum | greenhouse:edmentum | 32 | board name "Edmentum" |
+| Dscout | greenhouse:dscout | 15 | board name "Dscout" |
+| Second Nature | ashby:second-nature | 5 | descriptions name the company |
+| Siena AI | ashby:siena | 10 | descriptions name the company |
+| DNSFilter | ashby:dnsfilter | 4 | descriptions name the company |
+| Change.org | ashby:change | 4 | descriptions name the company |
+| Movable Ink | greenhouse:movableink | 34 | board name "Movable Ink" |
+| Seed Health | greenhouse:seed | 2 | board name "Seed" |
+| Koalafi | greenhouse:koalafi | 12 | board name "Koalafi" |
+| Veriff | greenhouse:veriff | 11 | board name "Veriff" |
+| ON.energy | greenhouse:onenergy | 44 | board name "ON.energy" |
+| Pulumi | greenhouse:pulumicorporation | 4 | board name "Pulumi" |

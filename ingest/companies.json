@@ -607,6 +607,46 @@
     {
       "token": "sambanovasystems",
       "name": "SambaNova"
+    },
+    {
+      "token": "granum",
+      "name": "Granum"
+    },
+    {
+      "token": "securitize",
+      "name": "Securitize"
+    },
+    {
+      "token": "edmentum",
+      "name": "Edmentum"
+    },
+    {
+      "token": "dscout",
+      "name": "Dscout"
+    },
+    {
+      "token": "movableink",
+      "name": "Movable Ink"
+    },
+    {
+      "token": "seed",
+      "name": "Seed Health"
+    },
+    {
+      "token": "koalafi",
+      "name": "Koalafi"
+    },
+    {
+      "token": "veriff",
+      "name": "Veriff"
+    },
+    {
+      "token": "onenergy",
+      "name": "ON.energy"
+    },
+    {
+      "token": "pulumicorporation",
+      "name": "Pulumi"
     }
   ],
   "lever": [
@@ -737,6 +777,10 @@
     {
       "token": "zensurance",
       "name": "Zensurance"
+    },
+    {
+      "token": "caseware",
+      "name": "Caseware"
     }
   ],
   "ashby": [
@@ -1243,6 +1287,38 @@
     {
       "token": "cerebras",
       "name": "Cerebras"
+    },
+    {
+      "token": "ruby-labs",
+      "name": "Ruby Labs"
+    },
+    {
+      "token": "junipersquare",
+      "name": "Juniper Square"
+    },
+    {
+      "token": "snapdocs",
+      "name": "Snapdocs"
+    },
+    {
+      "token": "mechanism-ventures",
+      "name": "Mechanism Ventures"
+    },
+    {
+      "token": "second-nature",
+      "name": "Second Nature"
+    },
+    {
+      "token": "siena",
+      "name": "Siena AI"
+    },
+    {
+      "token": "dnsfilter",
+      "name": "DNSFilter"
+    },
+    {
+      "token": "change",
+      "name": "Change.org"
     }
   ],
   "oracle": [
