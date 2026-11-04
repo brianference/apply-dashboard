@@ -770,6 +770,12 @@ try { fs.rmSync(tmpBreak, { recursive: true, force: true }); } catch { /* temp d
     });
     check('a ?gh_jid= page the board does not know is not read as the posting',
       miss.text === null && miss.outcome === 'unreadable-host', miss.outcome + ' via ' + miss.via);
+    const posting = '<html><body><h1>Staff Product Manager</h1><p>About the role. Responsibilities and qualifications. You will own the roadmap. ' + 'Work with engineering on the platform. '.repeat(60) + '</p></body></html>';
+    const { fetch: realFn } = fakeFetch([{ match: () => true, status: 200, contentType: 'text/html', body: posting }]);
+    const served = await readJd('https://sproutsocial.com/careers/open-positions/8220432/?gh_jid=8220432', {
+      fetch: realFn, cacheDir: dir2, fetchBoard: async () => ({ text: null, status: 0 })
+    });
+    check('a ?gh_jid= page that serves the posting is still read', !!served.text, String(served.outcome));
     const plain = await readJd('https://careers.example.com/jobs/product-manager', { fetch: pageFn, cacheDir: dir2 });
     check('an ordinary careers page is still read as text', !!plain.text, String(plain.outcome));
   }

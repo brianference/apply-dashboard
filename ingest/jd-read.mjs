@@ -31,6 +31,8 @@ const DEFAULT_CACHE_DIR = path.join(
 export const JSONLD_DESC_MIN = 400;
 /** Survey threshold: plain page text counted as a read above this. */
 export const PAGE_TEXT_MIN = 1200;
+/** Posting vocabulary a ?gh_jid= page must use before its text counts as the posting. */
+const MIN_POSTING_TERMS = 2;
 
 /* Hosts that are never FETCHED. Being unreadable is not the test -- an
    unreadable host is handled by the tiers below and comes back
@@ -563,6 +565,16 @@ function fromJsonLdHtml(html, now) {
 }
 
 /**
+ * Does this text read like one job posting rather than a page of openings?
+ * @param {string} text
+ * @returns {boolean}
+ */
+function looksLikePosting(text) {
+  const hits = String(text).match(/responsibilit|qualificat|what you.ll|requirements|about the (?:role|team)|you will/gi);
+  return !!hits && hits.length >= MIN_POSTING_TERMS;
+}
+
+/**
  * @param {string} html
  * @returns {JdReadResult|null}
  */
@@ -956,13 +968,16 @@ async function readJdUncached(url, options = {}) {
     }
     const fromLd = fromJsonLdHtml(page.text, now);
     if (fromLd) return fromLd;
-    /* A careers page fronting Greenhouse with ?gh_jid= usually renders the listing
-       for that id only in the browser. Its readable text is the open-roles page, so
-       five Stripe rows read as construction jobs and a Databricks one as healthcare
-       from the navigation menu. Unknown rules nothing out; the wrong text does. */
-    const ref = loadFit().boardRef(url);
-    if (ref && ref.ats === 'greenhouse' && !ref.token) return emptyResult('unreadable-host');
     const fromText = fromPageText(page.text);
+    /* A careers page fronting Greenhouse with ?gh_jid= can answer with its open-roles
+       page, so five Stripe rows read as construction jobs and a Databricks one as
+       healthcare from the navigation menu. The URL does not tell them apart: Databricks
+       serves real postings with no id in the path. Measured across 63 URL shapes, a
+       posting uses this vocabulary and a listing does not. */
+    const ref = loadFit().boardRef(url);
+    if (fromText && ref && ref.ats === 'greenhouse' && !ref.token && !looksLikePosting(fromText.text)) {
+      return emptyResult('unreadable-host');
+    }
     if (fromText) return fromText;
     return emptyResult('unreadable-host');
   } catch {
