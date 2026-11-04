@@ -15,6 +15,29 @@ export const meta = {
 const BOARD_URL = (token) =>
   `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(token)}`;
 
+const US_WORDS = /\b(?:usa?|u\.s\.?|united states)(?![a-z])/gi;
+
+/**
+ * Does this secondary location offer remote work from anywhere in the US?
+ *
+ * Cerebras "Senior Product Manager, AI Models" is workplaceType Hybrid in
+ * Sunnyvale with a secondary location of "Remote (US)", and the description
+ * says remote is possible. The location gate never saw the secondary field, so
+ * it read as a Sunnyvale hybrid. Only a location that names the whole US and
+ * nothing else counts: "Remote - United States - Texas" and "Remote - CST" are
+ * fences, and bare "Remote" on a hybrid posting says nothing about where.
+ *
+ * @param {unknown} location
+ * @returns {boolean}
+ */
+export function isUsWideRemote(location) {
+  const text = String(location || "");
+  if (!/\bremote\b/i.test(text)) return false;
+  const rest = text.replace(/\b(?:remote|available|only)\b/gi, " ");
+  if (!rest.match(US_WORDS)) return false;
+  return !/[a-z]/i.test(rest.replace(US_WORDS, " "));
+}
+
 /**
  * Map Ashby job-board JSON onto the shared posting shape.
  *
@@ -27,17 +50,21 @@ export function normalizeAshbyJobs(payload, board) {
   const companyName = board && board.companyName ? board.companyName : "";
   return jobs.map((job) => {
     const dates = datesFromAshby(job);
+    const secondary = job && Array.isArray(job.secondaryLocations) ? job.secondaryLocations : [];
+    const usRemote = secondary.find((entry) => entry && isUsWideRemote(entry.location));
     return {
       company: companyName,
       title: job && job.title ? String(job.title) : "",
       url: job && (job.jobUrl || job.applyUrl) ? String(job.jobUrl || job.applyUrl) : "",
       source: "ashby",
-      work_type: joinWorkType(
-        job && job.workplaceType,
-        job && job.employmentType,
-        job && job.location,
-        job && job.isRemote ? "Remote" : null
-      ),
+      work_type: usRemote
+        ? joinWorkType("Remote", job.employmentType, usRemote.location)
+        : joinWorkType(
+          job && job.workplaceType,
+          job && job.employmentType,
+          job && job.location,
+          job && job.isRemote ? "Remote" : null
+        ),
       posted: dates.posted,
       refreshed_at: dates.refreshed_at
     };
