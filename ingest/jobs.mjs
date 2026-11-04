@@ -20,7 +20,7 @@ function hasWord(haystack, word) {
  * Drop incomplete rows, optionally filter by query, then apply limit.
  *
  * @param {Array<Partial<SourceJob>>} jobs
- * @param {{ limit?: number, query?: string }} [options]
+ * @param {{ limit?: number, query?: string, alsoTitles?: RegExp }} [options]
  * @returns {SourceJob[]}
  */
 export function filterJobs(jobs, options = {}) {
@@ -48,7 +48,8 @@ export function filterJobs(jobs, options = {}) {
     if (query) {
       const hay = `${row.title} ${row.company} ${row.work_type || ""}`;
       const words = query.split(/\s+/).filter(Boolean);
-      if (!words.every((word) => hasWord(hay, word))) continue;
+      const named = options.alsoTitles && options.alsoTitles.test(row.title);
+      if (!named && !words.every((word) => hasWord(hay, word))) continue;
     }
     out.push(row);
   }

@@ -753,6 +753,13 @@ try { fs.rmSync(tmpBreak, { recursive: true, force: true }); } catch { /* temp d
   check('a cache file was written for a URL with no board reference',
     fs.readdirSync(tmp).some((f) => f.startsWith('page-')), fs.readdirSync(tmp).join(','));
 
+  /* The job id can be the query. Stripe, Databricks and Netflix front Greenhouse
+     from one careers path, and a key that dropped the query gave them one file. */
+  check('two gh_jid postings on one path get separate cache files',
+    urlCacheFileName('https://databricks.com/careers/job?gh_jid=1') !== urlCacheFileName('https://databricks.com/careers/job?gh_jid=2'));
+  check('a tracking parameter does not split a posting into two files',
+    urlCacheFileName('https://databricks.com/careers/job?gh_jid=1&utm_source=x') === urlCacheFileName('https://databricks.com/careers/job?gh_jid=1'));
+
   /* refetch has to still work, or a decoder fix could never reach old rows. */
   const third = await readJd(url, { fetch: fetchFn, cacheDir: tmp, refetch: true });
   check('refetch bypasses the cache', calls.length > callsAfterFirst,
