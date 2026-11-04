@@ -26,6 +26,7 @@ const loc = [
      the word Remote sitting beside a city does not rescue it. Vapi and Harvey
      both carried this exact string and both reached the top of his list. */
   ['Hybrid / FullTime / San Francisco / Remote', '', false, 'hybrid in SF is out, whatever else the string says'],
+  ['Hybrid / FullTime / San Mateo / Remote', '', false, 'FIREWORKS: an office the list did not name passed as remote'],
   ['CA Remote (BC & ON only); U.S. Remote', '', true, 'US Remote is offered too'],
   ['Phoenix, Arizona', '', true, 'his own metro, on site is fine'],
   ['Hybrid - Tempe, AZ', '', true, 'hybrid in Arizona is exactly the rule'],
