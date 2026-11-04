@@ -760,6 +760,20 @@ try { fs.rmSync(tmpBreak, { recursive: true, force: true }); } catch { /* temp d
   check('a tracking parameter does not split a posting into two files',
     urlCacheFileName('https://databricks.com/careers/job?gh_jid=1&utm_source=x') === urlCacheFileName('https://databricks.com/careers/job?gh_jid=1'));
 
+  /* A listing page behind ?gh_jid= must not be read as the posting. */
+  {
+    const listing = '<html><body><h1>Stripe Careers</h1><p>' + 'Open roles in construction, healthcare and hardware. '.repeat(200) + '</p></body></html>';
+    const { fetch: pageFn } = fakeFetch([{ match: () => true, status: 200, contentType: 'text/html', body: listing }]);
+    const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-cache-'));
+    const miss = await readJd('https://stripe.com/jobs/search?gh_jid=999', {
+      fetch: pageFn, cacheDir: dir2, fetchBoard: async () => ({ text: null, status: 0 })
+    });
+    check('a ?gh_jid= page the board does not know is not read as the posting',
+      miss.text === null && miss.outcome === 'unreadable-host', miss.outcome + ' via ' + miss.via);
+    const plain = await readJd('https://careers.example.com/jobs/product-manager', { fetch: pageFn, cacheDir: dir2 });
+    check('an ordinary careers page is still read as text', !!plain.text, String(plain.outcome));
+  }
+
   /* refetch has to still work, or a decoder fix could never reach old rows. */
   const third = await readJd(url, { fetch: fetchFn, cacheDir: tmp, refetch: true });
   check('refetch bypasses the cache', calls.length > callsAfterFirst,

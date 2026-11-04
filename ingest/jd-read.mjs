@@ -956,6 +956,12 @@ async function readJdUncached(url, options = {}) {
     }
     const fromLd = fromJsonLdHtml(page.text, now);
     if (fromLd) return fromLd;
+    /* A careers page fronting Greenhouse with ?gh_jid= usually renders the listing
+       for that id only in the browser. Its readable text is the open-roles page, so
+       five Stripe rows read as construction jobs and a Databricks one as healthcare
+       from the navigation menu. Unknown rules nothing out; the wrong text does. */
+    const ref = loadFit().boardRef(url);
+    if (ref && ref.ats === 'greenhouse' && !ref.token) return emptyResult('unreadable-host');
     const fromText = fromPageText(page.text);
     if (fromText) return fromText;
     return emptyResult('unreadable-host');
