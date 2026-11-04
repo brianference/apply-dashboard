@@ -88,15 +88,56 @@ export async function loadSubmitted() {
   return r.result[0].results;
 }
 
+/**
+ * Turn CLI flags into sweep options, refusing anything that would make the
+ * sweep quietly report "nothing to follow up": a bare flag, a non-number, a
+ * non-positive number, an unreadable date, or a follow-up threshold at or past
+ * the stale one.
+ *
+ * @param {Record<string, unknown>} args parsed flags
+ * @param {Date} [now]
+ * @returns {{asOf: Date, followupDays: number, staleDays: number}}
+ */
+export function sweepOptions(args, now = new Date()) {
+  const days = (name, fallback) => {
+    if (args[name] === undefined) return fallback;
+    const n = Number(args[name]);
+    if (args[name] === true || !Number.isInteger(n) || n < 1) throw new Error(`--${name} needs a whole number of days, got ${JSON.stringify(args[name])}`);
+    return n;
+  };
+  const followupDays = days('followup', FOLLOWUP_DAYS);
+  const staleDays = days('stale', STALE_DAYS);
+  if (followupDays >= staleDays) throw new Error(`--followup (${followupDays}) must be smaller than --stale (${staleDays})`);
+  const asOf = args.asof === undefined ? now : new Date(String(args.asof));
+  if (args.asof !== undefined && Number.isNaN(asOf.getTime())) throw new Error(`--asof needs a date like 2026-11-03, got ${JSON.stringify(args.asof)}`);
+  return { asOf, followupDays, staleDays };
+}
+
+/**
+ * Rows the sweep cannot place in time because submitted_at is missing or not a
+ * date. They are not flagged; the CLI reports how many so they do not vanish.
+ *
+ * @param {Array<Record<string, any>>} rows
+ * @returns {number}
+ */
+export function countUnreadable(rows) {
+  return (rows ?? []).filter((row) => !row || Number.isNaN(toMs(row.submitted_at))).length;
+}
+
 if (isCli(import.meta.url)) {
   const args = parseArgs();
+  let options;
+  try {
+    options = sweepOptions(args);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(2);
+  }
+  const { asOf, ...opts } = options;
   const rows = await loadSubmitted();
-  const asOf = args.asof ? new Date(String(args.asof)) : new Date();
-  const opts = {
-    followupDays: Number(args.followup ?? FOLLOWUP_DAYS),
-    staleDays: Number(args.stale ?? STALE_DAYS)
-  };
   const { followup, stale } = sweep(rows, asOf, opts);
+  const unreadable = countUnreadable(rows);
+  if (unreadable) console.log(`${unreadable} submitted row(s) have a missing or unreadable submitted_at and are not in either list`);
   const show = (title, list) => {
     console.log(`\n${title} (${list.length})`);
     for (const e of list) console.log(`  ${String(e.daysQuiet).padStart(4)}d  ${e.company} | ${e.role} | ${e.submitted_at}`);

@@ -13,7 +13,7 @@ import { resolve } from 'node:path';
 const target = process.argv[2]
   ? pathToFileURL(resolve(process.argv[2])).href
   : new URL('./followup-sweep.mjs', import.meta.url).href;
-const { sweep } = await import(target);
+const { sweep, sweepOptions, countUnreadable } = await import(target);
 
 let bad = 0;
 const check = (name, ok, detail) => {
@@ -67,6 +67,22 @@ const names = (list) => list.map((e) => e.company).sort().join(',');
   const before = JSON.stringify(input);
   sweep(input, ASOF);
   check('the input rows are not mutated', JSON.stringify(input) === before);
+}
+
+/* CLI flags: a typo must be an error, never an empty report that reads as
+   "nothing to follow up" (found by independent review, 2026-11-03). */
+{
+  const NOW = new Date(ASOF);
+  const rejects = (args) => { try { sweepOptions(args, NOW); return false; } catch { return true; } };
+  check('no flags gives the defaults', JSON.stringify(sweepOptions({}, NOW)) === JSON.stringify({ asOf: NOW, followupDays: 10, staleDays: 60 }));
+  check('--followup abc is an error', rejects({ followup: 'abc' }));
+  check('--stale abc is an error', rejects({ stale: 'abc' }));
+  check('a bare --followup is an error', rejects({ followup: true }));
+  check('zero and negative days are errors', rejects({ followup: '0' }) && rejects({ stale: '-5' }));
+  check('--followup at or past --stale is an error', rejects({ followup: '100', stale: '5' }) && rejects({ followup: '60' }));
+  check('--asof garbage is an error', rejects({ asof: 'garbage' }));
+  check('valid flags are accepted', sweepOptions({ followup: '14', stale: '90', asof: '2026-10-01' }, NOW).staleDays === 90);
+  check('unreadable submitted_at rows are counted', countUnreadable([row('a', daysAgo(5)), { company: 'b', submitted_at: 'N/A' }, { company: 'c', submitted_at: null }, null]) === 3);
 }
 
 console.log(bad ? `\n${bad} FAILED` : '\nall passed');
