@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { normalizeGreenhouseJobs } from "../sources/greenhouse.mjs";
 import { normalizeLeverJobs } from "../sources/lever.mjs";
-import { normalizeAshbyJobs } from "../sources/ashby.mjs";
+import { isUsWideRemote, normalizeAshbyJobs } from "../sources/ashby.mjs";
+import { locationEligible } from "../location-eligible.mjs";
 import { normalizeRemoteOkJobs } from "../sources/remoteok.mjs";
 import { normalizeHimalayasJobs } from "../sources/himalayas.mjs";
 import { parseRssItems } from "../rss.mjs";
@@ -76,6 +77,30 @@ test("ashby maps job-board JSON to the shared job shape", () => {
   assert.equal(jobs[0].company, "Tremendous");
   assert.equal(jobs[0].source, "ashby");
   assert.equal(jobs[0].url, "https://jobs.ashbyhq.com/tremendous/9be1cf09-1eb7-4aa7-8bc4-4848cc124fb8");
+});
+
+test("ashby reads a US-wide remote secondary location, and nothing narrower", () => {
+  for (const yes of ["Remote (US)", "US - Remote", "United States (Remote)", "Remote, USA", "Remote U.S.", "Remote available (U.S. Only)"]) {
+    assert.equal(isUsWideRemote(yes), true, yes);
+  }
+  for (const no of ["Remote", "Remote - CST", "Remote - United States - Texas", "Remote (Canada)", "Austin - Remote", "US or Canada Remote", "United States", "Remote - Australia", null]) {
+    assert.equal(isUsWideRemote(no), false, String(no));
+  }
+  const posting = (location, secondary) => ({
+    title: "Senior Product Manager",
+    jobUrl: "https://jobs.ashbyhq.com/x/1",
+    workplaceType: "Hybrid",
+    employmentType: "FullTime",
+    location,
+    isRemote: true,
+    secondaryLocations: secondary.map((name) => ({ location: name }))
+  });
+  const [offered, notOffered, fenced] = normalizeAshbyJobs({
+    jobs: [posting("Sunnyvale, CA", ["Remote (US)"]), posting("Sunnyvale, CA", []), posting("Sunnyvale, CA", ["Remote - CST"])]
+  }, { companyName: "Cerebras" });
+  assert.equal(locationEligible(offered.work_type, offered.title).ok, true, offered.work_type);
+  assert.equal(locationEligible(notOffered.work_type, notOffered.title).ok, false, notOffered.work_type);
+  assert.equal(locationEligible(fenced.work_type, fenced.title).ok, false, fenced.work_type);
 });
 
 test("remoteok skips the legal notice element", () => {

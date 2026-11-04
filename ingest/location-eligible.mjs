@@ -28,7 +28,7 @@
    it, so Anduril Costa Mesa postings passed as Arizona (reported in the 2026-11-02 handoff).
    The lookbehind keeps "Mesa, AZ" and "Mesa, Arizona" and drops the Costa one. */
 /** Where he can work on site. */
-const HOME = /\barizona\b|\baz\b|phoenix|scottsdale|tempe|chandler|(?<!costa )\bmesa\b|gilbert|glendale|peoria|cave creek/i;
+const HOME = /\barizona\b|\baz\b|phoenix|scottsdale|tempe|chandler|(?<!costa )\bmesa\b|gilbert|glendale(?!,?\s*(?:ca\b|calif))|peoria(?!,?\s*(?:il\b|illinois))|cave creek/i;
 
 /** Wording that means the role can be done from anywhere in the US. */
 const REMOTE = /\bremote\b|work from home|\bwfh\b|anywhere|distributed|telecommute|virtual/i;
@@ -54,7 +54,7 @@ const NOT_US = /\b(canada|toronto|vancouver|montreal|ottawa|calgary|edmonton|win
    through to the US_WIDE branch and was accepted as "US-wide, no city named"
    -- with a city and a state named right there in the text. A list that has to
    be complete needs a check that it is. */
-const US_ELSEWHERE = /\b(new york|nyc|brooklyn|san francisco|bay area|palo alto|mountain view|sunnyvale|san jose|santa clara|cupertino|oakland|los angeles|san diego|seattle|bellevue|redmond|portland|denver|boulder|austin|dallas|houston|chicago|boston|cambridge|atlanta|miami|orlando|tampa|charlotte|raleigh|durham|nashville|detroit|minneapolis|philadelphia|pittsburgh|washington|arlington|mclean|reston|baltimore|salt lake|las vegas|kansas city|columbus|cleveland|indianapolis|milwaukee|omaha|new jersey|connecticut|virginia|maryland|colorado|california|oregon|texas|florida|georgia|illinois|massachusetts|north carolina|pennsylvania|ohio|michigan|minnesota|missouri|tennessee|utah|nevada|new mexico|idaho|montana|wyoming|iowa|kansas|nebraska|oklahoma|arkansas|louisiana|mississippi|alabama|kentucky|indiana|wisconsin|west virginia|delaware|rhode island|vermont|maine|new hampshire|alaska|hawaii|south carolina|north dakota|south dakota|\bca\b|\bny\b|\bnc\b|\bwa\b|\btx\b|\bfl\b|\bil\b|\bma\b|\bco\b|\bga\b|\bva\b|\bpa\b|\boh\b|\bmi\b|\bmn\b|\bor\b|\but\b|\bnv\b)\b/i;
+const US_ELSEWHERE = /\b(new york|nyc|brooklyn|san francisco|san mateo|bay area|palo alto|mountain view|sunnyvale|san jose|santa clara|cupertino|oakland|los angeles|san diego|seattle|bellevue|redmond|portland|denver|boulder|austin|dallas|houston|chicago|boston|cambridge|atlanta|miami|orlando|tampa|charlotte|raleigh|durham|nashville|detroit|minneapolis|philadelphia|pittsburgh|washington|arlington|mclean|reston|baltimore|salt lake|las vegas|kansas city|columbus|cleveland|indianapolis|milwaukee|omaha|new jersey|connecticut|virginia|maryland|colorado|california|oregon|texas|florida|georgia|illinois|massachusetts|north carolina|pennsylvania|ohio|michigan|minnesota|missouri|tennessee|utah|nevada|new mexico|idaho|montana|wyoming|iowa|kansas|nebraska|oklahoma|arkansas|louisiana|mississippi|alabama|kentucky|indiana|wisconsin|west virginia|delaware|rhode island|vermont|maine|new hampshire|alaska|hawaii|south carolina|north dakota|south dakota|\bca\b|\bny\b|\bnc\b|\bwa\b|\btx\b|\bfl\b|\bil\b|\bma\b|\bco\b|\bga\b|\bva\b|\bpa\b|\boh\b|\bmi\b|\bmn\b|\bor\b|\but\b|\bnv\b)\b/i;
 
 /**
  * @param {string|null|undefined} workType the posting's location text
@@ -79,6 +79,12 @@ export function locationEligible(workType, title) {
      rescue it: Vapi and Harvey both read "Hybrid / FullTime / San Francisco /
      Remote" and both reached the top of his list, at 86% and 84%. The comment
      at the top of this file used to cite that exact string as eligible. */
+  /* In the location field the word settles it, whatever the office is called:
+     "Hybrid / FullTime / SF Office / Remote" named no city on the list and passed
+     as remote, and San Mateo did the same before it was added. A list of cities
+     can never finish this rule. The title is held to the old test because
+     "Product Manager, Hybrid Cloud" is not a work arrangement. */
+  if (/\bhybrid\b/i.test(workType || '')) return { ok: false, why: 'hybrid, and the office is not in Arizona' };
   if (/\bhybrid\b/i.test(text)) {
     if (US_ELSEWHERE.test(text)) return { ok: false, why: 'hybrid, and the office is not in Arizona' };
     if (NOT_US.test(text)) return { ok: false, why: 'hybrid, and outside the US' };
