@@ -36,6 +36,8 @@ check('a USD-prefixed band with no dollar sign is read',
   salaryFromText('US-based candidates: USD 170,000 - 200,000').min === 170000);
 check('the same posting does not take the Canadian band',
   salaryFromText('Canada: CAD 160,000 - 195,000. US: USD 170,000 - USD 200,000').min === 170000);
+check('a bonus in the next sentence does not cost the base band',
+  salaryFromText('Base USD 170,000 - 200,000. Plus bonus and equity.').min === 170000);
 check('the salary filter widget is not a USD band', salaryFromText('USD 75,000 - 99,999').min === null);
 check('a signing bonus does not win over the base band',
   salaryFromText('Signing bonus USD 50,000 - 60,000. Base USD 170,000 - 200,000').min === 170000);
