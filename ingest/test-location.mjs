@@ -8,7 +8,10 @@
  * eligible case below and still ship both, so the REJECTIONS are the point.
  */
 import fs from 'node:fs';
-import { locationEligible, roleEligible } from './location-eligible.mjs';
+import os from 'node:os';
+import path from 'node:path';
+import { locationEligible, roleEligible, STRATEGY_TITLE } from './location-eligible.mjs';
+import { runUpsert } from './upsert.mjs';
 
 /** Counts blocks that actually executed, so a skipped one cannot pass silently. */
 let BLOCKS_RUN = 0;
@@ -57,7 +60,21 @@ const loc = [
   ['Remote - primary location is literally Remote New York; alternates San Francisco', '', true, 'ADOBE: alternates, not a fence'],
   ['TELECOMMUTE', '', true, 'ALEDADE: a remote role in one word'],
   ['Remote (unrestricted)', '', true, 'WIZDAA: says so explicitly'],
-  ['Remote-Friendly (Travel-Required) | Washington, DC', '', false, 'ANTHROPIC: remote-friendly at a named office is hybrid'],
+  ['onsite / Laurel, MD / Laurel, MD', 'Deployment Strategist - US Government', false, 'PALANTIR: US in the title is not a US-wide role'],
+  ['Remote-Friendly (Travel-Required) | Washington, DC', '', true, 'BRIAN 2026-11-04: remote-friendly counts, wherever the office is'],
+  ['Remote-Friendly (Travel-Required) | San Francisco, CA | Seattle, WA | New York City, NY', '', true, 'ANTHROPIC: several US offices'],
+  ['Remote-friendly, San Francisco', '', true, 'FENCED must not read the city as a fence'],
+  ['US, Remote Friendly', '', true, 'ROBOTS AND PENCILS: the spaced form'],
+  ['Dublin, IE; London, UK; New York City, NY; Remote-Friendly, United States', '', true, 'ANTHROPIC: the US is on the list'],
+  ['London, UK; Remote-Friendly | San Francisco, CA', '', true, 'a US office is on the list'],
+  ['Remote-Friendly (Travel Required) | Canada', '', false, 'ANTHROPIC: remote-friendly in Canada is not the US'],
+  ['Sydney, Australia | Remote-Friendly, Australia', '', false, 'ANTHROPIC: nor Australia'],
+  ['Bogotá, Colombia (Remote Friendly)', '', false, 'ROBOTS AND PENCILS: nor Colombia, accent folded'],
+  ['Remote-Friendly | London or Paris', '', false, 'the state list reads the word or as Oregon'],
+  ['Toronto, CA | Remote-Friendly', '', false, 'REVIEW: a country code is not California'],
+  ['Tel Aviv, IL (Remote Friendly)', '', false, 'REVIEW: nor Illinois'],
+  ['Remote-Friendly', 'Product Manager, Canada', false, 'REVIEW: the title can name the country'],
+  ['Hybrid / FullTime / San Francisco / Remote-Friendly', '', false, 'hybrid still needs an Arizona office'],
   ['Toronto, Remote- Canada', '', false, 'STRIPE: remote within Canada'],
   ['Remote only, San Francisco', '', false, 'FELICIS: Wellfound scopes remote to a city this way'],
   ['Remote only, United States', '', true, 'the same form, scoped to the whole US'],
@@ -93,6 +110,16 @@ const role = [
   ['Senior Director of Product, Ads Platform', true, 'director OF product is still product'],
   ['AI Digital Product Sr Manager - AI Studio', true, 'an odd word order, still a product role'],
   ['Senior Technical Product Manager, Rules of Road', true, 'technical PM is still PM'],
+  ['Deployment Strategist', true, 'BRIAN 2026-11-04: deployment strategy counts'],
+  ['Sr. Forward Deployment Strategist', true, 'DATABRICKS'],
+  ['Forward Deployed Strategist', true, 'CURSOR'],
+  ['Forward-Deployed Strategist', true, 'the hyphenated form'],
+  ['Deployment Strategy Lead', true, 'ROPES'],
+  ['Product Leadership, Forward Deployed & Strategy', true, 'SCALE AI'],
+  ['Forward Deployed Engineer, Strategic Accounts', false, 'DEEPGRAM: an engineer, not a strategist'],
+  ['Engineering Lead, Strategic Deployments', false, 'DECAGON: engineering'],
+  ['Chief of Staff', false, 'the handoff left these out'],
+  ['Business Operations Strategist', false, 'nor BizOps'],
 
   ['Senior Engineering Manager, Enterprise AI Product', false, 'THE ONE HE FLAGGED - engineering wins over the word product'],
   ['Engineering Manager, Product Platform', false, 'same shape'],
@@ -373,6 +400,37 @@ if (!COLLECTION_QUERY) {
   } else {
     console.log('  ok   the query "' + COLLECTION_QUERY + '" collects all '
       + MUST_COLLECT.length + ' titles the role rule keeps');
+  }
+}
+
+/* A role rule the collection cannot reach does nothing: "product" is not a word in
+   "Deployment Strategist", so it would never get as far as roleEligible. This runs
+   the real collection path against a stubbed network. */
+console.log('STRATEGY TITLES REACH THE GATE');
+if (!/runUpsert\(\{[^}]*alsoTitles:\s*STRATEGY_TITLE/.test(fs.readFileSync('ingest/daily.mjs', 'utf8'))) {
+  bad += 1;
+  console.log('  FAIL ingest/daily.mjs does not ask for the strategy titles');
+}
+{
+  const realFetch = globalThis.fetch;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'collect-'));
+  const posting = (title) => ({ title, jobUrl: 'https://jobs.ashbyhq.com/x/' + encodeURIComponent(title), location: 'Remote' });
+  globalThis.fetch = async (url) => (String(url).includes('himalayas.app')
+    ? new Response(JSON.stringify({ jobs: String(url).includes('strategist')
+      ? [{ title: 'Staff Deployment Strategist', companyName: 'Stub', applicationLink: 'https://himalayas.app/stub/1' }] : [] }), { status: 200 })
+    : String(url).includes('ashbyhq.com')
+    ? new Response(JSON.stringify({ jobs: ['Deployment Strategist', 'Senior Product Manager', 'Sales Director'].map(posting) }), { status: 200 })
+    : new Response(String(url).includes('lever.co') ? '[]' : '{"jobs":[]}', { status: 200 }));
+  try {
+    const jobsOut = path.join(tmp, 'jobs.json');
+    await runUpsert({ query: 'product', alsoTitles: STRATEGY_TITLE, limit: 2000, out: path.join(tmp, 'up.sql'), jobsOut });
+    const titles = new Set(JSON.parse(fs.readFileSync(jobsOut, 'utf8')).jobs.map((j) => j.title));
+    const want = titles.has('Deployment Strategist') && titles.has('Staff Deployment Strategist') && titles.has('Senior Product Manager') && !titles.has('Sales Director');
+    if (!want) bad += 1;
+    console.log((want ? '  ok   ' : '  FAIL ') + 'collected: ' + [...titles].join('; '));
+  } finally {
+    globalThis.fetch = realFetch;
+    fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
 
