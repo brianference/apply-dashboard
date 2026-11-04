@@ -90,7 +90,7 @@ export function renderUpsertSql(rows) {
 /**
  * Fetch every working source. Indeed is omitted because it has no working feed.
  *
- * @param {{ limit?: number, query?: string }} options
+ * @param {{ limit?: number, query?: string, alsoTitles?: RegExp }} options
  * @returns {Promise<Array<{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null }>>}
  */
 export async function fetchAllSources(options) {
@@ -112,7 +112,7 @@ export async function fetchAllSources(options) {
 }
 
 /**
- * @param {{ input?: string, fromSources?: boolean, query?: string, limit?: number, out?: string, jobsOut?: string }} options
+ * @param {{ input?: string, fromSources?: boolean, query?: string, alsoTitles?: RegExp, limit?: number, out?: string, jobsOut?: string }} options
  */
 export async function runUpsert(options) {
   let jobs;
@@ -122,6 +122,7 @@ export async function runUpsert(options) {
   } else {
     jobs = await fetchAllSources({
       query: options.query,
+      alsoTitles: options.alsoTitles,
       limit: options.limit
     });
   }
