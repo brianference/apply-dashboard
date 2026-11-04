@@ -213,10 +213,13 @@ if (isCli(import.meta.url)) {
       /* Not on the current list, or no longer queued: nothing to do. Its
          expected-case fixtures live in this file too and have no queue row. */
       if (!row || row.status !== 'queued') continue;
-      logInfo('dead link', {
-        company: row.company, title: String(row.title).slice(0, 40),
-        http: r.httpStatus, note: r.note
-      });
+      /* --quiet in CI: these logs are public and which jobs are on the list is not. */
+      if (!args.quiet) {
+        logInfo('dead link', {
+          company: row.company, title: String(row.title).slice(0, 40),
+          http: r.httpStatus, note: r.note
+        });
+      }
       if (!doWrite) continue;
       const w = closedWrite(row, `${r.note} (HTTP ${r.httpStatus})`);
       const res = await d1(w.sql, w.params);

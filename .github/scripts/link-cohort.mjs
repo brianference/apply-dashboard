@@ -12,8 +12,13 @@
  *   node .github/scripts/link-cohort.mjs > cohort.json
  */
 
+import fs from 'node:fs';
+import { rowsToCheck, UNRESOLVED_PATH } from '../../ingest/liveness.mjs';
+
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
 const OLD_DAYS = 21;
+const BATCH = 80;
+const RUN_MS = 12 * 3600 * 1000;
 
 /**
  * @param {{ posted: string|null }} row
@@ -27,7 +32,15 @@ function ageDays(row) {
 }
 
 const payload = await (await fetch(API, { headers: { 'cache-control': 'no-cache' } })).json();
-const queued = (payload.jobs || []).filter((r) => r && r.status === 'queued' && r.url);
+/* Rows on a board API are ingest/liveness.mjs's job, twice a day and without a
+   browser, so the browser's 80 are spent on hosts nothing else can check, and first on
+   the board rows that step could not settle this run. */
+const onBoard = new Set(rowsToCheck(payload.jobs).map((entry) => entry.row.dedupe_key));
+let unresolved = [];
+try {
+  unresolved = JSON.parse(fs.readFileSync(UNRESOLVED_PATH, 'utf8')).jobs || [];
+} catch { /* the liveness step did not run or failed; the rest of the cohort still stands */ }
+const queued = (payload.jobs || []).filter((r) => r && r.status === 'queued' && r.url && !onBoard.has(r.dedupe_key));
 
 const noPay = (r) => r.salary_min == null;
 const old = (r) => { const a = ageDays(r); return a !== null && a >= OLD_DAYS; };
@@ -39,6 +52,12 @@ const ordered = [
   ...queued.filter((r) => !noPay(r) && old(r)).sort(byAge)
 ];
 
+/* The workflow takes the first 80. A fixed order meant the same 80 every run, and
+   a row further down was never opened. Starting each run one batch further on
+   walks the whole list, without storing anything between runs. */
+const start = ordered.length ? (Math.floor(Date.now() / RUN_MS) * BATCH) % ordered.length : 0;
+const rotated = [...ordered.slice(start), ...ordered.slice(0, start)];
+
 process.stdout.write(JSON.stringify({
-  jobs: ordered.map((r) => ({ url: r.url, dedupe_key: r.dedupe_key }))
+  jobs: [...unresolved, ...rotated].map((r) => ({ url: r.url, dedupe_key: r.dedupe_key }))
 }, null, 1));

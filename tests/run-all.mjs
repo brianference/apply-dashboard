@@ -46,6 +46,7 @@ const KIND = {
   'ingest/test-employer-block.mjs': 'node',
   'ingest/test-fit.mjs': 'node',
   'ingest/test-index-freshness.mjs': 'node',
+  'ingest/test-liveness.mjs': 'node',
   'ingest/test-jd-read.mjs': 'node',
   'ingest/test-oracle.mjs': 'node',
   'ingest/test-repair-fields.mjs': 'node',
