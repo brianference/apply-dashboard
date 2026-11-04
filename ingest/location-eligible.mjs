@@ -28,7 +28,7 @@
    it, so Anduril Costa Mesa postings passed as Arizona (reported in the 2026-11-02 handoff).
    The lookbehind keeps "Mesa, AZ" and "Mesa, Arizona" and drops the Costa one. */
 /** Where he can work on site. */
-const HOME = /\barizona\b|\baz\b|phoenix|scottsdale|tempe|chandler|(?<!costa )\bmesa\b|gilbert|glendale|peoria|cave creek/i;
+const HOME = /\barizona\b|\baz\b|phoenix|scottsdale|tempe|chandler|(?<!costa )\bmesa\b|gilbert|glendale(?!,?\s*(?:ca\b|calif))|peoria(?!,?\s*(?:il\b|illinois))|cave creek/i;
 
 /** Wording that means the role can be done from anywhere in the US. */
 const REMOTE = /\bremote\b|work from home|\bwfh\b|anywhere|distributed|telecommute|virtual/i;
@@ -79,6 +79,12 @@ export function locationEligible(workType, title) {
      rescue it: Vapi and Harvey both read "Hybrid / FullTime / San Francisco /
      Remote" and both reached the top of his list, at 86% and 84%. The comment
      at the top of this file used to cite that exact string as eligible. */
+  /* In the location field the word settles it, whatever the office is called:
+     "Hybrid / FullTime / SF Office / Remote" named no city on the list and passed
+     as remote, and San Mateo did the same before it was added. A list of cities
+     can never finish this rule. The title is held to the old test because
+     "Product Manager, Hybrid Cloud" is not a work arrangement. */
+  if (/\bhybrid\b/i.test(workType || '')) return { ok: false, why: 'hybrid, and the office is not in Arizona' };
   if (/\bhybrid\b/i.test(text)) {
     if (US_ELSEWHERE.test(text)) return { ok: false, why: 'hybrid, and the office is not in Arizona' };
     if (NOT_US.test(text)) return { ok: false, why: 'hybrid, and outside the US' };
