@@ -595,6 +595,18 @@
     {
       "token": "zscaler",
       "name": "Zscaler"
+    },
+    {
+      "token": "lightningai",
+      "name": "Lightning AI"
+    },
+    {
+      "token": "purestorage",
+      "name": "Everpure"
+    },
+    {
+      "token": "sambanovasystems",
+      "name": "SambaNova"
     }
   ],
   "lever": [
@@ -1194,7 +1206,7 @@
     },
     {
       "token": "vantage",
-      "name": "Vantage Data Centers"
+      "name": "Vantage"
     },
     {
       "token": "vapi",
@@ -1215,6 +1227,22 @@
     {
       "token": "zip",
       "name": "Zip Co"
+    },
+    {
+      "token": "lambda",
+      "name": "Lambda"
+    },
+    {
+      "token": "runpod",
+      "name": "Runpod"
+    },
+    {
+      "token": "hyperbolic",
+      "name": "Hyperbolic"
+    },
+    {
+      "token": "cerebras",
+      "name": "Cerebras"
     }
   ],
   "oracle": [
