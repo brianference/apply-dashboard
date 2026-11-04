@@ -36,6 +36,11 @@ check('a USD-prefixed band with no dollar sign is read',
   salaryFromText('US-based candidates: USD 170,000 - 200,000').min === 170000);
 check('the same posting does not take the Canadian band',
   salaryFromText('Canada: CAD 160,000 - 195,000. US: USD 170,000 - USD 200,000').min === 170000);
+check('the salary filter widget is not a USD band', salaryFromText('USD 75,000 - 99,999').min === null);
+check('a signing bonus does not win over the base band',
+  salaryFromText('Signing bonus USD 50,000 - 60,000. Base USD 170,000 - 200,000').min === 170000);
+check('on-target earnings are not a USD base band', salaryFromText('USD 300,000 - 400,000 OTE').min === null);
+check('a figure per customer is not pay', salaryFromText('USD 100,000 to 500,000 per customer').min === null);
 check('a CAD band alone is not a USD band',
   salaryFromText('CAD 160,000 - 195,000').min === null);
 
