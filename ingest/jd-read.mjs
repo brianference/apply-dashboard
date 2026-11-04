@@ -17,6 +17,8 @@ import { createHash } from 'node:crypto';
 import { isoFromUnknown } from './jobs.mjs';
 import { salaryFromText } from './salary-from-posting.mjs';
 import { descriptionFor as wwrDescriptionFor } from './wwr-feed.mjs';
+import { guardPosting, summarizeFlags } from './posting-guard.mjs';
+import { logWarn } from './logger.mjs';
 
 /** Where reads are cached when a caller does not say. Same directory the board
     tiers use, so one sweep clears everything. */
@@ -659,11 +661,34 @@ export async function readJd(url, options = {}) {
   const dir = options.cacheDir || DEFAULT_CACHE_DIR;
   if (!options.refetch) {
     const hit = readUrlCache(dir, url);
-    if (hit) return { ...hit, via: hit.via || 'cache' };
+    if (hit) return screenResult({ ...hit, via: hit.via || 'cache' }, url);
   }
   const result = await readJdUncached(url, options);
   writeUrlCache(dir, url, result);
-  return result;
+  return screenResult(result, url);
+}
+
+/**
+ * The one place fetched description text enters scoring: every reader tier and
+ * the cache both come out of readJd, and fetchJd, daily, closed-check, regate,
+ * score-history and the salary sweeps all call readJd. Screening here, on the
+ * way OUT, also covers cache files written before the guard existed.
+ *
+ * Returns the posting with invisible characters and hidden markup removed and
+ * `guardFlags` set. A flagged posting is never dropped. There is no per-row
+ * notes column to put the flags in, so they go to stderr as a posting-guard
+ * line for the run log; adding a DB column was deliberately not done.
+ *
+ * @param {JdReadResult} result
+ * @param {string} url
+ * @returns {JdReadResult & { guardFlags: {kind: string, evidence: string}[] }}
+ */
+export function screenResult(result, url) {
+  if (!result || !result.text) return { ...result, guardFlags: [] };
+  const { clean, flags } = guardPosting(result.text);
+  const line = summarizeFlags(url, flags);
+  if (line) logWarn(line);
+  return { ...result, text: clean, guardFlags: flags };
 }
 
 /**
