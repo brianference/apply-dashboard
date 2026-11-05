@@ -99,7 +99,7 @@ export function locationEligible(workType, title, company) {
      "Product Manager, Hybrid Cloud" is not a work arrangement. */
   if (/\bhybrid\b/i.test(workType || '')) {
     if (HYBRID_COUNTS_AS_REMOTE.test(String(company || '').trim()) && PRODUCT_MANAGER_TITLE.test(title || '')
-      && /\bremote\b/i.test(workType) && !(NOT_US.test(text) && !US_WIDE.test(text))) {
+      && /\bremote\b/i.test(workType) && !(NOT_US.test(workType) && !US_WIDE.test(workType))) {
       return { ok: true, why: 'hybrid and remote at OpenAI' };
     }
     return { ok: false, why: 'hybrid, and the office is not in Arizona' };

@@ -12,6 +12,7 @@ import { normalizeAmazonJobs, fetchJobs } from './sources/amazon.mjs';
 import { locationEligible } from './location-eligible.mjs';
 import { scoreOne } from './fit-score.mjs';
 import { decide } from './sync-to-d1.mjs';
+import { buildRows } from './upsert.mjs';
 
 let bad = 0;
 const check = (name, ok, detail) => {
@@ -45,7 +46,15 @@ let calls = 0;
 globalThis.fetch = async () => { calls += 1; return new Response(JSON.stringify(calls === 1 ? PAGE : { jobs: [] }), { status: 200 }); };
 try {
   const fetched = await fetchJobs({ query: 'product' });
-  check('paging stops at the first empty page', calls === 2 && fetched.length === 3, `calls ${calls}, rows ${fetched.length}`);
+  check('paging stops at the first empty page', calls === 2, `calls ${calls}`);
+  check('only rows that pass the location gate are returned', fetched.length === 2 && !fetched.some((job) => /Redmond/.test(job.work_type)), `rows ${fetched.length}`);
+  calls = 0;
+  globalThis.fetch = async () => { calls += 1; return new Response(JSON.stringify(calls === 1 ? { jobs: [
+    row('Senior Product Manager', '/en/jobs/5/seattle', ['Seattle, Washington, USA']),
+    row('Senior Product Manager', '/en/jobs/6/tempe', ['Tempe, Arizona, USA'])
+  ] } : { jobs: [] }), { status: 200 }); };
+  const shadowed = buildRows(await fetchJobs({ query: 'product' }));
+  check('a Seattle row cannot shadow the same title in Tempe', shadowed.length === 1 && /tempe/.test(shadowed[0].url), shadowed[0]?.url);
 } finally {
   globalThis.fetch = realFetch;
 }
@@ -65,6 +74,8 @@ check('no company given: refused', !locationEligible(OPENAI, 'Product Manager, C
 check('OpenAI, not a PM title: refused', !locationEligible(OPENAI, 'Product Cost Management Lead', 'OpenAI').ok);
 check('OpenAI PM, hybrid only: refused', !locationEligible('Hybrid / FullTime / San Francisco', 'Product Manager, Core Models', 'OpenAI').ok);
 check('OpenAI PM, hybrid in Tokyo: refused', !locationEligible('Hybrid / FullTime / Tokyo, Japan / Remote', 'Product Manager, Core Models', 'OpenAI').ok);
+check('a title cannot rescue a Tokyo office', !locationEligible('Hybrid / FullTime / Tokyo, Japan / Remote', 'Product Manager, US Expansion', 'OpenAI').ok);
+check('a title cannot refuse a San Francisco office', locationEligible(OPENAI, 'Product Manager, EU Compliance', 'OpenAI').ok);
 
 const candidate = { company: 'OpenAI', title: 'Product Manager, Enterprise Identity', url: 'https://jobs.ashbyhq.com/openai/x', work_type: OPENAI, source: 'ashby' };
 check('decide() passes the company', decide([candidate], []).fresh.length === 1);

@@ -1,6 +1,7 @@
 import { isCli, runSourceCli } from "../cli.mjs";
 import { fetchJson } from "../http.mjs";
 import { filterJobs, isoFromUnknown, joinWorkType } from "../jobs.mjs";
+import { locationEligible } from "../location-eligible.mjs";
 
 export const meta = {
   id: "amazon",
@@ -75,7 +76,10 @@ export async function fetchJobs(options = {}) {
     if (!page.length) break;
     collected.push(...page);
   }
-  return filterJobs(collected, options);
+  /* Filtered here because buildRows keeps the first row per company and title and
+     decide() gates afterwards, so a Seattle row would shadow the same title in
+     Tempe. 17 of 389 rows shared a title on 2026-11-05. */
+  return filterJobs(collected.filter((job) => locationEligible(job.work_type, job.title, job.company).ok), options);
 }
 
 if (isCli(import.meta.url)) {
