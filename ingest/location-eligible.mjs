@@ -33,6 +33,18 @@ const HOME = /\barizona\b|\baz\b|phoenix|scottsdale|tempe|chandler|(?<!costa )\b
 /** Wording that means the role can be done from anywhere in the US. */
 const REMOTE = /\bremote\b|work from home|\bwfh\b|anywhere|distributed|telecommute|virtual/i;
 
+/* "distributed", "virtual" and "anywhere" name a product once they reach a title:
+   Amazon's "AWS Distributed SQL" in Seattle and "Virtual Private Cloud" in Santa
+   Clara both read as remote. A title has to say remote outright. */
+const REMOTE_IN_TITLE = /\bremote\b|work from home|\bwfh\b|telecommute/i;
+
+/* Brian, 2026-11-05: OpenAI's product manager roles marked both Hybrid and remote
+   count as remote, though their postings say San Francisco, three days in the
+   office. One employer and one job family, so Vapi, Harvey and the rest of the
+   hybrid rule below stay as they are. */
+const HYBRID_COUNTS_AS_REMOTE = /^openai$/i;
+const PRODUCT_MANAGER_TITLE = /\bproduct manag/i;
+
 /** The whole US offered, in any of the ways postings word it. */
 const US_WIDE = /\busa?\b|u\.s\.|united states|nationwide|anywhere|worldwide/i;
 
@@ -59,9 +71,10 @@ const US_ELSEWHERE = /\b(new york|nyc|brooklyn|san francisco|san mateo|bay area|
 /**
  * @param {string|null|undefined} workType the posting's location text
  * @param {string} [title] the title, which sometimes carries "(Remote)"
+ * @param {string} [company] the employer, needed only for HYBRID_COUNTS_AS_REMOTE
  * @returns {{ok: boolean, why: string}}
  */
-export function locationEligible(workType, title) {
+export function locationEligible(workType, title, company) {
   /* Accents are folded so "São Paulo" meets the same list as "sao paulo". The
      list only held the ASCII spelling and OpenAI's "São Paulo / Hybrid / Remote"
      read as an ordinary remote role. */
@@ -84,7 +97,13 @@ export function locationEligible(workType, title) {
      as remote, and San Mateo did the same before it was added. A list of cities
      can never finish this rule. The title is held to the old test because
      "Product Manager, Hybrid Cloud" is not a work arrangement. */
-  if (/\bhybrid\b/i.test(workType || '')) return { ok: false, why: 'hybrid, and the office is not in Arizona' };
+  if (/\bhybrid\b/i.test(workType || '')) {
+    if (HYBRID_COUNTS_AS_REMOTE.test(String(company || '').trim()) && PRODUCT_MANAGER_TITLE.test(title || '')
+      && /\bremote\b/i.test(workType) && !(NOT_US.test(text) && !US_WIDE.test(text))) {
+      return { ok: true, why: 'hybrid and remote at OpenAI' };
+    }
+    return { ok: false, why: 'hybrid, and the office is not in Arizona' };
+  }
   if (/\bhybrid\b/i.test(text)) {
     if (US_ELSEWHERE.test(text)) return { ok: false, why: 'hybrid, and the office is not in Arizona' };
     if (NOT_US.test(text)) return { ok: false, why: 'hybrid, and outside the US' };
@@ -105,7 +124,7 @@ export function locationEligible(workType, title) {
     return { ok: true, why: 'remote-friendly' };
   }
 
-  if (!REMOTE.test(text)) {
+  if (!REMOTE.test(workType || '') && !REMOTE_IN_TITLE.test(title || '')) {
     if (NOT_US.test(text)) return { ok: false, why: 'outside the US' };
     if (US_ELSEWHERE.test(text)) return { ok: false, why: 'on site, not Arizona' };
     /* "onsite / Laurel, MD" with "US Government" in the title reached the US_WIDE

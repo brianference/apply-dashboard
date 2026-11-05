@@ -111,7 +111,7 @@ export function decide(candidates, existing) {
     const url = String(c.url || "");
     if (!url) { rejected["no-url"] += 1; continue; }
     if (!roleEligible(title).ok) { rejected.role += 1; continue; }
-    if (!locationEligible(c.work_type, title).ok) { rejected.location += 1; continue; }
+    if (!locationEligible(c.work_type, title, c.company).ok) { rejected.location += 1; continue; }
     const key = dedupeKey(c.company, title);
     if (seenKeys.has(key.toLowerCase())) { rejected["duplicate-key"] += 1; continue; }
     const nurl = normalizeUrl(url);
