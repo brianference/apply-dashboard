@@ -30,7 +30,8 @@ const SOURCE_LOADERS = {
   oracle: () => import("./sources/oracle.mjs"),
   remotive: () => import("./sources/remotive.mjs"),
   workingnomads: () => import("./sources/workingnomads.mjs"),
-  remotepmjobs: () => import("./sources/remotepmjobs.mjs")
+  remotepmjobs: () => import("./sources/remotepmjobs.mjs"),
+  amazon: () => import("./sources/amazon.mjs")
 };
 
 /**

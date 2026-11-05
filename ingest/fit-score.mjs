@@ -330,7 +330,7 @@ export function requirementsGate(job, jd, options = {}) {
   if (domain.ruled) reasons.push(`domain: ${domain.domain} - ${domain.why}`);
   const role = roleEligible(job.title);
   if (!role.ok) reasons.push(`role: ${role.why}`);
-  const loc = locationEligible(job.work_type, job.title);
+  const loc = locationEligible(job.work_type, job.title, job.company);
   if (!loc.ok) reasons.push(`location: ${loc.why}`);
   /* The bottom of the band is checked before the top. An unpublished start is
      unknown and passes; a published one at or below the floor does not. */
