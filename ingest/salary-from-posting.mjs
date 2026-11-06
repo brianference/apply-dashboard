@@ -49,6 +49,20 @@ export function figures(text) {
   return [...new Set(out)].sort((a, b) => a - b);
 }
 
+const NOT_BASE_PAY = /bonus|equity|commission|\bOTE\b|per customer|revenue/i;
+
+/**
+ * The words around a matched pair, stopping at the sentence on either side.
+ *
+ * @param {string} text
+ * @param {number} start
+ * @param {number} end
+ * @returns {string}
+ */
+function sameSentence(text, start, end) {
+  return text.slice(Math.max(0, start - 40), start).split(/[.;\n]/).pop() + text.slice(end, end + 25).split(/[.;\n]/)[0];
+}
+
 /**
  * Find an ADJACENT pair of figures written as a range.
  *
@@ -86,6 +100,15 @@ export function rangePair(text) {
     if (b % 1000 === 999) continue;
     if (a >= 50000 && b <= 800000 && b > a) return { min: a, max: b };
   }
+  /* onX publishes "between $120,000 and $150,000". "between" is required because
+     a bare "and" joins unrelated figures: "raised $50,000 and $90,000". */
+  const between = /\bbetween\s+\$\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{5,6}(?![0-9])|[0-9]{2,3}(?:\.[0-9])?\s?[kK])\s+and\s+\$\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{5,6}(?![0-9])|[0-9]{2,3}(?:\.[0-9])?\s?[kK])/gi;
+  while ((m = between.exec(text))) {
+    const a = toN(m[1]);
+    const b = toN(m[2]);
+    if (b % 1000 === 999 || NOT_BASE_PAY.test(sameSentence(text, m.index, between.lastIndex))) continue;
+    if (a >= 50000 && b <= 800000 && b > a) return { min: a, max: b };
+  }
   /* Granum publishes "USD 170,000 - 200,000" with no dollar sign, so its band read
      as unpublished. Only the USD prefix counts: the same posting has "CAD 160,000 -
      195,000" first, and a bare pair of numbers could be anything. */
@@ -93,8 +116,7 @@ export function rangePair(text) {
   while ((m = usd.exec(text))) {
     const a = toN(m[1]);
     const b = toN(m[2]);
-    const near = text.slice(Math.max(0, m.index - 40), m.index).split(/[.;\n]/).pop() + text.slice(usd.lastIndex, usd.lastIndex + 25).split(/[.;\n]/)[0];
-    if (b % 1000 === 999 || /bonus|equity|commission|\bOTE\b|per customer|revenue/i.test(near)) continue;
+    if (b % 1000 === 999 || NOT_BASE_PAY.test(sameSentence(text, m.index, usd.lastIndex))) continue;
     if (a >= 50000 && b <= 800000 && b > a) return { min: a, max: b };
   }
   return { min: null, max: null };

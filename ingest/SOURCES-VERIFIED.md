@@ -248,3 +248,14 @@ Moved from Greenhouse to Ashby, confirmed by their descriptions naming the compa
 Removed after a 404: hyphenconnect and ma (no other board found), temporaltechnologies (already watched as ashby:temporal).
 
 Left in place, answering 200 with no postings today: HCEsquared, Klaxoon, SFOX, Remote (greenhouse:remotecom), 3Pillar Global.
+
+## Added 2026-11-06
+
+Both found by following a listing back to the employer, then read from the board API in that session. The `name` on the onX board is read from `GET /v1/boards/onxmaps`. The Lever board has no name field, so Wayfinder comes from the posting, which names the employer.
+
+| token | source | url | HTTP | row count | result |
+|---|---|---|---|---|---|
+| onxmaps | greenhouse | `https://boards-api.greenhouse.io/v1/boards/onxmaps/jobs` | 200 | 29 | ok |
+| project-wayfinder | lever | `https://api.lever.co/v0/postings/project-wayfinder?mode=json` | 200 | 4 | ok |
+
+`nucleus` on Greenhouse also answers 200, but it is Nucleus Global, a medical communications network, not Nucleus Security. It is not in `companies.json`.

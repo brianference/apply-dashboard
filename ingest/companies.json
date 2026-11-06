@@ -615,6 +615,10 @@
     {
       "token": "pulumicorporation",
       "name": "Pulumi"
+    },
+    {
+      "token": "onxmaps",
+      "name": "onX"
     }
   ],
   "lever": [
@@ -749,6 +753,10 @@
     {
       "token": "caseware",
       "name": "Caseware"
+    },
+    {
+      "token": "project-wayfinder",
+      "name": "Wayfinder"
     }
   ],
   "ashby": [
