@@ -190,6 +190,16 @@ check('an ungrouped pair below the sanity floor is still refused',
   salaryFromText('$45000 - $52000 annually').min === null);
 check('a run of digits longer than a salary is not chopped into one',
   salaryFromText('revenue grew from $120000000 to $9').min === null);
+/* onX job 4722280006, verbatim. Unread, a $120k role passed the pay floor as unpriced. */
+const onxBand = salaryFromText('applicants can expect to make between $120,000 and $150,000 upon hire');
+check('a band written as between X and Y is read',
+  onxBand.min === 120000 && onxBand.max === 150000, JSON.stringify(onxBand));
+check('between works with k figures',
+  salaryFromText('between $180k and $220k').max === 220000);
+check('a bare "and" between two figures is not a band',
+  salaryFromText('raised $120,000 and $150,000 last year').min === null);
+check('between with a reversed pair is refused',
+  salaryFromText('between $150,000 and $120,000').min === null);
 
 const text = oracleDescriptionHtml(DETAIL_ITEM);
 check('the description joins every external-facing part',

@@ -86,6 +86,15 @@ export function rangePair(text) {
     if (b % 1000 === 999) continue;
     if (a >= 50000 && b <= 800000 && b > a) return { min: a, max: b };
   }
+  /* onX publishes "between $120,000 and $150,000". "between" is required because
+     a bare "and" joins unrelated figures: "raised $50,000 and $90,000". */
+  const between = /\bbetween\s+\$\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{5,6}(?![0-9])|[0-9]{2,3}(?:\.[0-9])?\s?[kK])\s+and\s+\$\s?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{5,6}(?![0-9])|[0-9]{2,3}(?:\.[0-9])?\s?[kK])/gi;
+  while ((m = between.exec(text))) {
+    const a = toN(m[1]);
+    const b = toN(m[2]);
+    if (b % 1000 === 999) continue;
+    if (a >= 50000 && b <= 800000 && b > a) return { min: a, max: b };
+  }
   /* Granum publishes "USD 170,000 - 200,000" with no dollar sign, so its band read
      as unpublished. Only the USD prefix counts: the same posting has "CAD 160,000 -
      195,000" first, and a bare pair of numbers could be anything. */
