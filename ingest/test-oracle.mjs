@@ -200,6 +200,14 @@ check('a bare "and" between two figures is not a band',
   salaryFromText('raised $120,000 and $150,000 last year').min === null);
 check('between with a reversed pair is refused',
   salaryFromText('between $150,000 and $120,000').min === null);
+check('between figures describing revenue are not a band',
+  salaryFromText('companies with between $100,000 and $500,000 in revenue').min === null);
+check('between figures describing a bonus are not a band',
+  salaryFromText('a bonus between $50,000 and $80,000').min === null);
+check('revenue figures cannot override the published band',
+  salaryFromText('Clients with between $100,000 and $500,000 in revenue. Pay: USD 170,000 - 200,000').min === 170000);
+check('between on a filter widget ending in 999 is refused',
+  salaryFromText('between $75,000 and $99,999').min === null);
 
 const text = oracleDescriptionHtml(DETAIL_ITEM);
 check('the description joins every external-facing part',

@@ -49,6 +49,20 @@ export function figures(text) {
   return [...new Set(out)].sort((a, b) => a - b);
 }
 
+const NOT_BASE_PAY = /bonus|equity|commission|\bOTE\b|per customer|revenue/i;
+
+/**
+ * The words around a matched pair, stopping at the sentence on either side.
+ *
+ * @param {string} text
+ * @param {number} start
+ * @param {number} end
+ * @returns {string}
+ */
+function sameSentence(text, start, end) {
+  return text.slice(Math.max(0, start - 40), start).split(/[.;\n]/).pop() + text.slice(end, end + 25).split(/[.;\n]/)[0];
+}
+
 /**
  * Find an ADJACENT pair of figures written as a range.
  *
@@ -92,7 +106,7 @@ export function rangePair(text) {
   while ((m = between.exec(text))) {
     const a = toN(m[1]);
     const b = toN(m[2]);
-    if (b % 1000 === 999) continue;
+    if (b % 1000 === 999 || NOT_BASE_PAY.test(sameSentence(text, m.index, between.lastIndex))) continue;
     if (a >= 50000 && b <= 800000 && b > a) return { min: a, max: b };
   }
   /* Granum publishes "USD 170,000 - 200,000" with no dollar sign, so its band read
@@ -102,8 +116,7 @@ export function rangePair(text) {
   while ((m = usd.exec(text))) {
     const a = toN(m[1]);
     const b = toN(m[2]);
-    const near = text.slice(Math.max(0, m.index - 40), m.index).split(/[.;\n]/).pop() + text.slice(usd.lastIndex, usd.lastIndex + 25).split(/[.;\n]/)[0];
-    if (b % 1000 === 999 || /bonus|equity|commission|\bOTE\b|per customer|revenue/i.test(near)) continue;
+    if (b % 1000 === 999 || NOT_BASE_PAY.test(sameSentence(text, m.index, usd.lastIndex))) continue;
     if (a >= 50000 && b <= 800000 && b > a) return { min: a, max: b };
   }
   return { min: null, max: null };
