@@ -92,7 +92,7 @@ runs them BEFORE the D1 write. 65 cases, both directions, in
 |---|---|---|
 | Location | remote (US-eligible), remote-friendly unless only other countries are named, or Arizona | anywhere on site or hybrid outside Arizona |
 | Country | United States | Canada, India (Bangalore/Bengaluru), Netherlands, Germany (Berlin), and ~60 more |
-| Role | product management, deployment strategist and forward-deployed strategy titles | engineering management, program/project management, product marketing, product success, design |
+| Role | product management, deployment strategist and forward-deployed strategy titles | engineering management, program/project management, product marketing, product success, product operations, chief of staff, design |
 | Domain | product, infra, developer tools | healthcare, construction, hardware, clearance, risk/compliance (title) |
 | Salary | $180k floor, $160–180k second tier | under $160k |
 | Duplicates | one application per job | any second attempt, matched on normalised company + title |
@@ -173,6 +173,15 @@ Product Success Manager I (Nutrition, Pro)" because IS_PRODUCT's
 enough. "Senior Product Manager, Success Platform" does not contain that
 phrase and stays -- a product manager who owns a customer-success product
 is a product job.
+
+### Product operations and chief of staff are out (2026-11-07)
+
+Brian, 2026-11-07: "remove chief of staff and operations roles". This
+reverses the 2026-08-27 call that let product operations through. Both
+phrases are in NOT_PRODUCT, so "Chief of Staff Director, Product" no longer
+passes on "director, product". A product manager who owns operations work,
+such as "AI-First Product Manager (Ops Transformation)", contains neither
+phrase and stays.
 
 ### Hardware is a description, not a title
 

@@ -182,16 +182,17 @@ export function locationEligible(workType, title, company) {
    queue because IS_PRODUCT's "product ... manager" window matches it.
    NOT_PRODUCT is tested first, so adding the phrase is enough.
    "Senior Product Manager, Success Platform" does not contain the phrase
-   and is a product manager who owns a success product -- it stays. */
-/** Titles that are not product management, even when they contain "product". */
-const NOT_PRODUCT = /product marketing|product success|\bpmm\b|engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
+   and is a product manager who owns a success product -- it stays.
 
-/* Product operations counts, per Brian on 2026-08-27: "you can find product
-   operations that are similar based on description". The title alone cannot
-   settle whether one suits him, so it passes the gate and the
-   description-based ranking decides. Sales, business, marketing and revenue
-   operations are untouched, because none of them contain "product
-   operations". */
+   Product operations and chief of staff are out, per Brian on 2026-11-07:
+   "remove chief of staff and operations roles". That reverses his 2026-08-27
+   call to let product operations through. "Chief of Staff Director, Product"
+   was passing on IS_PRODUCT's "director, product". A product manager who owns
+   operations work, "AI-First Product Manager (Ops Transformation)", contains
+   neither phrase and stays. */
+/** Titles that are not product management, even when they contain "product". */
+const NOT_PRODUCT = /product marketing|product success|product operations?\b|\bproduct[- ]?ops\b|chief[- ]of[- ]staff|\bpmm\b|engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
+
 /** Titles that ARE product management, whatever else the string contains. */
 /* "Senior Vice President, Product" was refused while "VP of Product" passed,
    because IS_PRODUCT knew the abbreviation and not the spelled-out form. The
@@ -199,7 +200,7 @@ const NOT_PRODUCT = /product marketing|product success|\bpmm\b|engineering manag
    was refusing a title the leadership pill exists to display -- the row could
    never reach the lens built for it. Product marketing stays out either way:
    NOT_PRODUCT is tested first and already carries the phrase. */
-const IS_PRODUCT = /product manager|product management|product lead|product owner|head of product|director of product|\bdirector,? product\b|vp of product|vice president,? (of )?product|\bsvp,? (of )?product|\bvp,? product\b|chief product officer|\bcpo\b|group product manager|\bgpm\b|technical product manager|\btpm\b|product sr\.? manager|senior director of product|sr\.? director of product|product, .*(platform|ai)|\bproduct\b.{0,14}\b(manager|management|lead|owner|director)\b|product operations\b|\bproduct ops\b/i;
+const IS_PRODUCT = /product manager|product management|product lead|product owner|head of product|director of product|\bdirector,? product\b|vp of product|vice president,? (of )?product|\bsvp,? (of )?product|\bvp,? product\b|chief product officer|\bcpo\b|group product manager|\bgpm\b|technical product manager|\btpm\b|product sr\.? manager|senior director of product|sr\.? director of product|product, .*(platform|ai)|\bproduct\b.{0,14}\b(manager|management|lead|owner|director)\b/i;
 
 /* Deployment strategist and forward-deployed strategy titles count, per Brian on
    2026-11-04. None of them need the word product, so the daily collection has to
