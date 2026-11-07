@@ -191,7 +191,7 @@ export function locationEligible(workType, title, company) {
    operations work, "AI-First Product Manager (Ops Transformation)", contains
    neither phrase and stays. */
 /** Titles that are not product management, even when they contain "product". */
-const NOT_PRODUCT = /product marketing|product success|product operations|\bproduct ops\b|chief of staff|\bpmm\b|engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
+const NOT_PRODUCT = /product marketing|product success|product operations?\b|\bproduct[- ]?ops\b|chief[- ]of[- ]staff|\bpmm\b|engineering manager|software engineer|\bswe\b|data engineer|platform engineer|devops|site reliability|\bsre\b|solutions architect|sales engineer|\bdesigner\b|\brecruiter\b|account executive|customer success|\bmarketing manager\b|program manager|project manager|scrum master|\banalyst\b|data scientis|security|cybersecurity|cyber security|infosec|\bappsec\b|information security|trust (and|&) safety|threat|vulnerability|\biam\b|identity (and )?access|zero trust|\bsoc\b|siem|endpoint protection/i;
 
 /** Titles that ARE product management, whatever else the string contains. */
 /* "Senior Vice President, Product" was refused while "VP of Product" passed,

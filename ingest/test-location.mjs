@@ -199,6 +199,8 @@ console.log(String.fromCharCode(10) + (bad ? bad + ' failed' : 'both rules hold 
     ['Product Operations Specialist',       false, 'Comfrt'],
     ['Senior Manager, Product Operations',  false, 'the words the other way round'],
     ['Product Ops Manager',                 false, 'abbreviated'],
+    ['Product-Ops Manager',                 false, 'hyphenated, found in review'],
+    ['Product Operation Manager',           false, 'singular, found in review'],
     ['Chief of Staff Director, Product',    false, 'Affirm, passed on "director, product"'],
     ['Chief of Staff',                      false, ''],
     ['Sales Operations Manager',            false, 'operations, but not product'],
