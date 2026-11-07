@@ -187,28 +187,33 @@ console.log(String.fromCharCode(10) + (bad ? bad + ' failed' : 'both rules hold 
 
 /* exit lives at the very end; anything after it never runs */
 
-/* Product operations, wanted by Brian on 2026-08-27, judged on the description. */
+/* Product operations and chief of staff are out, per Brian on 2026-11-07,
+   reversing his 2026-08-27 call. The titles are the queued rows that day. */
 {
   BLOCKS_RUN += 1;
   const ops = [
-    ['Product Operations Manager',          true,  'the Samsara shape he applied to'],
-    ['Senior Manager, Product Operations',  true,  'the words the other way round'],
-    ['Product Operations Specialist',       true,  'seniority is the ranker’s job, not the gate’s'],
-    ['Director of Product Operations',      true,  ''],
-    ['Product Ops Manager',                 true,  'abbreviated'],
+    ['Product Operations Manager',          false, 'Credo AI and PeopleGrove, queued that day'],
+    ['Senior Product Operations Manager',   false, 'Weave'],
+    ['Director Product Operations',         false, 'Fortive'],
+    ['AI Product Operations Lead',          false, 'Typeform'],
+    ['Product Operations Specialist',       false, 'Comfrt'],
+    ['Senior Manager, Product Operations',  false, 'the words the other way round'],
+    ['Product Ops Manager',                 false, 'abbreviated'],
+    ['Chief of Staff Director, Product',    false, 'Affirm, passed on "director, product"'],
+    ['Chief of Staff',                      false, ''],
     ['Sales Operations Manager',            false, 'operations, but not product'],
-    ['Business Operations Manager',         false, 'nor this'],
-    ['Marketing Operations Manager',        false, 'nor this'],
     ['Revenue Operations Manager',          false, 'nor this'],
+    ['AI-First Product Manager (Ops Transformation)', true, 'a PM who owns ops work stays'],
+    ['Senior Product Manager, Operations Platform',   true, 'a PM on an operations product stays'],
   ];
   let bad = 0;
   for (const [title, want, note] of ops) {
     const got = roleEligible(title);
     const ok = got.ok === want;
     if (!ok) bad++;
-    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${String(got.ok).padEnd(5)} ${title.padEnd(36)} ${got.why.padEnd(34)} ${note}`);
+    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${String(got.ok).padEnd(5)} ${title.padEnd(46)} ${got.why.padEnd(34)} ${note}`);
   }
-  console.log(bad ? `\n${bad} PRODUCT-OPS CASES FAILED` : '\nproduct operations is in, and other operations roles are not');
+  console.log(bad ? `\n${bad} PRODUCT-OPS CASES FAILED` : '\nproduct operations and chief of staff are out, and PMs who own ops work are not');
   if (bad) process.exitCode = 1;
 }
 
