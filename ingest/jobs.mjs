@@ -2,6 +2,8 @@
  * Shared posting shape helpers. Source modules must not touch the database.
  */
 
+import { logWarn } from "./logger.mjs";
+
 /**
  * @typedef {{ company: string, title: string, url: string, source: string, work_type: string|null, posted: string|null, refreshed_at: string|null }} SourceJob
  */
@@ -53,7 +55,11 @@ export function filterJobs(jobs, options = {}) {
     }
     out.push(row);
   }
-  if (Number.isFinite(options.limit) && options.limit >= 0) {
+  /* A cut here drops whichever boards answered last, so it must never be
+     silent: 400 once truncated the largest source unseen, and widening the
+     board list on 2026-11-08 put Greenhouse 2 rows under the 2000 cap. */
+  if (Number.isFinite(options.limit) && options.limit >= 0 && out.length > options.limit) {
+    logWarn("source results truncated by limit", { kept: options.limit, dropped: out.length - options.limit });
     out = out.slice(0, options.limit);
   }
   return out;

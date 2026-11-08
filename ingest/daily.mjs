@@ -40,6 +40,8 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname)
 const API = 'https://apply-dashboard.pages.dev/api/jobs';
 const ACCOUNT = 'dd01b432f0329f87bb1cc1a3fad590ee';
 const DATABASE = '10e8a6c0-1fa7-4c33-a007-2044876ce6a7';
+/** Per-source row cap for collection; a backstop, not a filter. */
+const PER_SOURCE_LIMIT = 10000;
 
 const args = parseArgs();
 const WRITE = !!args.write;
@@ -95,8 +97,10 @@ try {
      The narrow query was doing filtering that roleEligible already does far
      more precisely, and doing it wrong. The limit is raised with it because
      greenhouse alone returns 1470 rows for "product" and 400 was silently
-     truncating the largest source. */
-  await runUpsert({ query: 'product', alsoTitles: STRATEGY_TITLE, limit: 2000 });
+     truncating the largest source. 2000 went the same way on 2026-11-08: 202
+     added boards put Greenhouse at 1998 matching rows, so the cap is a
+     backstop well above any one source now, and a cut logs a warning. */
+  await runUpsert({ query: 'product', alsoTitles: STRATEGY_TITLE, limit: PER_SOURCE_LIMIT });
   const out = JSON.parse(fs.readFileSync(path.join(ROOT, 'ingest', 'out', 'jobs.json'), 'utf8'));
   collected = out.jobs || [];
   stats.collected = collected.length;
