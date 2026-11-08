@@ -619,6 +619,490 @@
     {
       "token": "onxmaps",
       "name": "onX"
+    },
+    {
+      "token": "gametimeunited",
+      "name": "Gametime United"
+    },
+    {
+      "token": "fetch",
+      "name": "Fetch"
+    },
+    {
+      "token": "stackadapt",
+      "name": "StackAdapt"
+    },
+    {
+      "token": "nextiva",
+      "name": "Nextiva"
+    },
+    {
+      "token": "6sense",
+      "name": "6sense"
+    },
+    {
+      "token": "twinhealth",
+      "name": "Twin Health"
+    },
+    {
+      "token": "pathai",
+      "name": "Pathai"
+    },
+    {
+      "token": "chainguard",
+      "name": "Chainguard"
+    },
+    {
+      "token": "neuehealth",
+      "name": "NeueHealth"
+    },
+    {
+      "token": "phdata",
+      "name": "phData"
+    },
+    {
+      "token": "flickr",
+      "name": "Flickr"
+    },
+    {
+      "token": "legion",
+      "name": "Legion"
+    },
+    {
+      "token": "newrelic",
+      "name": "New Relic"
+    },
+    {
+      "token": "bitwarden",
+      "name": "Bitwarden"
+    },
+    {
+      "token": "fingerprint",
+      "name": "Fingerprint"
+    },
+    {
+      "token": "betterhelp",
+      "name": "BetterHelp"
+    },
+    {
+      "token": "dragos",
+      "name": "Dragos"
+    },
+    {
+      "token": "everquote",
+      "name": "EverQuote"
+    },
+    {
+      "token": "ispottv",
+      "name": "iSpot.tv"
+    },
+    {
+      "token": "karat",
+      "name": "Karat"
+    },
+    {
+      "token": "natera",
+      "name": "Natera"
+    },
+    {
+      "token": "qventus",
+      "name": "Qventus"
+    },
+    {
+      "token": "rebuildmanufacturing",
+      "name": "Re:Build Manufacturing"
+    },
+    {
+      "token": "zoominfo",
+      "name": "ZoomInfo"
+    },
+    {
+      "token": "finitestate",
+      "name": "Finite State"
+    },
+    {
+      "token": "fleetio",
+      "name": "Fleetio"
+    },
+    {
+      "token": "motive",
+      "name": "Motive"
+    },
+    {
+      "token": "sproutsocial",
+      "name": "Sprout Social"
+    },
+    {
+      "token": "acuitymd",
+      "name": "AcuityMD"
+    },
+    {
+      "token": "alertmedia",
+      "name": "AlertMedia"
+    },
+    {
+      "token": "archera",
+      "name": "Archera"
+    },
+    {
+      "token": "beaconbiosignals",
+      "name": "Beacon Biosignals"
+    },
+    {
+      "token": "coalition",
+      "name": "Coalition, Inc."
+    },
+    {
+      "token": "cresta",
+      "name": "Cresta"
+    },
+    {
+      "token": "digicert",
+      "name": "Digicert"
+    },
+    {
+      "token": "fluxon",
+      "name": "Fluxon"
+    },
+    {
+      "token": "formhealth",
+      "name": "Form Health"
+    },
+    {
+      "token": "futurhealth",
+      "name": "Futurhealth"
+    },
+    {
+      "token": "lirio",
+      "name": "Lirio"
+    },
+    {
+      "token": "navapbc",
+      "name": "Nava PBC"
+    },
+    {
+      "token": "opswat",
+      "name": "OPSWAT"
+    },
+    {
+      "token": "oura",
+      "name": "Oura"
+    },
+    {
+      "token": "pagerduty",
+      "name": "PagerDuty"
+    },
+    {
+      "token": "parachutehealth",
+      "name": "Parachute Health"
+    },
+    {
+      "token": "qualia",
+      "name": "Qualia"
+    },
+    {
+      "token": "recordedfuture",
+      "name": "Recorded Future"
+    },
+    {
+      "token": "redcellpartners",
+      "name": "Red Cell Partners"
+    },
+    {
+      "token": "resonate",
+      "name": "Resonate"
+    },
+    {
+      "token": "rfsmart",
+      "name": "RF-SMART"
+    },
+    {
+      "token": "rushstreetinteractive",
+      "name": "Rush Street Interactive"
+    },
+    {
+      "token": "specterops",
+      "name": "SpecterOps"
+    },
+    {
+      "token": "spotme",
+      "name": "SpotMe"
+    },
+    {
+      "token": "starrez",
+      "name": "StarRez"
+    },
+    {
+      "token": "supplyhouse",
+      "name": "SupplyHouse.com"
+    },
+    {
+      "token": "synack",
+      "name": "Synack"
+    },
+    {
+      "token": "tempo",
+      "name": "Tempo"
+    },
+    {
+      "token": "thrivemarket",
+      "name": "Thrive Market"
+    },
+    {
+      "token": "trase",
+      "name": "Trase Systems"
+    },
+    {
+      "token": "twosixtechnologies",
+      "name": "Two Six Technologies"
+    },
+    {
+      "token": "unanet",
+      "name": "Unanet"
+    },
+    {
+      "token": "arive",
+      "name": "ARIVE"
+    },
+    {
+      "token": "energyhub",
+      "name": "EnergyHub"
+    },
+    {
+      "token": "genea",
+      "name": "Genea"
+    },
+    {
+      "token": "scopely",
+      "name": "Scopely"
+    },
+    {
+      "token": "modemobile",
+      "name": "Mode Mobile"
+    },
+    {
+      "token": "stackblitz",
+      "name": "StackBlitz"
+    },
+    {
+      "token": "bobbie",
+      "name": "Bobbie"
+    },
+    {
+      "token": "calm",
+      "name": "Calm"
+    },
+    {
+      "token": "opensesame",
+      "name": "Open Sesame"
+    },
+    {
+      "token": "typeform",
+      "name": "Typeform"
+    },
+    {
+      "token": "alpaca",
+      "name": "Alpaca"
+    },
+    {
+      "token": "focalsystems",
+      "name": "Focal Systems"
+    },
+    {
+      "token": "okx",
+      "name": "OKX"
+    },
+    {
+      "token": "tanium",
+      "name": "Tanium"
+    },
+    {
+      "token": "velora",
+      "name": "Velora"
+    },
+    {
+      "token": "quanata",
+      "name": "Quanata"
+    },
+    {
+      "token": "officespacesoftware",
+      "name": "OfficeSpace Software"
+    },
+    {
+      "token": "phaidra",
+      "name": "Phaidra"
+    },
+    {
+      "token": "versaterm",
+      "name": "Versaterm"
+    },
+    {
+      "token": "blueroseresearch",
+      "name": "Blue Rose Research"
+    },
+    {
+      "token": "descript",
+      "name": "Descript"
+    },
+    {
+      "token": "censys",
+      "name": "Censys"
+    },
+    {
+      "token": "axios",
+      "name": "Axios"
+    },
+    {
+      "token": "eclinicalsolutions",
+      "name": "eClinical Solutions"
+    },
+    {
+      "token": "incode",
+      "name": "Incode Technologies"
+    },
+    {
+      "token": "kaseya",
+      "name": "Kaseya"
+    },
+    {
+      "token": "kunai",
+      "name": "Kunai"
+    },
+    {
+      "token": "lts",
+      "name": "LTS"
+    },
+    {
+      "token": "paulaschoiceskincare",
+      "name": "Paula's Choice Skincare"
+    },
+    {
+      "token": "privacy",
+      "name": "Privacy"
+    },
+    {
+      "token": "socket",
+      "name": "Socket"
+    },
+    {
+      "token": "splashfinancial",
+      "name": "Splash Financial"
+    },
+    {
+      "token": "udacity",
+      "name": "Udacity"
+    },
+    {
+      "token": "wellthy",
+      "name": "Wellthy"
+    },
+    {
+      "token": "livefront",
+      "name": "Livefront"
+    },
+    {
+      "token": "recidiviz",
+      "name": "Recidiviz"
+    },
+    {
+      "token": "squarespace",
+      "name": "Squarespace"
+    },
+    {
+      "token": "elitetechnology",
+      "name": "Elite Technology"
+    },
+    {
+      "token": "life360",
+      "name": "Life360"
+    },
+    {
+      "token": "railsware",
+      "name": "Railsware"
+    },
+    {
+      "token": "roadie",
+      "name": "Roadie"
+    },
+    {
+      "token": "blackcanyonconsulting",
+      "name": "Black Canyon Consulting"
+    },
+    {
+      "token": "expel",
+      "name": "Expel"
+    },
+    {
+      "token": "genedx",
+      "name": "GeneDx"
+    },
+    {
+      "token": "talkspace",
+      "name": "Talkspace"
+    },
+    {
+      "token": "tripledotstudios",
+      "name": "Tripledot Studios"
+    },
+    {
+      "token": "greenthumbindustries",
+      "name": "Green Thumb Industries"
+    },
+    {
+      "token": "axs",
+      "name": "AXS"
+    },
+    {
+      "token": "beyondtrust",
+      "name": "BeyondTrust"
+    },
+    {
+      "token": "asm",
+      "name": "ASM International"
+    },
+    {
+      "token": "carvana",
+      "name": "Carvana"
+    },
+    {
+      "token": "hopscotchprimarycare",
+      "name": "Hopscotch Primary Care"
+    },
+    {
+      "token": "later",
+      "name": "Later"
+    },
+    {
+      "token": "ninjaone",
+      "name": "NinjaOne"
+    },
+    {
+      "token": "keepersecurity",
+      "name": "Keeper Security"
+    },
+    {
+      "token": "penninteractive",
+      "name": "Penn Interactive"
+    },
+    {
+      "token": "cayuse",
+      "name": "Cayuse"
+    },
+    {
+      "token": "flumehealth",
+      "name": "Flume Health"
+    },
+    {
+      "token": "infuse",
+      "name": "INFUSE"
+    },
+    {
+      "token": "dominodatalab",
+      "name": "Domino Data Lab"
+    },
+    {
+      "token": "givedirectly",
+      "name": "GiveDirectly"
     }
   ],
   "lever": [
@@ -757,6 +1241,78 @@
     {
       "token": "project-wayfinder",
       "name": "Wayfinder"
+    },
+    {
+      "token": "luxurypresence",
+      "name": "Luxury Presence"
+    },
+    {
+      "token": "trueml",
+      "name": "TrueML"
+    },
+    {
+      "token": "teamsnap",
+      "name": "TeamSnap"
+    },
+    {
+      "token": "audinate",
+      "name": "Audinate"
+    },
+    {
+      "token": "crosscountry-consulting",
+      "name": "CrossCountry Consulting"
+    },
+    {
+      "token": "nextech",
+      "name": "Nextech"
+    },
+    {
+      "token": "rapidai",
+      "name": "RapidAI"
+    },
+    {
+      "token": "airtm",
+      "name": "Airtm"
+    },
+    {
+      "token": "findem",
+      "name": "Findem"
+    },
+    {
+      "token": "entrata",
+      "name": "Entrata"
+    },
+    {
+      "token": "mechanicalorchard",
+      "name": "Mechanical Orchard"
+    },
+    {
+      "token": "rainfocus",
+      "name": "RainFocus"
+    },
+    {
+      "token": "smiledigitalhealth",
+      "name": "Smile Digital Health"
+    },
+    {
+      "token": "karmacheck",
+      "name": "KarmaCheck"
+    },
+    {
+      "token": "perforce",
+      "name": "Perforce"
+    },
+    {
+      "token": "deuna",
+      "name": "DEUNA"
+    },
+    {
+      "token": "raya",
+      "name": "Raya"
+    },
+    {
+      "token": "onboarded",
+      "name": "Onboarded"
     }
   ],
   "ashby": [
@@ -1315,6 +1871,258 @@
     {
       "token": "webflow",
       "name": "Webflow"
+    },
+    {
+      "token": "freehand",
+      "name": "Freehand"
+    },
+    {
+      "token": "clera",
+      "name": "Clera"
+    },
+    {
+      "token": "demandbase",
+      "name": "Demandbase"
+    },
+    {
+      "token": "magiceden",
+      "name": "Magic Eden"
+    },
+    {
+      "token": "buildout",
+      "name": "Buildout"
+    },
+    {
+      "token": "pomelo-care",
+      "name": "Pomelo Care"
+    },
+    {
+      "token": "addi",
+      "name": "Addi"
+    },
+    {
+      "token": "openrouter",
+      "name": "OpenRouter"
+    },
+    {
+      "token": "surveymonkey",
+      "name": "SurveyMonkey"
+    },
+    {
+      "token": "truelogic",
+      "name": "Truelogic"
+    },
+    {
+      "token": "coder",
+      "name": "Coder"
+    },
+    {
+      "token": "quora",
+      "name": "Quora"
+    },
+    {
+      "token": "hightouch",
+      "name": "Hightouch"
+    },
+    {
+      "token": "wheel",
+      "name": "Wheel"
+    },
+    {
+      "token": "wealth-com",
+      "name": "Wealth.com"
+    },
+    {
+      "token": "constructor",
+      "name": "Constructor"
+    },
+    {
+      "token": "rula",
+      "name": "Rula"
+    },
+    {
+      "token": "shiftkey",
+      "name": "ShiftKey"
+    },
+    {
+      "token": "trust-wallet",
+      "name": "Trust Wallet"
+    },
+    {
+      "token": "wealthsimple",
+      "name": "Wealthsimple"
+    },
+    {
+      "token": "andela",
+      "name": "Andela"
+    },
+    {
+      "token": "archy",
+      "name": "Archy"
+    },
+    {
+      "token": "creatoriq",
+      "name": "CreatorIQ"
+    },
+    {
+      "token": "dandy",
+      "name": "Dandy"
+    },
+    {
+      "token": "dave",
+      "name": "Dave"
+    },
+    {
+      "token": "mapbox",
+      "name": "Mapbox"
+    },
+    {
+      "token": "onebrief",
+      "name": "Onebrief"
+    },
+    {
+      "token": "procurementsciences",
+      "name": "Procurement Sciences"
+    },
+    {
+      "token": "wrapbook",
+      "name": "Wrapbook"
+    },
+    {
+      "token": "thyme-care",
+      "name": "Thyme Care"
+    },
+    {
+      "token": "astra",
+      "name": "Astra"
+    },
+    {
+      "token": "ascertain",
+      "name": "Ascertain"
+    },
+    {
+      "token": "blockworks",
+      "name": "Blockworks"
+    },
+    {
+      "token": "captivateiq",
+      "name": "CaptivateIQ"
+    },
+    {
+      "token": "kong",
+      "name": "Kong"
+    },
+    {
+      "token": "ncontracts",
+      "name": "Ncontracts"
+    },
+    {
+      "token": "0x",
+      "name": "0x"
+    },
+    {
+      "token": "thumbtack",
+      "name": "Thumbtack"
+    },
+    {
+      "token": "vclusterlabs",
+      "name": "vCluster Labs"
+    },
+    {
+      "token": "amplify",
+      "name": "Amplify"
+    },
+    {
+      "token": "bankjoy",
+      "name": "Bankjoy"
+    },
+    {
+      "token": "bastion",
+      "name": "Bastion"
+    },
+    {
+      "token": "butterflymx",
+      "name": "ButterflyMX"
+    },
+    {
+      "token": "infisical",
+      "name": "Infisical"
+    },
+    {
+      "token": "lumos",
+      "name": "Lumos"
+    },
+    {
+      "token": "raspberry",
+      "name": "Raspberry AI"
+    },
+    {
+      "token": "tailor",
+      "name": "Tailor"
+    },
+    {
+      "token": "timely",
+      "name": "Timely"
+    },
+    {
+      "token": "tapcheck",
+      "name": "Tapcheck"
+    },
+    {
+      "token": "kin",
+      "name": "Kin"
+    },
+    {
+      "token": "acorns",
+      "name": "Acorns"
+    },
+    {
+      "token": "outschool",
+      "name": "Outschool"
+    },
+    {
+      "token": "peek",
+      "name": "Peek"
+    },
+    {
+      "token": "voodoo",
+      "name": "Voodoo"
+    },
+    {
+      "token": "polygon-labs",
+      "name": "Polygon Labs"
+    },
+    {
+      "token": "helpscout",
+      "name": "Help Scout"
+    },
+    {
+      "token": "futurefitai",
+      "name": "FutureFit AI"
+    },
+    {
+      "token": "cape",
+      "name": "Cape"
+    },
+    {
+      "token": "brigit",
+      "name": "Brigit"
+    },
+    {
+      "token": "sentilink",
+      "name": "SentiLink"
+    },
+    {
+      "token": "serverobotics",
+      "name": "Serve Robotics"
+    },
+    {
+      "token": "stellar-health",
+      "name": "Stellar Health"
+    },
+    {
+      "token": "whisk",
+      "name": "Whisk"
     }
   ],
   "oracle": [
