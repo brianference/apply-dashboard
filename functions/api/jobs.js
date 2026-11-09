@@ -105,9 +105,17 @@ export async function onRequestGet(context) {
        Signed out, the shared status is what shows, which is what keeps the
        public preview looking like a real list. */
     let jobs = rows || [];
+    /* Whose list this is, so the page can say when it is NOT the reader's own.
+       Both failures below serve the shared statuses, and from the outside that
+       looks like a list that forgot what was applied to: on 2026-11-08 the
+       $165k+ button showed 20 rows, 18 of them already applied to.
+       "public" = no valid session reached us; "account" = overlay applied;
+       "overlay-failed" = signed in, but the marks could not be read. */
+    let viewer = "public";
     try {
       const user = await currentUser(request, env);
       if (user) {
+        viewer = "overlay-failed";
         const mine = (await env.DB.prepare(
           "SELECT dedupe_key, status, submitted_at FROM user_jobs WHERE user_id = ?1"
         ).bind(user.id).all()).results || [];
@@ -118,12 +126,13 @@ export async function onRequestGet(context) {
             ? { ...j, status: own.status, submitted_at: own.submitted_at, lane: own.status === "submitted" ? "submitted" : j.lane }
             : { ...j, status: j.status === "submitted" ? "queued" : j.status, submitted_at: null, lane: j.lane === "submitted" ? "ft" : j.lane };
         });
+        viewer = "account";
       }
     } catch {
       /* A failure here must not take the list down; the shared view is still
-         a usable answer. */
+         a usable answer -- but no longer a silent one, see viewer above. */
     }
-    return new Response(JSON.stringify({ jobs }), { headers: HEADERS });
+    return new Response(JSON.stringify({ jobs, viewer }), { headers: HEADERS });
   } catch (error) {
     return new Response(
       JSON.stringify({ error: "query failed", detail: String(error && error.message || error) }),

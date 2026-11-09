@@ -94,6 +94,7 @@ const KIND = {
   'tests/posted-filter.mjs': 'site',
   'tests/quick-filter.mjs': 'site',
   'tests/stale-filter.mjs': 'site',
+  'tests/view-not-yours.mjs': 'site',
   /* Drives /portfolio/<handle>/, a pretty path served by a Pages Function.
      tests/serve-local.mjs serves static files and proxies /api/*, so that
      route 404s locally and the heading never appears. Read-only against the

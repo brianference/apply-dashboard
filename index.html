@@ -601,6 +601,10 @@
 </head>
 <body>
 <div id="sitenav"></div>
+<!-- Directly under the header. At the end of the page this banner sat under
+     ~19000px of rows on a phone, and below the signup pitch it was still 750px
+     down, so "you are signed out" was never seen. -->
+<div class="wrap"><div id="stale" class="stale" role="alert" hidden></div></div>
 
 <!-- Shown only when signed out. Every claim in it is something the product
      actually does; the account, the per-account list and the portfolio were
@@ -723,7 +727,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <span class="sr" id="live" role="status" aria-live="polite"></span>
-<div id="stale" class="stale" role="alert" hidden></div>
 
 <script>
 (function () {
@@ -2323,6 +2326,13 @@
      on screen for a signed-in person during the /api/auth/me round trip. */
   var signedIn = false;
   var authKnown = false;
+  /* Whose list /api/jobs actually served: "account", "public" or
+     "overlay-failed" (null from an older server). canWrite cannot answer this.
+     A legacy token makes mayWrite() true with no session at all, so the
+     signed-out banner stayed down while the list showed the shared statuses --
+     20 rows under the $165k+ button on 2026-11-08, 18 of them already applied
+     to, with nothing on screen saying why. */
+  var viewer = null;
   /* The auth control is a module and runs in its own scope, so it cannot assign
      this variable directly. It calls this instead. Assigning window.canWrite
      would have set a DIFFERENT variable and the banner would have stayed up
@@ -2468,6 +2478,24 @@
     var n = unsynced().length;
     var el = document.getElementById("stale");
     if (!el) return;
+    /* A list that is not his own comes first: applying from it is how a job
+       gets applied to twice. */
+    if (viewer === "overlay-failed") {
+      el.hidden = false;
+      el.innerHTML = "<strong>Jobs you applied to are showing.</strong> "
+        + "You are signed in, but your applied marks could not be loaded this time. "
+        + "Reload before applying to anything. "
+        + '<a class="bannerbtn" href="">Reload</a>';
+      return;
+    }
+    if (viewer === "public" && mayWrite()) {
+      el.hidden = false;
+      el.innerHTML = "<strong>Jobs you applied to are showing.</strong> "
+        + "This browser is not signed in, so the list cannot hide what you applied to. "
+        + '<a class="bannerbtn" href="/login/">Sign in</a>'
+        + (n ? " <span>" + n + " mark" + (n === 1 ? "" : "s") + " waiting.</span>" : "");
+      return;
+    }
     /* No token at all is the FIRST thing to say, before any count. Without one
        every mark is refused, the row correctly stays on the list, and from the
        outside that is indistinguishable from a dead button -- which is exactly
@@ -2476,8 +2504,8 @@
     if (!mayWrite()) {
       el.hidden = false;
       el.innerHTML = "<strong>Marks are not being saved.</strong> "
-        + "You are signed out, so ticking a job cannot record it in the database "
-        + "and the row stays on your list on purpose. "
+        + "You are signed out, so jobs you applied to are not hidden, ticking a job "
+        + "cannot record it in the database, and the row stays on your list on purpose. "
         + '<a class="bannerbtn" href="/login/">Sign in</a>'
         + (n ? " <span>" + n + " mark" + (n === 1 ? "" : "s") + " waiting.</span>" : "");
       return;
@@ -2695,6 +2723,9 @@
     return fetch("/api/jobs?t=" + Date.now(), { cache: "no-store" }).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
+    }).then(function (d) {
+      viewer = d && typeof d.viewer === "string" ? d.viewer : null;
+      return d;
     });
   }
 
